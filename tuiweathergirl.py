@@ -3,19 +3,18 @@
 # TUIWEATHERGIRL
 # 2026 by StrayF
 
-import requests
 import configparser
-from datetime import datetime
-from pathlib import Path
-from babel import Locale
-import sys
 import os
 import re
-
+import sys
+from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from babel.languages import get_official_languages
+import requests
+from babel import Locale
 from babel.dates import format_date
+from babel.languages import get_official_languages
 
 DEFAULT_ARG: str = "simple"
 VALID_ARGS: list[str] = ["help", "simple", "nice", "fancy" "glamour"]
