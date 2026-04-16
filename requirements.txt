@@ -6,3 +6,4 @@ isort
 pytest
 Babel
 requests
+types-requests

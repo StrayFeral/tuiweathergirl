@@ -4,6 +4,7 @@
 # 2026 by StrayF
 
 import configparser
+import curses
 import os
 import re
 import sys
@@ -38,7 +39,7 @@ VIEWS:
 
     --glamour
 
-HOW DOES TUIWEATHERGIRL.PY WORKS:
+HOW DOES TUIWEATHERGIRL WORKS:
     - The application would first check for ~/.tuiweathergirlrc
     - If file is not found, the application would try to auto-configure
         (internet connection required)
@@ -82,7 +83,7 @@ class Configuration:
     def saved(self) -> bool:
         return Path(self.configfile).expanduser().exists()
 
-    def save(self) -> int:
+    def save(self) -> None:
         r"""Write the configuration to the config file"""
 
         config = configparser.ConfigParser()
@@ -268,7 +269,7 @@ class WeatherForecaster:
 
     def __get_weather_description(self, code: int) -> str:
         # Simplified WMO Weather interpretation codes
-        mapping = {
+        mapping: dict[int, str] = {
             0: "Sunny",
             1: "Mainly Clear",
             2: "Partly Cloudy",
@@ -286,7 +287,7 @@ class WeatherForecaster:
     def __get_air_quality_assessment(self, aqi: int) -> str:
         r"""Returns a human-readable assessment based on the US EPA AQI scale."""
 
-        assessments: dict[int:str] = {
+        assessments: dict[int, str] = {
             50: "Good",
             100: "Moderate",
             150: "Unhealthy for Sensitive Groups",
@@ -335,8 +336,8 @@ class WeatherForecaster:
         # Fill the object with data
         weather_data.sky = self.__get_weather_description(curr["weather_code"])
         weather_data.temperature = int(curr["temperature_2m"])
-        weather_data.min: int = int(daily["temperature_2m_min"][0])
-        weather_data.max: int = int(daily["temperature_2m_max"][0])
+        weather_data.min = int(daily["temperature_2m_min"][0])
+        weather_data.max = int(daily["temperature_2m_max"][0])
         weather_data.aqi = int(aqi)
         weather_data.air_quality = self.__get_air_quality_assessment(aqi)
         weather_data.precipitation = daily["precipitation_probability_max"][0]
@@ -360,8 +361,6 @@ class WeatherForecaster:
             day.dow = (now.replace(day=now.day + i)).strftime("%a")
             weather_data.week.append(day)
 
-        return weather_data
-
 
 class PresentationConfiguration:
     r"""Common presentation logic"""
@@ -370,6 +369,7 @@ class PresentationConfiguration:
         self.locale_id = f"{config.language}_{config.country_code2}"
 
         # Units
+        self.tsuffix: str = "C" if config.celsius else "F"
         self.tunit: str = "celsius" if config.celsius else "fahrenheit"
         self.wunit: str = "kmh" if config.metric else "mph"
 
@@ -377,11 +377,7 @@ class PresentationConfiguration:
         province_has_letters = bool(re.search(r"\D", config.province))
         self.province: str = ""
         if province_has_letters:
-            self.province = f"{self.config.province}, "
-
-        # Temperature & Wind (Using your XXC / XXunit Direction format)
-        self.tsuffix: str = "C" if config.celsius else "F"
-        self.wunit: str = "kmh" if config.metric else "mph"
+            self.province = f"{config.province}, "
 
         self.time24: bool = config.time24
         self.timezone: str = config.timezone
@@ -403,9 +399,7 @@ class PresentationConfiguration:
         return self.time
 
 
-class SimpleView:
-    r"""Just prints"""
-
+class View:
     def __init__(
         self,
         config: Configuration,
@@ -415,6 +409,13 @@ class SimpleView:
         self.config: Configuration = config
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
+
+    def display(self) -> None:
+        pass
+
+
+class SimpleView(View):
+    r"""Just prints"""
 
     def display(self) -> None:
         timenow: str = self.presconf.update_time()
@@ -433,7 +434,7 @@ class SimpleView:
         winddir: str = self.data.wind_direction
         aqi: int = self.data.aqi
         airquality: str = self.data.air_quality
-        precipitation: str = self.data.precipitation
+        precipitation: int = self.data.precipitation
 
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
@@ -470,7 +471,9 @@ class WeatherGirl:
 
     def __init__(self, config: Configuration, data: WeatherData) -> None:
         present_config: PresentationConfiguration = PresentationConfiguration(config)
-        self.views: dict[obj] = {"simple": SimpleView(config, data, present_config)}
+        self.views: dict[str, View] = {
+            "simple": SimpleView(config, data, present_config)
+        }
 
     def present(self, view: str) -> None:
         self.views[view].display()
@@ -501,7 +504,7 @@ def get_view() -> str:
 
 if __name__ == "__main__":
     view: str = get_view()
-    script_dir: str = Path(sys.argv[0]).resolve().parent
+    script_dir: str = str(Path(sys.argv[0]).resolve().parent)
     config: Configuration = Configuration()
 
     # Attempt auto-configuration
