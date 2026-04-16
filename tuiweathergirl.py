@@ -491,7 +491,7 @@ def get_view() -> str:
     # but will leave them here
 
     for ar in args:
-        if not ar in VALID_ARGS:
+        if ar not in VALID_ARGS:
             print(f"Unknown option '{ar}'. Run with --help for help.")
             sys.exit(os.EX_USAGE)
 
