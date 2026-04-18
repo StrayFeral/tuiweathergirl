@@ -585,11 +585,8 @@ Precipitation: {precipitation}%
             dprecip: int = day.precip
             dow: str = day.dow
 
-            #print(f"  {dow}: {dmin}/{dmax}{tsuffix} | {dprecip}%")
-            #print(f"  {dow}: {f'{dmin}/{dmax}{tsuffix}':<7} | {dprecip:>3}%")
-            #print(f"  {dow}: {dmin:>3}/{dmax:<3}{tsuffix} | {dprecip:>3}%")
-            temp_blob = f"{dmin:>2}/{dmax}{tsuffix}"
-            print(f"  {dow}: {temp_blob:<6} | {dprecip:>3}%")
+            temperatures = f"{dmin:>2}/{dmax}{tsuffix}"
+            print(f"  {dow}: {temperatures:<6} | {dprecip:>3}%")
 
         for warning in warnings:
             print(f"\n{warning}")
