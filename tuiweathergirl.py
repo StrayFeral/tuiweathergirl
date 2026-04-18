@@ -8,16 +8,16 @@ import curses
 import os
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
+from pprint import pprint as pp
 from zoneinfo import ZoneInfo
 
 import requests
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
-import time
-from pprint import pprint as pp
 
 DEFAULT_ARG: str = "simple"
 VALID_ARGS: list[str] = ["help", "simple", "nice", "fancy" "glamour"]
@@ -61,11 +61,11 @@ class TestCase:
         self.loaded: bool = False
         if self.saved:
             self.load()
-    
+
     @property
     def saved(self) -> bool:
         return Path(self.testfilename).expanduser().exists()
-    
+
     def load(self) -> None:
         r"""Read the test configuration from the config file"""
 
@@ -90,9 +90,12 @@ class TestCase:
         self.daynames: list[str] = config.get("FORECAST", "daynames").split(",")
         self.mins: list[str] = config.get("FORECAST", "mins").split(",")
         self.maxs: list[str] = config.get("FORECAST", "maxs").split(",")
-        self.precipitations: list[str] = config.get("FORECAST", "precipitations").split(",")
+        self.precipitations: list[str] = config.get("FORECAST", "precipitations").split(
+            ","
+        )
 
         self.loaded = True
+
 
 class Configuration:
     r"""Weather configuration"""
@@ -151,7 +154,7 @@ class Configuration:
             "time24": str(self.time24).lower(),
             "metric": str(self.metric).lower(),
             "celsius": str(self.celsius).lower(),
-            "date_format_length": self.date_format_length,
+            # "date_format_length": self.date_format_length,
             "view": self.view,
         }
 
@@ -183,7 +186,7 @@ class Configuration:
         self.time24 = config.getboolean("PREFERENCES", "time24")
         self.metric = config.getboolean("PREFERENCES", "metric")
         self.celsius = config.getboolean("PREFERENCES", "celsius")
-        self.date_format_length = config["PREFERENCES"]["date_format_length"]
+        # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
 
 
@@ -429,7 +432,7 @@ class WeatherForecaster:
 
             # 7 day forecast
             for i in range(1, 8):
-                day: BriefDailyForecast = BriefDailyForecast()
+                day = BriefDailyForecast()
                 day.min = int(daily["temperature_2m_min"][i])
                 day.max = int(daily["temperature_2m_max"][i])
                 day.precip = int(daily["precipitation_probability_max"][i])
@@ -484,6 +487,7 @@ class View:
         self.config: Configuration = config
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
+        self.weather_refresh_interval: int = 300  # 5 minutes
 
     def get_sky_cp(self, sky: str) -> int:
         """Get the appropriate sky color pair"""
@@ -508,7 +512,7 @@ class View:
         if sky not in d:
             raise Exception("Invalid sky value '{sky}'.")
         return d[sky]
-    
+
     def get_aqi_cp(self, aqi: str) -> int:
         """Get the appropriate aqi color pair"""
 
@@ -521,17 +525,34 @@ class View:
             # -------------------- red
             "Unhealthy": 5,
             "Very Unhealthy": 5,
-            "Hazardous": 5
+            "Hazardous": 5,
         }
         if aqi not in d:
             raise Exception("Invalid sky value '{aqi}'.")
         return d[aqi]
-    
+
+    def prog_bar(self, percent: int, maxchar: int = 10) -> str:
+        # Ensure percent stays within 0-100 bounds
+        percent = max(0, min(100, percent))
+
+        count = round(percent / maxchar)
+
+        # DOS Era characters:
+        # █ (Full Block) or ▓ (Dark Shade) for progress
+        # ░ (Light Shade) for the background/remaining
+        fill_char = "▓"
+        empty_char = "░"
+
+        bar = (fill_char * count) + (empty_char * (maxchar - count))
+        return bar
+
     def test_terminal_size(self, stdscr: curses.window) -> None:
         lines, cols = stdscr.getmaxyx()
         if lines < MIN_LINES or cols < MIN_COLS:
-            raise Exception(f"Current terminal size ({cols}x{lines}) is smaller than the required minimum terminal size ({MIN_COLS}x{MIN_LINES}).")
-    
+            raise Exception(
+                f"Current terminal size ({cols}x{lines}) is smaller than the required minimum terminal size ({MIN_COLS}x{MIN_LINES})."
+            )
+
     def screen(self, stdscr: curses.window) -> None:
         r"""The actual TUI screen to display"""
         pass
@@ -598,6 +619,8 @@ class NiceView(View):
     """Nice view"""
 
     def screen(self, stdscr: curses.window) -> None:
+        forecaster: WeatherForecaster = WeatherForecaster(self.config)
+
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
@@ -605,6 +628,7 @@ class NiceView(View):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
+        # ---
         sky: str = self.data.sky
         temperature: int = self.data.temperature
         tmin: int = self.data.min
@@ -620,74 +644,159 @@ class NiceView(View):
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
+        view_width: int = 73
+        data_box_width: int = 36
+
+        datax: int = 16
+        time24_x: int = 45
+        if not self.config.time24:
+            time24_x = time24_x - 2
+
         stdscr.clear()
         self.test_terminal_size(stdscr)
         stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
-        
+        stdscr.erase()
+
         # Stats
-        colors: bool = curses.has_colors()
+        # colors: bool = curses.has_colors()
         maxy, maxx = stdscr.getmaxyx()
 
+        title_win = curses.newwin(3, view_width, 0, 1)
+        title_win.box()
+        title_win.addstr(
+            1,
+            2,
+            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026",
+        )
+
+        location_win = curses.newwin(1, view_width - 1, 3, 2)
+        location_win.addstr(0, 0, f"Location: {city}, {province}{country}")
+        location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
+
+        status_win = curses.newwin(7, data_box_width, 4, 1)
+        status_win.box()
+        status_win.addstr(1, 11, "CURRENT STATUS")
+        status_win.addstr(3, 3, "Sky    :")
+        status_win.addstr(4, 3, "Temp   :")
+        status_win.addstr(5, 3, "Range  :")
+        status_win.addstr(3, datax, sky)
+        status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
+        status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
+
+        air_win = curses.newwin(7, data_box_width, 4, 38)
+        air_win.box()
+        air_win.addstr(1, 10, "AIR & CONDITIONS")
+        air_win.addstr(3, 3, "Wind   :")
+        air_win.addstr(4, 3, "AQI    :")
+        air_win.addstr(5, 3, "Precip :")
+        air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+        air_win.addstr(4, datax, f"{aqi} ({airquality})")
+        air_win.addstr(5, datax, f"{precipitation}%")
+
+        forecast_win = curses.newwin(8, view_width, 12, 1)
+        forecast_win.box()
+
+        warnings_win = curses.newwin(4, view_width, 21, 1)
+        warnings_win.box()
+        warnings_win.addstr(0, 30, " WARNINGS ")
+        if len(warnings) > 0:
+            for i in range(len(warnings)):
+                warnings_win.addstr(1 + i, 2, warnings[i])
+        else:
+            warnings_win.addstr(1, 2, "No warnings.")
+
+        stdscr.addstr(
+            25,
+            2,
+            f"[q] Quit                                            Auto-refresh: {self.weather_refresh_interval // 60}min",
+        )
+
+        wy: int = 1
+        wx: int = 3
+        day_cnt: int = 0
+        for day in week:
+            wy = wy + 1
+            day_cnt = day_cnt + 1
+            if day_cnt == 4:
+                wy = 2
+                wx = 40
+
+            dmin: int = day.min
+            dmax: int = day.max
+            dprecip: int = day.precip
+            dow: str = day.dow
+            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+            forecast_win.addstr(
+                wy,
+                wx,
+                f"{dow}: {temperatures:<6} [{self.prog_bar(dprecip)}] {dprecip}%",
+            )
+
+        # -------------------------------------------------- VIEW MAIN LOOP
         elapsed: int = 0
         while True:
             elapsed = elapsed + 1
-            timenow: str = self.presconf.update_time()
-            datenow: str = self.presconf.date
+            timenow = self.presconf.update_time()
+            datenow = self.presconf.date
+            location_win.addstr(0, 45, f"Today: {datenow} {timenow}")
 
-            if elapsed % 2 == 0:
-                stdscr.erase()
+            # Data to refresh
+            status_win.addstr(3, datax, sky)
+            status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
+            status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
+            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+            air_win.addstr(4, datax, f"{aqi} ({airquality})")
+            air_win.addstr(5, datax, f"{precipitation}%")
 
-            win = curses.newwin(10, 40, 5, 5)
-            win.erase()
-            win.box()
-            win.refresh()
-            #win.noutrefresh()
+            if len(warnings) > 0:
+                for i in range(len(warnings)):
+                    warnings_win.addstr(1 + i, 2, warnings[i])
+                else:
+                    warnings_win.addstr(1, 2, "No warnings.")
 
-            #stdscr.addstr(0,0, " ┌─────────────────────────────────────────────────────────────────────┐")
-            #stdscr.addstr(1,0, f" │ TUIWEATHERGIRL {VERSION}")
-            #stdscr.addstr(1,56, "by StrayF 2026 │")
-            #stdscr.addstr(2,0, " └─────────────────────────────────────────────────────────────────────┘")
-            #stdscr.addstr(3,2, f"Location: {city}, {province}{country}")
-            #stdscr.addstr(3,45, f"Today: {datenow} {timenow}")
-            #stdscr.addstr(4,0, " ┌──────────────────────────────────┐ ┌────────────────────────────────┐")
-            #stdscr.addstr(5,0, " │        CURRENT STATUS            │ │       AIR & CONDITIONS         │")
-            #stdscr.addstr(6,0, " ├──────────────────────────────────┤ ├────────────────────────────────┤")
-            #stdscr.addstr(7,1, "│")
-            #stdscr.addstr(8,1, "│")
-            #stdscr.addstr(9,1, "│")
-            #stdscr.addstr(7,36, "│")
-            #stdscr.addstr(8,36, "│")
-            #stdscr.addstr(9,36, "│")
-            #stdscr.addstr(7,38, "│")
-            #stdscr.addstr(8,38, "│")
-            #stdscr.addstr(9,38, "│")
-            #stdscr.addstr(7,71, "│")
-            #stdscr.addstr(8,71, "│")
-            #stdscr.addstr(9,71, "│")
-            #stdscr.addstr(10,0, " └──────────────────────────────────┘ └────────────────────────────────┘")
-            #stdscr.addstr(12,0, " ┌────────────────────────── 7-DAY FORECAST ───────────────────────────┐")
-            #stdscr.addstr(13,0, " │                                                                     │")
-            #stdscr.addstr(18,0, " │                                                                     │")
-            #stdscr.addstr(19,0, " └─────────────────────────────────────────────────────────────────────┘")
-            #stdscr.addstr(14,1, "│")
-            #stdscr.addstr(15,1, "│")
-            #stdscr.addstr(16,1, "│")
-            #stdscr.addstr(17,1, "│")
-            #stdscr.addstr(14,71, "│")
-            #stdscr.addstr(15,71, "│")
-            #stdscr.addstr(16,71, "│")
-            #stdscr.addstr(17,71, "│")
+            if elapsed % self.weather_refresh_interval == 0:
+                # stdscr.erase()
+                forecaster.get_data(self.data)
+                # ---
+                city = self.config.city
+                province = self.presconf.province
+                country = self.config.country
+                # ---
+                sky = self.data.sky
+                temperature = self.data.temperature
+                tmin = self.data.min
+                tmax = self.data.max
+                tsuffix = self.presconf.tsuffix
+                wunit = self.presconf.wunit
+                wind = self.data.wind
+                winddir = self.data.wind_direction
+                aqi = self.data.aqi
+                airquality = self.data.air_quality
+                precipitation = self.data.precipitation
+                # ---
+                warnings = self.data.warnings
+                week = self.data.week
+
             # stdscr.addstr(y,x, "", curses.color_pair(1))
 
             keypressed = stdscr.getch()
             if keypressed == ord("q"):
                 break
-            
-            stdscr.refresh()
-            #curses.doupdate()
-            time.sleep(1)  # Prevent 100% CPU usage
 
+            title_win.refresh()
+            location_win.refresh()
+            status_win.refresh()
+            air_win.refresh()
+            forecast_win.refresh()
+            warnings_win.refresh()
+
+            stdscr.addstr(6, 1, "├──────────────────────────────────┤")
+            stdscr.addstr(6, 38, "├──────────────────────────────────┤")
+            stdscr.addstr(12, 28, " 7-DAY FORECAST ")
+            stdscr.refresh()
+
+            time.sleep(1)  # Prevent 100% CPU usage
 
     def display(self) -> None:
         curses.wrapper(self.screen)
@@ -701,7 +810,7 @@ class WeatherGirl:
         present_config: PresentationConfiguration = PresentationConfiguration(config)
         self.views: dict[str, View] = {
             "simple": SimpleView(config, data, present_config),
-            "nice": NiceView(config, data, present_config)
+            "nice": NiceView(config, data, present_config),
         }
 
     def present(self, view: str = "") -> None:
