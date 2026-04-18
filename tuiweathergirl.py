@@ -24,7 +24,7 @@ VALID_ARGS: list[str] = ["help", "simple", "nice", "fancy" "glamour"]
 VERSION: str = "1.0"
 USAGE: str = f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
 
-USAGE: tuiweathergirl.py [--help|<VIEW>]
+USAGE: tuiweathergirl [--help|<VIEW>]
 
 VIEWS:
     --simple
@@ -33,21 +33,22 @@ VIEWS:
 
     --nice
         Still nice for barebone terminals.
-        Print with some colors.
+        Basic text interface with tables (ncurses).
 
     --fancy
         Better for moderate to modern terminals.
-        Print in colored table with some icons.
+        Color text interface.
 
     --glamour
+        ***WIP***
 
 HOW DOES TUIWEATHERGIRL WORKS:
     - The application would first check for ~/.tuiweathergirlrc
     - If file is not found, the application would try to auto-configure
-        (internet connection required)
     - Once configured, the application would always load the config from the file
     - Feel free to edit the config file
-    - To enforce auto-configuration, just delete the config file
+    - To enforce auto-configuration or if you mess-up the config file,
+        just delete it and run the application again
 """
 MIN_COLS: int = 79
 MIN_LINES: int = 24
@@ -612,7 +613,7 @@ Precipitation: {precipitation}%
         for warning in warnings:
             print(f"\n{warning}")
 
-        print("\nTry: tuiweathergirl.py --help")
+        print("\nTry: tuiweathergirl --help")
 
 
 class NiceView(View):
