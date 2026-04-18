@@ -16,6 +16,8 @@ import requests
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
+import time
+from pprint import pprint as pp
 
 DEFAULT_ARG: str = "simple"
 VALID_ARGS: list[str] = ["help", "simple", "nice", "fancy" "glamour"]
@@ -47,7 +49,50 @@ HOW DOES TUIWEATHERGIRL WORKS:
     - Feel free to edit the config file
     - To enforce auto-configuration, just delete the config file
 """
+MIN_COLS: int = 79
+MIN_LINES: int = 24
 
+
+class TestCase:
+    r"""For when doing tests often and avoid being banned by the APIs"""
+
+    def __init__(self) -> None:
+        self.testfilename: str = "tuiweathergirl_test.ini"
+        self.loaded: bool = False
+        if self.saved:
+            self.load()
+    
+    @property
+    def saved(self) -> bool:
+        return Path(self.testfilename).expanduser().exists()
+    
+    def load(self) -> None:
+        r"""Read the test configuration from the config file"""
+
+        if not self.saved:
+            raise Exception("Tried to load unsaved test configuration.")
+
+        config = configparser.ConfigParser()
+        full_path = Path(self.testfilename).expanduser()
+        config.read(full_path)
+
+        self.sky: str = config["TODAY"]["sky"]
+        self.temperature: int = int(config["TODAY"]["temperature"])
+        self.tmin: int = int(config["TODAY"]["tmin"])
+        self.tmax: int = int(config["TODAY"]["tmax"])
+        self.wind: int = int(config["TODAY"]["wind"])
+        self.wind_direction: str = config["TODAY"]["wind_direction"]
+        self.aqi: int = int(config["TODAY"]["aqi"])
+        self.precipitation: int = int(config["TODAY"]["precipitation"])
+        self.weather_code: int = int(config["TODAY"]["weather_code"])
+        self.warning: str = config["TODAY"]["warning"]
+
+        self.daynames: list[str] = config.get("FORECAST", "daynames").split(",")
+        self.mins: list[str] = config.get("FORECAST", "mins").split(",")
+        self.maxs: list[str] = config.get("FORECAST", "maxs").split(",")
+        self.precipitations: list[str] = config.get("FORECAST", "precipitations").split(",")
+
+        self.loaded = True
 
 class Configuration:
     r"""Weather configuration"""
@@ -70,6 +115,7 @@ class Configuration:
         self.metric: bool = True
         self.celsius: bool = True
         self.date_format_length: str = "medium"
+        self.view: str = DEFAULT_ARG
 
         self.configfile = self.__CONFIGFILE
 
@@ -106,6 +152,7 @@ class Configuration:
             "metric": str(self.metric).lower(),
             "celsius": str(self.celsius).lower(),
             "date_format_length": self.date_format_length,
+            "view": self.view,
         }
 
         # Write to a file
@@ -137,6 +184,7 @@ class Configuration:
         self.metric = config.getboolean("PREFERENCES", "metric")
         self.celsius = config.getboolean("PREFERENCES", "celsius")
         self.date_format_length = config["PREFERENCES"]["date_format_length"]
+        self.view = config["PREFERENCES"]["view"]
 
 
 class Locator:
@@ -322,44 +370,71 @@ class WeatherForecaster:
             f"latitude={self.config.lat}&longitude={self.config.lon}&current=us_aqi"
         )
 
-        weather_res = requests.get(url).json()
-        aq_res = requests.get(aq_url).json()
-
-        # Extract Data
-        curr = weather_res["current"]
-        daily = weather_res["daily"]
-        aqi = aq_res["current"]["us_aqi"]
-
         # Format Date and Time
         now = datetime.now(ZoneInfo(self.config.timezone))
 
-        # Fill the object with data
-        weather_data.sky = self.__get_weather_description(curr["weather_code"])
-        weather_data.temperature = int(curr["temperature_2m"])
-        weather_data.min = int(daily["temperature_2m_min"][0])
-        weather_data.max = int(daily["temperature_2m_max"][0])
-        weather_data.aqi = int(aqi)
-        weather_data.air_quality = self.__get_air_quality_assessment(aqi)
-        weather_data.precipitation = daily["precipitation_probability_max"][0]
-        weather_data.weather_code = curr["weather_code"]
-        weather_data.wind = int(curr["wind_speed_10m"])
-        weather_data.wind_direction = self.__get_wind_direction(
-            curr["wind_direction_10m"]
-        )
+        test = TestCase()
 
-        if weather_data.weather_code >= 95:
-            weather_data.warnings.append(
-                "WARNING: SEVERE THUNDERSTORMS DETECTED IN YOUR AREA"
+        if test.loaded:
+            # Fill the object with data
+            weather_data.sky = test.sky
+            weather_data.temperature = test.temperature
+            weather_data.min = test.tmin
+            weather_data.max = test.tmax
+            weather_data.aqi = test.aqi
+            weather_data.air_quality = self.__get_air_quality_assessment(test.aqi)
+            weather_data.precipitation = test.precipitation
+            weather_data.weather_code = test.weather_code
+            weather_data.wind = test.wind
+            weather_data.wind_direction = test.wind_direction
+            weather_data.warnings.append(test.warning)
+
+            # 7 day forecast
+            for i in range(0, 7):
+                day: BriefDailyForecast = BriefDailyForecast()
+                day.min = int(test.mins[i])
+                day.max = int(test.maxs[i])
+                day.precip = int(test.precipitations[i])
+                day.dow = test.daynames[i]
+                weather_data.week.append(day)
+
+        else:
+            # Send the requests
+            weather_result = requests.get(url).json()
+            aq_result = requests.get(aq_url).json()
+
+            # Extract Data
+            current = weather_result["current"]
+            daily = weather_result["daily"]
+            aqi = aq_result["current"]["us_aqi"]
+
+            # Fill the object with data
+            weather_data.sky = self.__get_weather_description(current["weather_code"])
+            weather_data.temperature = int(current["temperature_2m"])
+            weather_data.min = int(daily["temperature_2m_min"][0])
+            weather_data.max = int(daily["temperature_2m_max"][0])
+            weather_data.aqi = int(aqi)
+            weather_data.air_quality = self.__get_air_quality_assessment(aqi)
+            weather_data.precipitation = daily["precipitation_probability_max"][0]
+            weather_data.weather_code = current["weather_code"]
+            weather_data.wind = int(current["wind_speed_10m"])
+            weather_data.wind_direction = self.__get_wind_direction(
+                current["wind_direction_10m"]
             )
 
-        # 7 day forecast
-        for i in range(1, 8):
-            day: BriefDailyForecast = BriefDailyForecast()
-            day.min = int(daily["temperature_2m_min"][i])
-            day.max = int(daily["temperature_2m_max"][i])
-            day.precip = int(daily["precipitation_probability_max"][i])
-            day.dow = (now.replace(day=now.day + i)).strftime("%a")
-            weather_data.week.append(day)
+            if weather_data.weather_code >= 95:
+                weather_data.warnings.append(
+                    "WARNING: SEVERE THUNDERSTORMS DETECTED IN YOUR AREA"
+                )
+
+            # 7 day forecast
+            for i in range(1, 8):
+                day: BriefDailyForecast = BriefDailyForecast()
+                day.min = int(daily["temperature_2m_min"][i])
+                day.max = int(daily["temperature_2m_max"][i])
+                day.precip = int(daily["precipitation_probability_max"][i])
+                day.dow = (now.replace(day=now.day + i)).strftime("%a")
+                weather_data.week.append(day)
 
 
 class PresentationConfiguration:
@@ -410,7 +485,59 @@ class View:
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
 
+    def get_sky_cp(self, sky: str) -> int:
+        """Get the appropriate sky color pair"""
+
+        d: dict[str, int] = {
+            # -------------------- nice
+            "Sunny": 2,
+            "Mainly Clear": 2,
+            # -------------------- clouds
+            "Partly Cloudy": 3,
+            "Overcast": 3,
+            "Foggy": 3,
+            "Rime Fog": 3,
+            "Cloudy": 3,
+            # -------------------- rains
+            "Drizzle": 4,
+            "Rain": 4,
+            "Snow": 4,
+            "Rain Showers": 4,
+            "Thunderstorm": 4,
+        }
+        if sky not in d:
+            raise Exception("Invalid sky value '{sky}'.")
+        return d[sky]
+    
+    def get_aqi_cp(self, aqi: str) -> int:
+        """Get the appropriate aqi color pair"""
+
+        d: dict[str, int] = {
+            # -------------------- green
+            "Good": 6,
+            # -------------------- yellow
+            "Moderate": 2,
+            "Unhealthy for Sensitive Groups": 2,
+            # -------------------- red
+            "Unhealthy": 5,
+            "Very Unhealthy": 5,
+            "Hazardous": 5
+        }
+        if aqi not in d:
+            raise Exception("Invalid sky value '{aqi}'.")
+        return d[aqi]
+    
+    def test_terminal_size(self, stdscr: curses.window) -> None:
+        lines, cols = stdscr.getmaxyx()
+        if lines < MIN_LINES or cols < MIN_COLS:
+            raise Exception(f"Current terminal size ({cols}x{lines}) is smaller than the required minimum terminal size ({MIN_COLS}x{MIN_LINES}).")
+    
+    def screen(self, stdscr: curses.window) -> None:
+        r"""The actual TUI screen to display"""
+        pass
+
     def display(self) -> None:
+        r"""Wrapper for screen(), unless simple printing"""
         pass
 
 
@@ -418,9 +545,10 @@ class SimpleView(View):
     r"""Just prints"""
 
     def display(self) -> None:
+        # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
-
+        # ---
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
@@ -435,7 +563,7 @@ class SimpleView(View):
         aqi: int = self.data.aqi
         airquality: str = self.data.air_quality
         precipitation: int = self.data.precipitation
-
+        # ---
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
@@ -457,41 +585,150 @@ Precipitation: {precipitation}%
             dprecip: int = day.precip
             dow: str = day.dow
 
-            print(f"  {dow}: {dmin}/{dmax}{tsuffix} | {dprecip}%")
+            #print(f"  {dow}: {dmin}/{dmax}{tsuffix} | {dprecip}%")
+            #print(f"  {dow}: {f'{dmin}/{dmax}{tsuffix}':<7} | {dprecip:>3}%")
+            #print(f"  {dow}: {dmin:>3}/{dmax:<3}{tsuffix} | {dprecip:>3}%")
+            temp_blob = f"{dmin:>2}/{dmax}{tsuffix}"
+            print(f"  {dow}: {temp_blob:<6} | {dprecip:>3}%")
 
-        print("\n")
         for warning in warnings:
-            print(warning)
+            print(f"\n{warning}")
 
-        print("Try: tuiweathergirl.py --help")
+        print("\nTry: tuiweathergirl.py --help")
+
+
+class NiceView(View):
+    """Nice view"""
+
+    def screen(self, stdscr: curses.window) -> None:
+        # Data to display
+        timenow: str = self.presconf.update_time()
+        datenow: str = self.presconf.date
+        # ---
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+        sky: str = self.data.sky
+        temperature: int = self.data.temperature
+        tmin: int = self.data.min
+        tmax: int = self.data.max
+        tsuffix: str = self.presconf.tsuffix
+        wunit: str = self.presconf.wunit
+        wind: int = self.data.wind
+        winddir: str = self.data.wind_direction
+        aqi: int = self.data.aqi
+        airquality: str = self.data.air_quality
+        precipitation: int = self.data.precipitation
+        # ---
+        warnings: list[str] = self.data.warnings
+        week: list[BriefDailyForecast] = self.data.week
+
+        stdscr.clear()
+        self.test_terminal_size(stdscr)
+        stdscr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+        
+        # Stats
+        colors: bool = curses.has_colors()
+        maxy, maxx = stdscr.getmaxyx()
+
+        elapsed: int = 0
+        while True:
+            elapsed = elapsed + 1
+            timenow: str = self.presconf.update_time()
+            datenow: str = self.presconf.date
+
+            if elapsed % 2 == 0:
+                stdscr.erase()
+
+            win = curses.newwin(10, 40, 5, 5)
+            win.erase()
+            win.box()
+            win.refresh()
+            #win.noutrefresh()
+
+            #stdscr.addstr(0,0, " ┌─────────────────────────────────────────────────────────────────────┐")
+            #stdscr.addstr(1,0, f" │ TUIWEATHERGIRL {VERSION}")
+            #stdscr.addstr(1,56, "by StrayF 2026 │")
+            #stdscr.addstr(2,0, " └─────────────────────────────────────────────────────────────────────┘")
+            #stdscr.addstr(3,2, f"Location: {city}, {province}{country}")
+            #stdscr.addstr(3,45, f"Today: {datenow} {timenow}")
+            #stdscr.addstr(4,0, " ┌──────────────────────────────────┐ ┌────────────────────────────────┐")
+            #stdscr.addstr(5,0, " │        CURRENT STATUS            │ │       AIR & CONDITIONS         │")
+            #stdscr.addstr(6,0, " ├──────────────────────────────────┤ ├────────────────────────────────┤")
+            #stdscr.addstr(7,1, "│")
+            #stdscr.addstr(8,1, "│")
+            #stdscr.addstr(9,1, "│")
+            #stdscr.addstr(7,36, "│")
+            #stdscr.addstr(8,36, "│")
+            #stdscr.addstr(9,36, "│")
+            #stdscr.addstr(7,38, "│")
+            #stdscr.addstr(8,38, "│")
+            #stdscr.addstr(9,38, "│")
+            #stdscr.addstr(7,71, "│")
+            #stdscr.addstr(8,71, "│")
+            #stdscr.addstr(9,71, "│")
+            #stdscr.addstr(10,0, " └──────────────────────────────────┘ └────────────────────────────────┘")
+            #stdscr.addstr(12,0, " ┌────────────────────────── 7-DAY FORECAST ───────────────────────────┐")
+            #stdscr.addstr(13,0, " │                                                                     │")
+            #stdscr.addstr(18,0, " │                                                                     │")
+            #stdscr.addstr(19,0, " └─────────────────────────────────────────────────────────────────────┘")
+            #stdscr.addstr(14,1, "│")
+            #stdscr.addstr(15,1, "│")
+            #stdscr.addstr(16,1, "│")
+            #stdscr.addstr(17,1, "│")
+            #stdscr.addstr(14,71, "│")
+            #stdscr.addstr(15,71, "│")
+            #stdscr.addstr(16,71, "│")
+            #stdscr.addstr(17,71, "│")
+            # stdscr.addstr(y,x, "", curses.color_pair(1))
+
+            keypressed = stdscr.getch()
+            if keypressed == ord("q"):
+                break
+            
+            stdscr.refresh()
+            #curses.doupdate()
+            time.sleep(1)  # Prevent 100% CPU usage
+
+
+    def display(self) -> None:
+        curses.wrapper(self.screen)
 
 
 class WeatherGirl:
     r"""Your daily weather girl"""
 
     def __init__(self, config: Configuration, data: WeatherData) -> None:
+        self.view: str = config.view
         present_config: PresentationConfiguration = PresentationConfiguration(config)
         self.views: dict[str, View] = {
-            "simple": SimpleView(config, data, present_config)
+            "simple": SimpleView(config, data, present_config),
+            "nice": NiceView(config, data, present_config)
         }
 
-    def present(self, view: str) -> None:
-        self.views[view].display()
+    def present(self, view: str = "") -> None:
+        if len(view) > 0 and view not in self.views:
+            raise Exception(f"View not defined '{view}'. Run with --help for help.")
+        self.views[view or self.view].display()
 
 
 def get_view() -> str:
+    r"""Get the view name from the command-line argument"""
+
     args: list[str] = []
     if len(sys.argv) > 1:
         args = [arg.lower().lstrip("-") for arg in sys.argv]
         del args[0]  # Deleting the script name
     else:
-        args.append(DEFAULT_ARG)  # Defaulting
+        # args.append(DEFAULT_ARG)  # Defaulting
+        args.append("")
 
     # Technically these two should be outside this function,
     # but will leave them here
 
     for ar in args:
-        if ar not in VALID_ARGS:
+        if len(ar) > 0 and ar not in VALID_ARGS:
             print(f"Unknown option '{ar}'. Run with --help for help.")
             sys.exit(os.EX_USAGE)
 
@@ -499,6 +736,7 @@ def get_view() -> str:
         print(USAGE)
         sys.exit()
 
+    # At the moment we use only the first argument, disregarding what's next
     return args[0]
 
 
