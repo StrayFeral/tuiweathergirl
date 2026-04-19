@@ -541,8 +541,8 @@ class View:
         # DOS Era characters:
         # █ (Full Block) or ▓ (Dark Shade) for progress
         # ░ (Light Shade) for the background/remaining
-        fill_char = "▓"
-        empty_char = "░"
+        fill_char = "#"
+        empty_char = "."
 
         bar = (fill_char * count) + (empty_char * (maxchar - count))
         return bar
