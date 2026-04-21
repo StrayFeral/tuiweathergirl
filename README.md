@@ -28,6 +28,12 @@ NOTE: Features marked with an asterisk (*) are automatically converted to the ap
 - Several cachine methods to ease the API calls and prevent being banned
 - Different views, ranging from simple prints for super basic terminals to colorful views for modern terminals
 
+## INSTALLATION
+
+```bash
+make install
+```
+
 ## USAGE
 
 ```bash
@@ -53,8 +59,6 @@ VIEWS:
         ***WIP***
 ```
 
-## INSTALLATION
+After the very first run, the application would auto-configure itself and will create the configuration file. Feel free to modify it. The configuration file is `~/.tuiweathergirlrc`.
 
-```bash
-make install
-```
+If you mess it up and the application start throwing errors, just delete it and run the appliation again. It will create new configuration file, filled with the proper data.
