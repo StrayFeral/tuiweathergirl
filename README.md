@@ -1,6 +1,6 @@
 # TUIWEATHERGIRL: YOUR DAILY TERMINAL WEATHER GIRL
 
-![Screenshot](screenshots/colors256.jpg)
+![Screenshot](screenshots/thumbnail.jpg)
 
 ## DESCRIPTION
 
