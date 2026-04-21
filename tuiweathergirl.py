@@ -19,8 +19,8 @@ from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
 
-DEFAULT_ARG: str = "simple"
-VALID_ARGS: list[str] = ["help", "simple", "nice", "fancy" "glamour"]
+DEFAULT_ARG: str = "nice"
+VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
 VERSION: str = "1.0"
 USAGE: str = f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
 
@@ -34,6 +34,9 @@ VIEWS:
     --nice
         Still nice for barebone terminals.
         Basic text interface with tables (ncurses).
+    
+    --color
+        This is just the Nice view, but with colors.
 
     --fancy
         Better for moderate to modern terminals.
@@ -391,6 +394,8 @@ class WeatherForecaster:
             weather_data.weather_code = test.weather_code
             weather_data.wind = test.wind
             weather_data.wind_direction = test.wind_direction
+            weather_data.warnings = []
+            weather_data.week = []
             weather_data.warnings.append(test.warning)
 
             # 7 day forecast
@@ -425,6 +430,9 @@ class WeatherForecaster:
             weather_data.wind_direction = self.__get_wind_direction(
                 current["wind_direction_10m"]
             )
+
+            weather_data.warnings = []
+            weather_data.week = []
 
             if weather_data.weather_code >= 95:
                 weather_data.warnings.append(
@@ -489,9 +497,22 @@ class View:
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = 300  # 5 minutes
+    
+    def get_temp_cp(self, t: int) -> int:
+        r"""Get the appropriate temperature color pair"""
+
+        if t < 11:
+            return 7
+        if 11 <= t <= 20:
+            return 6
+        if 21 <= t <= 38:
+            return 2
+        if 39 <= t <= 44:
+            return 5
+        return 1
 
     def get_sky_cp(self, sky: str) -> int:
-        """Get the appropriate sky color pair"""
+        r"""Get the appropriate sky color pair"""
 
         d: dict[str, int] = {
             # -------------------- nice
@@ -511,11 +532,11 @@ class View:
             "Thunderstorm": 4,
         }
         if sky not in d:
-            raise Exception("Invalid sky value '{sky}'.")
+            raise Exception(f"Invalid sky value '{sky}'.")
         return d[sky]
 
-    def get_aqi_cp(self, aqi: str) -> int:
-        """Get the appropriate aqi color pair"""
+    def get_aqistr_cp(self, aqistr: str) -> int:
+        r"""Get the appropriate aqi color pair"""
 
         d: dict[str, int] = {
             # -------------------- green
@@ -528,9 +549,14 @@ class View:
             "Very Unhealthy": 5,
             "Hazardous": 5,
         }
-        if aqi not in d:
-            raise Exception("Invalid sky value '{aqi}'.")
-        return d[aqi]
+        if aqistr not in d:
+            raise Exception(f"Invalid AQI value '{aqistr}'.")
+        return d[aqistr]
+    
+    def get_progbar_cp(self, p: int) -> int:
+        if p < 40:
+            return 4
+        return 7
 
     def prog_bar(self, percent: int, maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
@@ -622,181 +648,449 @@ class NiceView(View):
     def screen(self, stdscr: curses.window) -> None:
         forecaster: WeatherForecaster = WeatherForecaster(self.config)
 
-        # Data to display
-        timenow: str = self.presconf.update_time()
-        datenow: str = self.presconf.date
-        # ---
+        # Global settings
+        stdscr.erase()
+        self.test_terminal_size(stdscr)
+        stdscr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+
+        # Data which won't change
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-        # ---
-        sky: str = self.data.sky
-        temperature: int = self.data.temperature
-        tmin: int = self.data.min
-        tmax: int = self.data.max
-        tsuffix: str = self.presconf.tsuffix
-        wunit: str = self.presconf.wunit
-        wind: int = self.data.wind
-        winddir: str = self.data.wind_direction
-        aqi: int = self.data.aqi
-        airquality: str = self.data.air_quality
-        precipitation: int = self.data.precipitation
-        # ---
-        warnings: list[str] = self.data.warnings
-        week: list[BriefDailyForecast] = self.data.week
-
+    
+        # Init
         view_width: int = 73
         data_box_width: int = 36
-
         datax: int = 16
         time24_x: int = 45
         if not self.config.time24:
             time24_x = time24_x - 2
+        
+        # Windows initialization
+        title_win = curses.newwin(3, view_width, 0, 1)
+        location_win = curses.newwin(1, view_width - 1, 3, 2)
+        status_win = curses.newwin(7, data_box_width, 4, 1)
+        air_win = curses.newwin(7, data_box_width, 4, 38)
+        forecast_win = curses.newwin(8, view_width, 12, 1)
+        warnings_win = curses.newwin(4, view_width, 21, 1)
+        brief_win = curses.newwin(1, view_width, 25, 1)
+        last_refresh_win = curses.newwin(1, view_width, 26, 1)
 
-        stdscr.clear()
+        # Printing this just once
+        title_win.attron(curses.A_DIM)
+        title_win.box()
+        title_win.addstr(
+            1,
+            2,
+            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026"
+        )
+
+        location_win.attron(curses.A_DIM)
+        location_win.addstr(0, 0, f"Location: {city}, {province}{country}")
+
+        last_refresh: str = ""
+
+        # -------------------------------------------------- VIEW MAIN LOOP
+        elapsed: int = 0
+        while True:
+            elapsed += 1
+
+            stdscr.attron(curses.A_DIM)
+
+            # Data to display
+            timenow: str = self.presconf.update_time()
+            datenow: str = self.presconf.date
+
+            if len(last_refresh) == 0:
+                last_refresh = f"Last refresh: {datenow} {timenow}"
+
+            # Technically we do not need this, but filling up the addstr()s
+            # later would be more messy without it
+            sky: str = self.data.sky
+            temperature: int = self.data.temperature
+            tmin: int = self.data.min
+            tmax: int = self.data.max
+            tsuffix: str = self.presconf.tsuffix
+            wunit: str = self.presconf.wunit
+            wind: int = self.data.wind
+            winddir: str = self.data.wind_direction
+            aqi: int = self.data.aqi
+            airquality: str = self.data.air_quality
+            precipitation: int = self.data.precipitation
+            # ---
+            warnings: list[str] = self.data.warnings
+            week: list[BriefDailyForecast] = self.data.week
+
+
+            # ----------------------------------------- Screen update
+            location_win.move(0,time24_x)
+            location_win.clrtoeol()
+            location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
+
+            status_win.erase()
+            status_win.move(0,0)
+            status_win.attron(curses.A_DIM)
+            status_win.box()
+            status_win.addstr(2, 0, "├──────────────────────────────────┤")
+            status_win.addstr(1, 11, "CURRENT STATUS")
+            status_win.attroff(curses.A_DIM)
+            status_win.addstr(3, 3, "Sky    :")
+            status_win.addstr(4, 3, "Temp   :")
+            status_win.addstr(5, 3, "Range  :")
+            status_win.addstr(3, datax, sky)
+            status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
+            status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
+
+            air_win.erase()
+            air_win.move(0,0)
+            air_win.attron(curses.A_DIM)
+            air_win.box()
+            air_win.addstr(2, 0, "├──────────────────────────────────┤")
+            air_win.addstr(1, 10, "AIR & CONDITIONS")
+            air_win.attroff(curses.A_DIM)
+            air_win.addstr(3, 3, "Wind   :")
+            air_win.addstr(4, 3, "AQI    :")
+            air_win.addstr(5, 3, "Precip :")
+            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+            air_win.addstr(4, datax, f"{aqi} ({airquality})")
+            air_win.addstr(5, datax, f"{precipitation}%")
+
+            forecast_win.erase()
+            forecast_win.move(0,0)
+            forecast_win.attron(curses.A_DIM)
+            forecast_win.box()
+            forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
+            forecast_win.attroff(curses.A_DIM)
+
+            warnings_win.erase()
+            warnings_win.move(0,0)
+            warnings_win.attron(curses.A_DIM)
+            warnings_win.box()
+            warnings_win.addstr(0, 30, " WARNINGS ")
+            warnings_win.attroff(curses.A_DIM)
+            if len(warnings) > 0:
+                for i in range(len(warnings)):
+                    warnings_win.addstr(1 + i, 2, warnings[i])
+            else:
+                warnings_win.addstr(1, 2, "No warnings.")
+
+            brief_win.erase()
+            brief_win.move(0,0)
+            brief_win.attron(curses.A_DIM)
+            brief_win.addstr(
+                0,
+                1,
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                             [q] Quit"
+            )
+            
+            last_refresh_win.erase()
+            last_refresh_win.move(0,0)
+            last_refresh_win.attron(curses.A_DIM)
+            last_refresh_win.addstr(0,1, last_refresh)
+
+            # 7 day forecast
+            for day_cnt, day in enumerate(week):
+                wy: int = 2 + (day_cnt % 4)
+                wx: int = 3 if day_cnt < 4 else 40
+
+                dmin: int = day.min
+                dmax: int = day.max
+                dprecip: int = day.precip
+                dow: str = day.dow
+                temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+
+                forecast_win.move(wy,wx)
+                forecast_win.addstr(
+                    wy,
+                    wx,
+                    f"{dow}: {temperatures:<6} [{self.prog_bar(dprecip)}] {dprecip}%",
+                )
+
+            # Data update
+            if elapsed % self.weather_refresh_interval == 0:
+                forecaster.get_data(self.data)
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
+
+            keypressed = stdscr.getch()
+            if keypressed == ord("q"):
+                break
+            
+            # Pushing the changes
+            title_win.noutrefresh()
+            location_win.noutrefresh()
+            status_win.noutrefresh()
+            air_win.noutrefresh()
+            forecast_win.noutrefresh()
+            warnings_win.noutrefresh()
+            brief_win.noutrefresh()
+            last_refresh_win.noutrefresh()
+            curses.doupdate() # Pushes all changes to screen at once
+            
+            time.sleep(1)  # Prevent 100% CPU usage
+
+    def display(self) -> None:
+        curses.wrapper(self.screen)
+
+
+class ColorView(View):
+    """Color view - same as NiceView but with colors"""
+
+    def screen(self, stdscr: curses.window) -> None:
+        # Color definitions
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_YELLOW, curses.COLOR_RED)  # Warnings
+        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Sunny
+        curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_BLACK)  # Cloudy
+        curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
+        curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
+        curses.init_pair(6, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
+        curses.init_pair(7, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
+
+        stdscr.attron(curses.A_DIM)
+
+        # Color indexes
+        col_warn: int = 1
+        col_sunny: int = 2
+        col_cloudy: int = 3
+        col_rain: int = 4
+        col_bad: int = 5
+        col_good: int = 6
+        col_title: int = 7
+
+        forecaster: WeatherForecaster = WeatherForecaster(self.config)
+
+        # Global settings
+        stdscr.erase()
         self.test_terminal_size(stdscr)
         stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
-        stdscr.erase()
 
-        # Stats
-        # colors: bool = curses.has_colors()
-        maxy, maxx = stdscr.getmaxyx()
-
+        # Data which won't change
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+    
+        # Init
+        view_width: int = 73
+        data_box_width: int = 36
+        datax: int = 16
+        time24_x: int = 45
+        if not self.config.time24:
+            time24_x = time24_x - 2
+        
+        # Windows initialization
         title_win = curses.newwin(3, view_width, 0, 1)
+        location_win = curses.newwin(1, view_width - 1, 3, 2)
+        status_win = curses.newwin(7, data_box_width, 4, 1)
+        air_win = curses.newwin(7, data_box_width, 4, 38)
+        forecast_win = curses.newwin(8, view_width, 12, 1)
+        warnings_win = curses.newwin(4, view_width, 21, 1)
+        brief_win = curses.newwin(1, view_width, 25, 1)
+        last_refresh_win = curses.newwin(1, view_width, 26, 1)
+
+        title_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
         title_win.box()
+        title_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
+        title_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
         title_win.addstr(
             1,
             2,
             f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026",
         )
+        title_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
 
-        location_win = curses.newwin(1, view_width - 1, 3, 2)
         location_win.addstr(0, 0, f"Location: {city}, {province}{country}")
-        location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
 
-        status_win = curses.newwin(7, data_box_width, 4, 1)
-        status_win.box()
-        status_win.addstr(1, 11, "CURRENT STATUS")
-        status_win.addstr(3, 3, "Sky    :")
-        status_win.addstr(4, 3, "Temp   :")
-        status_win.addstr(5, 3, "Range  :")
-        status_win.addstr(3, datax, sky)
-        status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
-        status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
-
-        air_win = curses.newwin(7, data_box_width, 4, 38)
-        air_win.box()
-        air_win.addstr(1, 10, "AIR & CONDITIONS")
-        air_win.addstr(3, 3, "Wind   :")
-        air_win.addstr(4, 3, "AQI    :")
-        air_win.addstr(5, 3, "Precip :")
-        air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
-        air_win.addstr(4, datax, f"{aqi} ({airquality})")
-        air_win.addstr(5, datax, f"{precipitation}%")
-
-        forecast_win = curses.newwin(8, view_width, 12, 1)
-        forecast_win.box()
-
-        warnings_win = curses.newwin(4, view_width, 21, 1)
-        warnings_win.box()
-        warnings_win.addstr(0, 30, " WARNINGS ")
-        if len(warnings) > 0:
-            for i in range(len(warnings)):
-                warnings_win.addstr(1 + i, 2, warnings[i])
-        else:
-            warnings_win.addstr(1, 2, "No warnings.")
-
-        stdscr.addstr(
-            25,
-            2,
-            f"[q] Quit                                            Auto-refresh: {self.weather_refresh_interval // 60}min",
-        )
-
-        wy: int = 1
-        wx: int = 3
-        day_cnt: int = 0
-        for day in week:
-            wy = wy + 1
-            day_cnt = day_cnt + 1
-            if day_cnt == 4:
-                wy = 2
-                wx = 40
-
-            dmin: int = day.min
-            dmax: int = day.max
-            dprecip: int = day.precip
-            dow: str = day.dow
-            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
-            forecast_win.addstr(
-                wy,
-                wx,
-                f"{dow}: {temperatures:<6} [{self.prog_bar(dprecip)}] {dprecip}%",
-            )
+        last_refresh: str = ""
 
         # -------------------------------------------------- VIEW MAIN LOOP
         elapsed: int = 0
         while True:
-            elapsed = elapsed + 1
-            timenow = self.presconf.update_time()
-            datenow = self.presconf.date
-            location_win.addstr(0, 45, f"Today: {datenow} {timenow}")
+            elapsed += 1
 
-            # Data to refresh
+            # Data to display
+            timenow: str = self.presconf.update_time()
+            datenow: str = self.presconf.date
+
+            if len(last_refresh) == 0:
+                last_refresh = f"Last refresh: {datenow} {timenow}"
+
+            # Technically we do not need this, but filling up the addstr()s
+            # later would be more messy without it
+            sky: str = self.data.sky
+            temperature: int = self.data.temperature
+            tmin: int = self.data.min
+            tmax: int = self.data.max
+            tsuffix: str = self.presconf.tsuffix
+            wunit: str = self.presconf.wunit
+            wind: int = self.data.wind
+            winddir: str = self.data.wind_direction
+            aqi: int = self.data.aqi
+            airquality: str = self.data.air_quality
+            precipitation: int = self.data.precipitation
+            # ---
+            warnings: list[str] = self.data.warnings
+            week: list[BriefDailyForecast] = self.data.week
+
+            # ----------------------------------------- Screen update
+            location_win.move(0,time24_x)
+            location_win.clrtoeol()
+            location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
+
+            status_win.erase()
+            status_win.move(0,0)
+            status_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            status_win.box()
+            status_win.addstr(2, 0, "├──────────────────────────────────┤")
+            status_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
+            status_win.attron(curses.color_pair(col_title))
+            status_win.addstr(1, 11, "CURRENT STATUS")
+            status_win.attroff(curses.color_pair(col_title))
+            status_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+            status_win.addstr(3, 3, "Sky    :")
+            status_win.addstr(4, 3, "Temp   :")
+            status_win.addstr(5, 3, "Range  :")
+            status_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+            status_win.attron(curses.color_pair(self.get_sky_cp(sky)))
             status_win.addstr(3, datax, sky)
+            status_win.attroff(curses.color_pair(self.get_sky_cp(sky)))
+            status_win.attron(curses.color_pair(self.get_temp_cp(temperature)))
             status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
-            status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
-            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
-            air_win.addstr(4, datax, f"{aqi} ({airquality})")
-            air_win.addstr(5, datax, f"{precipitation}%")
+            status_win.attroff(curses.color_pair(self.get_temp_cp(temperature)))
+            status_win.attron(curses.color_pair(self.get_temp_cp(tmin)))
+            status_win.addstr(5, datax, f"{tmin}°{tsuffix}")
+            status_win.attroff(curses.color_pair(self.get_temp_cp(tmin)))
+            status_win.addstr(5, datax+4, "/")
+            status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
+            status_win.addstr(5, datax+6, f"{tmax}°{tsuffix}")
+            status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
 
+            air_win.erase()
+            air_win.move(0,0)
+            air_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            air_win.box()
+            air_win.addstr(2, 0, "├──────────────────────────────────┤")
+            air_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
+            air_win.attron(curses.color_pair(col_title))
+            air_win.addstr(1, 10, "AIR & CONDITIONS")
+            air_win.attroff(curses.color_pair(col_title))
+            air_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+            air_win.addstr(3, 3, "Wind   :")
+            air_win.addstr(4, 3, "AQI    :")
+            air_win.addstr(5, 3, "Precip :")
+            air_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+            air_win.attron(curses.color_pair(col_cloudy))
+            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+            air_win.attroff(curses.color_pair(col_cloudy))
+            air_win.attron(curses.color_pair(self.get_aqistr_cp(airquality)))
+            air_win.addstr(4, datax, f"{aqi} ({airquality})")
+            air_win.attroff(curses.color_pair(self.get_aqistr_cp(airquality)))
+            air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.addstr(5, datax, f"{precipitation}%")
+            air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
+
+            forecast_win.erase()
+            forecast_win.move(0,0)
+            forecast_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            forecast_win.box()
+            forecast_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
+            forecast_win.attron(curses.color_pair(col_title))
+            forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
+            forecast_win.attroff(curses.color_pair(col_title))
+            forecast_win.attroff(curses.A_DIM)
+            
+            warnings_win.erase()
+            warnings_win.move(0,0)
+            warnings_win.attron(curses.color_pair(col_bad))
+            warnings_win.box()
+            warnings_win.attroff(curses.color_pair(col_bad))
+            warnings_win.attron(curses.color_pair(col_cloudy))
+            warnings_win.addstr(0, 30, " WARNINGS ")
+            warnings_win.attroff(curses.color_pair(col_cloudy))
             if len(warnings) > 0:
+                warnings_win.attron(curses.color_pair(col_sunny))
                 for i in range(len(warnings)):
                     warnings_win.addstr(1 + i, 2, warnings[i])
-                else:
-                    warnings_win.addstr(1, 2, "No warnings.")
+                warnings_win.attroff(curses.color_pair(col_bad))
+            else:
+                warnings_win.attron(curses.color_pair(col_good) | curses.A_DIM)
+                warnings_win.addstr(1, 2, "No warnings.")
+                warnings_win.attroff(curses.color_pair(col_good) | curses.A_DIM)
 
+            brief_win.erase()
+            brief_win.move(0,0)
+            brief_win.attron(curses.A_DIM)
+            brief_win.addstr(
+                0,
+                1,
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                             [q] Quit"
+            )
+
+            last_refresh_win.erase()
+            last_refresh_win.move(0,0)
+            last_refresh_win.attron(curses.A_DIM)
+            last_refresh_win.addstr(0,1, last_refresh)
+            
+            # 7 day forecast
+            for day_cnt, day in enumerate(week):
+                wy: int = 2 + (day_cnt % 4)
+                wx: int = 3 if day_cnt < 4 else 40
+
+                dmin: int = day.min
+                dmax: int = day.max
+                dprecip: int = day.precip
+                dow: str = day.dow
+
+                forecast_win.move(wy,wx)
+                forecast_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+                forecast_win.addstr(wy, wx, f"{dow}:")
+                forecast_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+                forecast_win.attron(curses.color_pair(self.get_temp_cp(dmin)))
+                tmins = f"{dmin:>2}°"
+                forecast_win.addstr(wy, wx+5, f"{tmins}:")
+                forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmin)))
+                forecast_win.attron(curses.color_pair(col_cloudy))
+                forecast_win.addstr(wy, wx+8, "/")
+                forecast_win.attroff(curses.color_pair(col_cloudy))
+                forecast_win.attron(curses.color_pair(self.get_temp_cp(dmax)))
+                tmaxs = f"{dmax}°{tsuffix}"
+                forecast_win.addstr(wy, wx+9, f"{tmaxs}")
+                forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmax)))
+                forecast_win.attron(curses.color_pair(col_rain))
+                forecast_win.addstr(wy, wx+14, "[")
+                forecast_win.attroff(curses.color_pair(col_rain))
+                forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.addstr(wy, wx+15, self.prog_bar(dprecip))
+                forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.attron(curses.color_pair(col_rain))
+                forecast_win.addstr(wy, wx+25, "]")
+                forecast_win.attroff(curses.color_pair(col_rain))
+                forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.addstr(wy, wx+27, f"{dprecip}%  ")
+                forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
+
+
+            # Data update
             if elapsed % self.weather_refresh_interval == 0:
-                # stdscr.erase()
                 forecaster.get_data(self.data)
-                # ---
-                city = self.config.city
-                province = self.presconf.province
-                country = self.config.country
-                # ---
-                sky = self.data.sky
-                temperature = self.data.temperature
-                tmin = self.data.min
-                tmax = self.data.max
-                tsuffix = self.presconf.tsuffix
-                wunit = self.presconf.wunit
-                wind = self.data.wind
-                winddir = self.data.wind_direction
-                aqi = self.data.aqi
-                airquality = self.data.air_quality
-                precipitation = self.data.precipitation
-                # ---
-                warnings = self.data.warnings
-                week = self.data.week
-
-            # stdscr.addstr(y,x, "", curses.color_pair(1))
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
 
             keypressed = stdscr.getch()
             if keypressed == ord("q"):
                 break
-
-            title_win.refresh()
-            location_win.refresh()
-            status_win.refresh()
-            air_win.refresh()
-            forecast_win.refresh()
-            warnings_win.refresh()
-
-            stdscr.addstr(6, 1, "├──────────────────────────────────┤")
-            stdscr.addstr(6, 38, "├──────────────────────────────────┤")
-            stdscr.addstr(12, 28, " 7-DAY FORECAST ")
-            stdscr.refresh()
-
+            
+            # Pushing the changes
+            title_win.noutrefresh()
+            location_win.noutrefresh()
+            status_win.noutrefresh()
+            air_win.noutrefresh()
+            forecast_win.noutrefresh()
+            warnings_win.noutrefresh()
+            brief_win.noutrefresh()
+            last_refresh_win.noutrefresh()
+            curses.doupdate() # Pushes all changes to screen at once
+            
             time.sleep(1)  # Prevent 100% CPU usage
 
     def display(self) -> None:
@@ -812,6 +1106,7 @@ class WeatherGirl:
         self.views: dict[str, View] = {
             "simple": SimpleView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
+            "color": ColorView(config, data, present_config),
         }
 
     def present(self, view: str = "") -> None:
