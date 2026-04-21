@@ -19,7 +19,7 @@ from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
 
-DEFAULT_ARG: str = "nice"
+DEFAULT_ARG: str = "color"
 VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
 VERSION: str = "1.0"
 USAGE: str = f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
