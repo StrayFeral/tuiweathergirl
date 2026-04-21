@@ -1,4 +1,4 @@
-# TUIWEATHERGIRL: YOUR DAILY TERMINAL WEATHER GIRL
+# TUIWEATHERGIRL: Your daily terminal weathergirl
 
 ![Screenshot](screenshots/thumbnail.jpg)
 
