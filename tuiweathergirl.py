@@ -895,7 +895,7 @@ class NiceView(View):
             air_win.addstr(5, 3, "Precip :")
             air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
-            air_win.addstr(5, datax, f"{precipitation}%")
+            air_win.addstr(5, datax, f"[{self.prog_bar(precipitation)}] {precipitation}%")
 
             forecast_win.erase()
             forecast_win.move(0,0)
@@ -922,7 +922,7 @@ class NiceView(View):
             brief_win.addstr(
                 0,
                 1,
-                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                             [q] Quit"
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit"
             )
             
             last_refresh_win.erase()
@@ -1157,8 +1157,17 @@ class ColorView(View):
             air_win.attron(curses.color_pair(self.get_aqistr_cp(airquality)))
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
             air_win.attroff(curses.color_pair(self.get_aqistr_cp(airquality)))
+            air_win.attron(curses.color_pair(col_rain))
+            air_win.addstr(5, datax, "[")
+            air_win.attroff(curses.color_pair(col_rain))
             air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
-            air_win.addstr(5, datax, f"{precipitation}%")
+            air_win.addstr(5, datax+1, self.prog_bar(precipitation))
+            air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.attron(curses.color_pair(col_rain))
+            air_win.addstr(5, datax+10, "]")
+            air_win.attroff(curses.color_pair(col_rain))
+            air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.addstr(5, datax+12, f"{precipitation}%  ")
             air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
 
             forecast_win.erase()
@@ -1195,7 +1204,7 @@ class ColorView(View):
             brief_win.addstr(
                 0,
                 1,
-                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                             [q] Quit"
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit"
             )
 
             last_refresh_win.erase()
