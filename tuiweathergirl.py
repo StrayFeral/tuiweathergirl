@@ -9,7 +9,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
@@ -57,48 +57,127 @@ MIN_COLS: int = 79
 MIN_LINES: int = 24
 
 
-class TestCase:
-    r"""For when doing tests often and avoid being banned by the APIs"""
+class CachedData:
+    r"""For when doing tests often or just restarting the app too often
+    and avoid being banned by the APIs
+    """
 
     def __init__(self) -> None:
         self.testfilename: str = "tuiweathergirl_test.ini"
+        self.cachefilename: str = "/tmp/tuiweathergirl_cache.ini"
+        self.filename: str = self.testfilename
         self.loaded: bool = False
+
+        self.sky: str = ""
+        self.temperature: int = 0
+        self.tmin: int = 0
+        self.tmax: int = 0
+        self.wind: int = 0
+        self.wind_direction: str = "NOTLOADED"
+        self.aqi: int = 0
+        self.precipitation: int = 0
+        self.weather_code: int = 0
+        self.warning: str = "NOT LOADED"
+
+        self.daynames: list[str] = []
+        self.mins: list[str] = []
+        self.maxs: list[str] = []
+        self.precipitations: list[str] = []
+
         if self.saved:
             self.load()
+    
+    @property
+    def too_soon(self):
+        mtime = Path(self.cachefilename).expanduser().stat().st_mtime
+        last_modified_date = datetime.fromtimestamp(mtime).astimezone()
+        now = datetime.now().astimezone()
+
+        # Modified less than 5 mins ago:
+        return now - last_modified_date < timedelta(minutes=5)
 
     @property
     def saved(self) -> bool:
-        return Path(self.testfilename).expanduser().exists()
+        test_path = Path(self.testfilename).expanduser()
+        cache_path = Path(self.cachefilename).expanduser()
+        if test_path.exists():
+            self.filename: str = self.testfilename
+            return True
+        if cache_path.exists():
+            self.filename: str = self.cachefilename
+            mtime = cache_path.stat().st_mtime
+            last_modified_date = datetime.fromtimestamp(mtime).astimezone()
+            now = datetime.now().astimezone()
+
+            # Modified less than 5 mins ago:
+            # Load the cache, don't bother the API
+            return self.too_soon
+        return False
 
     def load(self) -> None:
-        r"""Read the test configuration from the config file"""
+        r"""Reads the cache"""
 
         if not self.saved:
-            raise Exception("Tried to load unsaved test configuration.")
+            raise Exception("Tried to load unsaved cache.")
 
         config = configparser.ConfigParser()
-        full_path = Path(self.testfilename).expanduser()
+        full_path = Path(self.filename).expanduser()
         config.read(full_path)
 
-        self.sky: str = config["TODAY"]["sky"]
-        self.temperature: int = int(config["TODAY"]["temperature"])
-        self.tmin: int = int(config["TODAY"]["tmin"])
-        self.tmax: int = int(config["TODAY"]["tmax"])
-        self.wind: int = int(config["TODAY"]["wind"])
-        self.wind_direction: str = config["TODAY"]["wind_direction"]
-        self.aqi: int = int(config["TODAY"]["aqi"])
-        self.precipitation: int = int(config["TODAY"]["precipitation"])
-        self.weather_code: int = int(config["TODAY"]["weather_code"])
-        self.warning: str = config["TODAY"]["warning"]
+        self.sky = config["TODAY"]["sky"]
+        self.temperature = int(config["TODAY"]["temperature"])
+        self.tmin = int(config["TODAY"]["tmin"])
+        self.tmax = int(config["TODAY"]["tmax"])
+        self.wind = int(config["TODAY"]["wind"])
+        self.wind_direction = config["TODAY"]["wind_direction"]
+        self.aqi = int(config["TODAY"]["aqi"])
+        self.precipitation = int(config["TODAY"]["precipitation"])
+        self.weather_code = int(config["TODAY"]["weather_code"])
+        self.warning = config["TODAY"]["warning"]
 
-        self.daynames: list[str] = config.get("FORECAST", "daynames").split(",")
-        self.mins: list[str] = config.get("FORECAST", "mins").split(",")
-        self.maxs: list[str] = config.get("FORECAST", "maxs").split(",")
-        self.precipitations: list[str] = config.get("FORECAST", "precipitations").split(
+        self.daynames = config.get("FORECAST", "daynames").split(",")
+        self.mins = config.get("FORECAST", "mins").split(",")
+        self.maxs = config.get("FORECAST", "maxs").split(",")
+        self.precipitations = config.get("FORECAST", "precipitations").split(
             ","
         )
 
         self.loaded = True
+
+    def save(self):
+        """Saves the cache."""
+
+        if self.too_soon:
+            return
+
+        # I don't care of a previous cache
+        cachefile: Path = Path(self.cachefilename)
+        cachefile.unlink(missing_ok=True)
+
+        config = configparser.ConfigParser()
+
+        config['TODAY'] = {
+            'sky': self.sky,
+            'temperature': str(self.temperature),
+            'tmin': str(self.tmin),
+            'tmax': str(self.tmax),
+            'wind': str(self.wind),
+            'wind_direction': self.wind_direction,
+            'aqi': str(self.aqi),
+            'precipitation': str(self.precipitation),
+            'weather_code': str(self.weather_code),
+            'warning': self.warning
+        }
+
+        config['FORECAST'] = {
+            'daynames': ",".join(self.daynames),
+            'mins': ",".join(map(str, self.mins)),
+            'maxs': ",".join(map(str, self.maxs)),
+            'precipitations': ",".join(map(str, self.precipitations))
+        }
+
+        with open(self.cachefilename, 'w', encoding='utf-8') as f:
+            config.write(f)
 
 
 class Configuration:
@@ -380,31 +459,31 @@ class WeatherForecaster:
         # Format Date and Time
         now = datetime.now(ZoneInfo(self.config.timezone))
 
-        test = TestCase()
+        cache = CachedData()
 
-        if test.loaded:
+        if cache.loaded:
             # Fill the object with data
-            weather_data.sky = test.sky
-            weather_data.temperature = test.temperature
-            weather_data.min = test.tmin
-            weather_data.max = test.tmax
-            weather_data.aqi = test.aqi
-            weather_data.air_quality = self.__get_air_quality_assessment(test.aqi)
-            weather_data.precipitation = test.precipitation
-            weather_data.weather_code = test.weather_code
-            weather_data.wind = test.wind
-            weather_data.wind_direction = test.wind_direction
+            weather_data.sky = cache.sky
+            weather_data.temperature = cache.temperature
+            weather_data.min = cache.tmin
+            weather_data.max = cache.tmax
+            weather_data.aqi = cache.aqi
+            weather_data.air_quality = self.__get_air_quality_assessment(cache.aqi)
+            weather_data.precipitation = cache.precipitation
+            weather_data.weather_code = cache.weather_code
+            weather_data.wind = cache.wind
+            weather_data.wind_direction = cache.wind_direction
             weather_data.warnings = []
             weather_data.week = []
-            weather_data.warnings.append(test.warning)
+            weather_data.warnings.append(cache.warning)
 
             # 7 day forecast
             for i in range(0, 7):
                 day: BriefDailyForecast = BriefDailyForecast()
-                day.min = int(test.mins[i])
-                day.max = int(test.maxs[i])
-                day.precip = int(test.precipitations[i])
-                day.dow = test.daynames[i]
+                day.min = int(cache.mins[i])
+                day.max = int(cache.maxs[i])
+                day.precip = int(cache.precipitations[i])
+                day.dow = cache.daynames[i]
                 weather_data.week.append(day)
 
         else:
@@ -641,6 +720,36 @@ Precipitation: {precipitation}%
 
         print("\nTry: tuiweathergirl --help")
 
+        # Saving the cache
+        cache = CachedData()
+        cache.sky = sky
+        cache.temperature = temperature
+        cache.tmin = tmin
+        cache.tmax = tmax
+        cache.wind = wind
+        cache.wind_direction = winddir
+        cache.aqi = aqi
+        cache.precipitation = precipitation
+        cache.weather_code = self.data.weather_code
+        
+        cache.warning = "No warnings."
+        if len(warnings) > 0:
+            cache.warning = warnings[0]
+        
+        cache.daynames = []
+        cache.mins = []
+        cache.maxs = []
+        cache.precipitations = []
+        for day in week:
+            cache.mins.append(day.min)
+            cache.maxs.append(day.max)
+            cache.precipitations.append(day.precip)
+            cache.daynames.append(day.dow)
+        
+        cache.save()
+
+        
+
 
 class NiceView(View):
     """Nice view"""
@@ -721,6 +830,34 @@ class NiceView(View):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
+
+            # Saving the cache
+            cache = CachedData()
+            cache.sky = sky
+            cache.temperature = temperature
+            cache.tmin = tmin
+            cache.tmax = tmax
+            cache.wind = wind
+            cache.wind_direction = winddir
+            cache.aqi = aqi
+            cache.precipitation = precipitation
+            cache.weather_code = self.data.weather_code
+            
+            cache.warning = "No warnings."
+            if len(warnings) > 0:
+                cache.warning = warnings[0]
+            
+            cache.daynames = []
+            cache.mins = []
+            cache.maxs = []
+            cache.precipitations = []
+            for day in week:
+                cache.mins.append(day.min)
+                cache.maxs.append(day.max)
+                cache.precipitations.append(day.precip)
+                cache.daynames.append(day.dow)
+            
+            cache.save()
 
 
             # ----------------------------------------- Screen update
@@ -932,6 +1069,36 @@ class ColorView(View):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
+
+
+            # Saving the cache
+            cache = CachedData()
+            cache.sky = sky
+            cache.temperature = temperature
+            cache.tmin = tmin
+            cache.tmax = tmax
+            cache.wind = wind
+            cache.wind_direction = winddir
+            cache.aqi = aqi
+            cache.precipitation = precipitation
+            cache.weather_code = self.data.weather_code
+            
+            cache.warning = "No warnings."
+            if len(warnings) > 0:
+                cache.warning = warnings[0]
+            
+            cache.daynames = []
+            cache.mins = []
+            cache.maxs = []
+            cache.precipitations = []
+            for day in week:
+                cache.mins.append(day.min)
+                cache.maxs.append(day.max)
+                cache.precipitations.append(day.precip)
+                cache.daynames.append(day.dow)
+            
+            cache.save()
+
 
             # ----------------------------------------- Screen update
             location_win.move(0,time24_x)
