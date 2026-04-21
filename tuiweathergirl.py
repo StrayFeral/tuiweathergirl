@@ -86,7 +86,7 @@ class CachedData:
 
         if self.saved:
             self.load()
-    
+
     @property
     def too_soon(self):
         cache_path = Path(self.cachefilename).expanduser()
@@ -142,9 +142,7 @@ class CachedData:
         self.daynames = config.get("FORECAST", "daynames").split(",")
         self.mins = config.get("FORECAST", "mins").split(",")
         self.maxs = config.get("FORECAST", "maxs").split(",")
-        self.precipitations = config.get("FORECAST", "precipitations").split(
-            ","
-        )
+        self.precipitations = config.get("FORECAST", "precipitations").split(",")
 
         self.loaded = True
 
@@ -160,27 +158,27 @@ class CachedData:
 
         config = configparser.ConfigParser()
 
-        config['TODAY'] = {
-            'sky': self.sky,
-            'temperature': str(self.temperature),
-            'tmin': str(self.tmin),
-            'tmax': str(self.tmax),
-            'wind': str(self.wind),
-            'wind_direction': self.wind_direction,
-            'aqi': str(self.aqi),
-            'precipitation': str(self.precipitation),
-            'weather_code': str(self.weather_code),
-            'warning': self.warning
+        config["TODAY"] = {
+            "sky": self.sky,
+            "temperature": str(self.temperature),
+            "tmin": str(self.tmin),
+            "tmax": str(self.tmax),
+            "wind": str(self.wind),
+            "wind_direction": self.wind_direction,
+            "aqi": str(self.aqi),
+            "precipitation": str(self.precipitation),
+            "weather_code": str(self.weather_code),
+            "warning": self.warning,
         }
 
-        config['FORECAST'] = {
-            'daynames': ",".join(self.daynames),
-            'mins': ",".join(map(str, self.mins)),
-            'maxs': ",".join(map(str, self.maxs)),
-            'precipitations': ",".join(map(str, self.precipitations))
+        config["FORECAST"] = {
+            "daynames": ",".join(self.daynames),
+            "mins": ",".join(map(str, self.mins)),
+            "maxs": ",".join(map(str, self.maxs)),
+            "precipitations": ",".join(map(str, self.precipitations)),
         }
 
-        with open(self.cachefilename, 'w', encoding='utf-8') as f:
+        with open(self.cachefilename, "w", encoding="utf-8") as f:
             config.write(f)
 
 
@@ -580,7 +578,7 @@ class View:
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = 300  # 5 minutes
-    
+
     def get_temp_cp(self, t: int) -> int:
         r"""Get the appropriate temperature color pair"""
 
@@ -635,7 +633,7 @@ class View:
         if aqistr not in d:
             raise Exception(f"Invalid AQI value '{aqistr}'.")
         return d[aqistr]
-    
+
     def get_progbar_cp(self, p: int) -> int:
         if p < 40:
             return 4
@@ -735,11 +733,11 @@ Precipitation: {precipitation}%
         cache.aqi = aqi
         cache.precipitation = precipitation
         cache.weather_code = self.data.weather_code
-        
+
         cache.warning = "No warnings."
         if len(warnings) > 0:
             cache.warning = warnings[0]
-        
+
         cache.daynames = []
         cache.mins = []
         cache.maxs = []
@@ -749,10 +747,8 @@ Precipitation: {precipitation}%
             cache.maxs.append(day.max)
             cache.precipitations.append(day.precip)
             cache.daynames.append(day.dow)
-        
-        cache.save()
 
-        
+        cache.save()
 
 
 class NiceView(View):
@@ -771,7 +767,7 @@ class NiceView(View):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-    
+
         # Init
         view_width: int = 73
         data_box_width: int = 36
@@ -779,7 +775,7 @@ class NiceView(View):
         time24_x: int = 45
         if not self.config.time24:
             time24_x = time24_x - 2
-        
+
         # Windows initialization
         title_win = curses.newwin(3, view_width, 0, 1)
         location_win = curses.newwin(1, view_width - 1, 3, 2)
@@ -796,7 +792,7 @@ class NiceView(View):
         title_win.addstr(
             1,
             2,
-            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026"
+            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026",
         )
 
         location_win.attron(curses.A_DIM)
@@ -846,11 +842,11 @@ class NiceView(View):
             cache.aqi = aqi
             cache.precipitation = precipitation
             cache.weather_code = self.data.weather_code
-            
+
             cache.warning = "No warnings."
             if len(warnings) > 0:
                 cache.warning = warnings[0]
-            
+
             cache.daynames = []
             cache.mins = []
             cache.maxs = []
@@ -860,17 +856,16 @@ class NiceView(View):
                 cache.maxs.append(day.max)
                 cache.precipitations.append(day.precip)
                 cache.daynames.append(day.dow)
-            
+
             cache.save()
 
-
             # ----------------------------------------- Screen update
-            location_win.move(0,time24_x)
+            location_win.move(0, time24_x)
             location_win.clrtoeol()
             location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
 
             status_win.erase()
-            status_win.move(0,0)
+            status_win.move(0, 0)
             status_win.attron(curses.A_DIM)
             status_win.box()
             status_win.addstr(2, 0, "├──────────────────────────────────┤")
@@ -884,7 +879,7 @@ class NiceView(View):
             status_win.addstr(5, datax, f"{tmin}°{tsuffix} / {tmax}°{tsuffix}")
 
             air_win.erase()
-            air_win.move(0,0)
+            air_win.move(0, 0)
             air_win.attron(curses.A_DIM)
             air_win.box()
             air_win.addstr(2, 0, "├──────────────────────────────────┤")
@@ -895,17 +890,19 @@ class NiceView(View):
             air_win.addstr(5, 3, "Precip :")
             air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
-            air_win.addstr(5, datax, f"[{self.prog_bar(precipitation)}] {precipitation}%")
+            air_win.addstr(
+                5, datax, f"[{self.prog_bar(precipitation)}] {precipitation}%"
+            )
 
             forecast_win.erase()
-            forecast_win.move(0,0)
+            forecast_win.move(0, 0)
             forecast_win.attron(curses.A_DIM)
             forecast_win.box()
             forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
             forecast_win.attroff(curses.A_DIM)
 
             warnings_win.erase()
-            warnings_win.move(0,0)
+            warnings_win.move(0, 0)
             warnings_win.attron(curses.A_DIM)
             warnings_win.box()
             warnings_win.addstr(0, 30, " WARNINGS ")
@@ -917,18 +914,18 @@ class NiceView(View):
                 warnings_win.addstr(1, 2, "No warnings.")
 
             brief_win.erase()
-            brief_win.move(0,0)
+            brief_win.move(0, 0)
             brief_win.attron(curses.A_DIM)
             brief_win.addstr(
                 0,
                 1,
-                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit"
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit",
             )
-            
+
             last_refresh_win.erase()
-            last_refresh_win.move(0,0)
+            last_refresh_win.move(0, 0)
             last_refresh_win.attron(curses.A_DIM)
-            last_refresh_win.addstr(0,1, last_refresh)
+            last_refresh_win.addstr(0, 1, last_refresh)
 
             # 7 day forecast
             for day_cnt, day in enumerate(week):
@@ -941,7 +938,7 @@ class NiceView(View):
                 dow: str = day.dow
                 temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
 
-                forecast_win.move(wy,wx)
+                forecast_win.move(wy, wx)
                 forecast_win.addstr(
                     wy,
                     wx,
@@ -956,7 +953,7 @@ class NiceView(View):
             keypressed = stdscr.getch()
             if keypressed == ord("q"):
                 break
-            
+
             # Pushing the changes
             title_win.noutrefresh()
             location_win.noutrefresh()
@@ -966,8 +963,8 @@ class NiceView(View):
             warnings_win.noutrefresh()
             brief_win.noutrefresh()
             last_refresh_win.noutrefresh()
-            curses.doupdate() # Pushes all changes to screen at once
-            
+            curses.doupdate()  # Pushes all changes to screen at once
+
             time.sleep(1)  # Prevent 100% CPU usage
 
     def display(self) -> None:
@@ -1011,7 +1008,7 @@ class ColorView(View):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-    
+
         # Init
         view_width: int = 73
         data_box_width: int = 36
@@ -1019,7 +1016,7 @@ class ColorView(View):
         time24_x: int = 45
         if not self.config.time24:
             time24_x = time24_x - 2
-        
+
         # Windows initialization
         title_win = curses.newwin(3, view_width, 0, 1)
         location_win = curses.newwin(1, view_width - 1, 3, 2)
@@ -1074,7 +1071,6 @@ class ColorView(View):
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
 
-
             # Saving the cache
             cache = CachedData()
             cache.sky = sky
@@ -1086,11 +1082,11 @@ class ColorView(View):
             cache.aqi = aqi
             cache.precipitation = precipitation
             cache.weather_code = self.data.weather_code
-            
+
             cache.warning = "No warnings."
             if len(warnings) > 0:
                 cache.warning = warnings[0]
-            
+
             cache.daynames = []
             cache.mins = []
             cache.maxs = []
@@ -1100,17 +1096,16 @@ class ColorView(View):
                 cache.maxs.append(day.max)
                 cache.precipitations.append(day.precip)
                 cache.daynames.append(day.dow)
-            
+
             cache.save()
 
-
             # ----------------------------------------- Screen update
-            location_win.move(0,time24_x)
+            location_win.move(0, time24_x)
             location_win.clrtoeol()
             location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
 
             status_win.erase()
-            status_win.move(0,0)
+            status_win.move(0, 0)
             status_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
             status_win.box()
             status_win.addstr(2, 0, "├──────────────────────────────────┤")
@@ -1132,13 +1127,13 @@ class ColorView(View):
             status_win.attron(curses.color_pair(self.get_temp_cp(tmin)))
             status_win.addstr(5, datax, f"{tmin}°{tsuffix}")
             status_win.attroff(curses.color_pair(self.get_temp_cp(tmin)))
-            status_win.addstr(5, datax+4, "/")
+            status_win.addstr(5, datax + 4, "/")
             status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
-            status_win.addstr(5, datax+6, f"{tmax}°{tsuffix}")
+            status_win.addstr(5, datax + 6, f"{tmax}°{tsuffix}")
             status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
 
             air_win.erase()
-            air_win.move(0,0)
+            air_win.move(0, 0)
             air_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
             air_win.box()
             air_win.addstr(2, 0, "├──────────────────────────────────┤")
@@ -1161,17 +1156,17 @@ class ColorView(View):
             air_win.addstr(5, datax, "[")
             air_win.attroff(curses.color_pair(col_rain))
             air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
-            air_win.addstr(5, datax+1, self.prog_bar(precipitation))
+            air_win.addstr(5, datax + 1, self.prog_bar(precipitation))
             air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
             air_win.attron(curses.color_pair(col_rain))
-            air_win.addstr(5, datax+10, "]")
+            air_win.addstr(5, datax + 10, "]")
             air_win.attroff(curses.color_pair(col_rain))
             air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
-            air_win.addstr(5, datax+12, f"{precipitation}%  ")
+            air_win.addstr(5, datax + 12, f"{precipitation}%  ")
             air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
 
             forecast_win.erase()
-            forecast_win.move(0,0)
+            forecast_win.move(0, 0)
             forecast_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
             forecast_win.box()
             forecast_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
@@ -1179,9 +1174,9 @@ class ColorView(View):
             forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
             forecast_win.attroff(curses.color_pair(col_title))
             forecast_win.attroff(curses.A_DIM)
-            
+
             warnings_win.erase()
-            warnings_win.move(0,0)
+            warnings_win.move(0, 0)
             warnings_win.attron(curses.color_pair(col_bad))
             warnings_win.box()
             warnings_win.attroff(curses.color_pair(col_bad))
@@ -1199,19 +1194,19 @@ class ColorView(View):
                 warnings_win.attroff(curses.color_pair(col_good) | curses.A_DIM)
 
             brief_win.erase()
-            brief_win.move(0,0)
+            brief_win.move(0, 0)
             brief_win.attron(curses.A_DIM)
             brief_win.addstr(
                 0,
                 1,
-                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit"
+                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit",
             )
 
             last_refresh_win.erase()
-            last_refresh_win.move(0,0)
+            last_refresh_win.move(0, 0)
             last_refresh_win.attron(curses.A_DIM)
-            last_refresh_win.addstr(0,1, last_refresh)
-            
+            last_refresh_win.addstr(0, 1, last_refresh)
+
             # 7 day forecast
             for day_cnt, day in enumerate(week):
                 wy: int = 2 + (day_cnt % 4)
@@ -1222,34 +1217,33 @@ class ColorView(View):
                 dprecip: int = day.precip
                 dow: str = day.dow
 
-                forecast_win.move(wy,wx)
+                forecast_win.move(wy, wx)
                 forecast_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
                 forecast_win.addstr(wy, wx, f"{dow}:")
                 forecast_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
                 forecast_win.attron(curses.color_pair(self.get_temp_cp(dmin)))
                 tmins = f"{dmin:>2}°"
-                forecast_win.addstr(wy, wx+5, f"{tmins}:")
+                forecast_win.addstr(wy, wx + 5, f"{tmins}:")
                 forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmin)))
                 forecast_win.attron(curses.color_pair(col_cloudy))
-                forecast_win.addstr(wy, wx+8, "/")
+                forecast_win.addstr(wy, wx + 8, "/")
                 forecast_win.attroff(curses.color_pair(col_cloudy))
                 forecast_win.attron(curses.color_pair(self.get_temp_cp(dmax)))
                 tmaxs = f"{dmax}°{tsuffix}"
-                forecast_win.addstr(wy, wx+9, f"{tmaxs}")
+                forecast_win.addstr(wy, wx + 9, f"{tmaxs}")
                 forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmax)))
                 forecast_win.attron(curses.color_pair(col_rain))
-                forecast_win.addstr(wy, wx+14, "[")
+                forecast_win.addstr(wy, wx + 14, "[")
                 forecast_win.attroff(curses.color_pair(col_rain))
                 forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
-                forecast_win.addstr(wy, wx+15, self.prog_bar(dprecip))
+                forecast_win.addstr(wy, wx + 15, self.prog_bar(dprecip))
                 forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
                 forecast_win.attron(curses.color_pair(col_rain))
-                forecast_win.addstr(wy, wx+25, "]")
+                forecast_win.addstr(wy, wx + 25, "]")
                 forecast_win.attroff(curses.color_pair(col_rain))
                 forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
-                forecast_win.addstr(wy, wx+27, f"{dprecip}%  ")
+                forecast_win.addstr(wy, wx + 27, f"{dprecip}%  ")
                 forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
-
 
             # Data update
             if elapsed % self.weather_refresh_interval == 0:
@@ -1259,7 +1253,7 @@ class ColorView(View):
             keypressed = stdscr.getch()
             if keypressed == ord("q"):
                 break
-            
+
             # Pushing the changes
             title_win.noutrefresh()
             location_win.noutrefresh()
@@ -1269,8 +1263,8 @@ class ColorView(View):
             warnings_win.noutrefresh()
             brief_win.noutrefresh()
             last_refresh_win.noutrefresh()
-            curses.doupdate() # Pushes all changes to screen at once
-            
+            curses.doupdate()  # Pushes all changes to screen at once
+
             time.sleep(1)  # Prevent 100% CPU usage
 
     def display(self) -> None:
