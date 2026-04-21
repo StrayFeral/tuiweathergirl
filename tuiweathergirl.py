@@ -89,7 +89,11 @@ class CachedData:
     
     @property
     def too_soon(self):
-        mtime = Path(self.cachefilename).expanduser().stat().st_mtime
+        cache_path = Path(self.cachefilename).expanduser()
+        if not cache_path.exists():
+            return False
+
+        mtime = cache_path.stat().st_mtime
         last_modified_date = datetime.fromtimestamp(mtime).astimezone()
         now = datetime.now().astimezone()
 
