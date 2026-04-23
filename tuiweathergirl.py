@@ -3,6 +3,7 @@
 # TUIWEATHERGIRL
 # 2026 by StrayF
 
+import argparse
 import configparser
 import curses
 import os
@@ -22,28 +23,20 @@ from babel.languages import get_official_languages
 DEFAULT_ARG: str = "color"
 VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
 VERSION: str = "1.0"
-USAGE: str = f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
-
-USAGE: tuiweathergirl [--help|<VIEW>]
-
-VIEWS:
-    --simple
+DESCRIPTION_HELP: str = (
+    f"TUIWEATHERGIRL {VERSION} by StrayF 2026. Your daily terminal weathergirl."
+)
+EPILOGUE_HELP: str = """VIEWS:
+    simple
         Best for barebone terminals.
         Simple print of the date, time, weather data and then exit.
 
-    --nice
+    nice
         Still nice for barebone terminals.
         Basic text interface with tables (ncurses).
     
-    --color
+    color
         This is just the Nice view, but with colors.
-
-    --fancy
-        Better for moderate to modern terminals.
-        Color text interface.
-
-    --glamour
-        ***WIP***
 
 HOW DOES TUIWEATHERGIRL WORKS:
     - The application would first check for ~/.tuiweathergirlrc
@@ -403,7 +396,57 @@ class WeatherForecaster:
         ix = int((degrees + 11.25) / 22.5)
         return dirs[ix % 16]
 
-    def __get_weather_description(self, code: int) -> str:
+    def __get_wind_type(self, wind_speed: int, unit: str) -> str:
+        r"""Beaufort Scale"""
+        if (wind_speed < 6 and unit == "kmh") or (wind_speed < 4 and unit == "mph"):
+            return "Calm"
+        if (6 >= wind_speed <= 11 and unit == "kmh") or (
+            4 >= wind_speed <= 7 and unit == "mph"
+        ):
+            return "Light Breeze"
+        if (12 >= wind_speed <= 19 and unit == "kmh") or (
+            8 >= wind_speed <= 12 and unit == "mph"
+        ):
+            return "Gentle Breeze"
+        if (20 >= wind_speed <= 28 and unit == "kmh") or (
+            13 >= wind_speed <= 18 and unit == "mph"
+        ):
+            return "Moderate Breeze"
+        if (29 >= wind_speed <= 38 and unit == "kmh") or (
+            19 >= wind_speed <= 24 and unit == "mph"
+        ):
+            return "Fresh Breeze"
+        if (39 >= wind_speed <= 49 and unit == "kmh") or (
+            25 >= wind_speed <= 31 and unit == "mph"
+        ):
+            return "Strong Breeze"
+        # Yellow
+        if (50 >= wind_speed <= 61 and unit == "kmh") or (
+            32 >= wind_speed <= 38 and unit == "mph"
+        ):
+            return "Near Gale"
+        if (62 >= wind_speed <= 74 and unit == "kmh") or (
+            39 >= wind_speed <= 46 and unit == "mph"
+        ):
+            return "Gale"
+        if (75 >= wind_speed <= 88 and unit == "kmh") or (
+            47 >= wind_speed <= 54 and unit == "mph"
+        ):
+            return "Strong Gale"
+        # Red
+        if (89 >= wind_speed <= 102 and unit == "kmh") or (
+            55 >= wind_speed <= 63 and unit == "mph"
+        ):
+            return "STORM"
+        if (103 >= wind_speed <= 117 and unit == "kmh") or (
+            64 >= wind_speed <= 72 and unit == "mph"
+        ):
+            return "VIOLENT STORM"
+        if (wind_speed > 117 and unit == "kmh") or (wind_speed > 72 and unit == "mph"):
+            return "HURRICANE"
+        return ""
+
+    def __get_weather_description(self, weather_code: int) -> str:
         # Simplified WMO Weather interpretation codes
         mapping: dict[int, str] = {
             0: "Sunny",
@@ -418,7 +461,7 @@ class WeatherForecaster:
             80: "Rain Showers",
             95: "Thunderstorm",
         }
-        return mapping.get(code, "Cloudy")
+        return mapping.get(weather_code, "Cloudy")
 
     def __get_air_quality_assessment(self, aqi: int) -> str:
         r"""Returns a human-readable assessment based on the US EPA AQI scale."""
@@ -436,6 +479,30 @@ class WeatherForecaster:
                 return assessments[aqilevel]
 
         return "Hazardous"
+
+    def __get_precipitation_type(self, weather_code: int) -> str:
+        if 51 <= weather_code <= 67 or 80 <= weather_code <= 82:
+            return "Rain"
+        if 71 <= weather_code <= 77 or 85 <= weather_code <= 86:
+            return "Snow"
+        if 95 <= weather_code <= 99:
+            return "Storm"
+        return "Precip"
+
+    def __get_storm_warning(self, weather_code: int, wind: int) -> str:
+        if 95 <= weather_code <= 99:
+            if weather_code in [96, 99]:
+                return "HAIL STORM WARNING"
+            return "THUNDERSTORM WARNING"
+
+        if 38 <= weather_code <= 39:
+            return "BLIZZARD WARNING"
+
+        # Wind Storms
+        if wind > 60:
+            return "HIGH WIND WARNING"
+
+        return ""
 
     def get_data(self, weather_data: WeatherData) -> None:
         # Build the API URL with your config preferences
@@ -526,7 +593,7 @@ class WeatherForecaster:
                 day.min = int(daily["temperature_2m_min"][i])
                 day.max = int(daily["temperature_2m_max"][i])
                 day.precip = int(daily["precipitation_probability_max"][i])
-                day.dow = (now.replace(day=now.day + i)).strftime("%a")
+                day.dow = (now + timedelta(days=i)).strftime("%a")
                 weather_data.week.append(day)
 
 
@@ -567,7 +634,9 @@ class PresentationConfiguration:
         return self.time
 
 
-class View:
+class Views:
+    r"""Definition of views"""
+
     def __init__(
         self,
         config: Configuration,
@@ -578,66 +647,6 @@ class View:
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = 300  # 5 minutes
-
-    def get_temp_cp(self, t: int) -> int:
-        r"""Get the appropriate temperature color pair"""
-
-        if t < 11:
-            return 7
-        if 11 <= t <= 20:
-            return 6
-        if 21 <= t <= 38:
-            return 2
-        if 39 <= t <= 44:
-            return 5
-        return 1
-
-    def get_sky_cp(self, sky: str) -> int:
-        r"""Get the appropriate sky color pair"""
-
-        d: dict[str, int] = {
-            # -------------------- nice
-            "Sunny": 2,
-            "Mainly Clear": 2,
-            # -------------------- clouds
-            "Partly Cloudy": 3,
-            "Overcast": 3,
-            "Foggy": 3,
-            "Rime Fog": 3,
-            "Cloudy": 3,
-            # -------------------- rains
-            "Drizzle": 4,
-            "Rain": 4,
-            "Snow": 4,
-            "Rain Showers": 4,
-            "Thunderstorm": 4,
-        }
-        if sky not in d:
-            raise Exception(f"Invalid sky value '{sky}'.")
-        return d[sky]
-
-    def get_aqistr_cp(self, aqistr: str) -> int:
-        r"""Get the appropriate aqi color pair"""
-
-        d: dict[str, int] = {
-            # -------------------- green
-            "Good": 6,
-            # -------------------- yellow
-            "Moderate": 2,
-            "Unhealthy for Sensitive Groups": 2,
-            # -------------------- red
-            "Unhealthy": 5,
-            "Very Unhealthy": 5,
-            "Hazardous": 5,
-        }
-        if aqistr not in d:
-            raise Exception(f"Invalid AQI value '{aqistr}'.")
-        return d[aqistr]
-
-    def get_progbar_cp(self, p: int) -> int:
-        if p < 40:
-            return 4
-        return 7
 
     def prog_bar(self, percent: int, maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
@@ -670,7 +679,85 @@ class View:
         pass
 
 
-class SimpleView(View):
+class ColorViews(Views):
+    r"""Definition of color views"""
+
+    def _get_temp_cp(self, t: int) -> int:
+        r"""Get the appropriate temperature color pair"""
+
+        if t < 11:
+            return 7
+        if 11 <= t <= 20:
+            return 6
+        if 21 <= t <= 38:
+            return 2
+        if 39 <= t <= 44:
+            return 5
+        return 1
+
+    def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
+        r"""Beaufort Scale"""
+
+        scale: dict[str, dict[int, int]] = {
+            "kmh": {50: 3, 89: 2, 117: 5},
+            "mph": {32: 3, 55: 2, 72: 5},
+        }
+
+        for treshold in scale[unit].keys():
+            if wind_speed < treshold:
+                return scale[unit][treshold]
+
+        return 1  # Extreme (Hurricane)
+
+    def _get_sky_cp(self, sky: str) -> int:
+        r"""Get the appropriate sky color pair"""
+
+        d: dict[str, int] = {
+            # -------------------- nice
+            "Sunny": 2,
+            "Mainly Clear": 2,
+            # -------------------- clouds
+            "Partly Cloudy": 3,
+            "Overcast": 3,
+            "Foggy": 3,
+            "Rime Fog": 3,
+            "Cloudy": 3,
+            # -------------------- rains
+            "Drizzle": 4,
+            "Rain": 4,
+            "Snow": 4,
+            "Rain Showers": 4,
+            "Thunderstorm": 4,
+        }
+        if sky not in d:
+            raise Exception(f"Invalid sky value '{sky}'.")
+        return d[sky]
+
+    def _get_aqistr_cp(self, aqistr: str) -> int:
+        r"""Get the appropriate aqi color pair"""
+
+        d: dict[str, int] = {
+            # -------------------- green
+            "Good": 6,
+            # -------------------- yellow
+            "Moderate": 2,
+            "Unhealthy for Sensitive Groups": 2,
+            # -------------------- red
+            "Unhealthy": 5,
+            "Very Unhealthy": 5,
+            "Hazardous": 5,
+        }
+        if aqistr not in d:
+            raise Exception(f"Invalid AQI value '{aqistr}'.")
+        return d[aqistr]
+
+    def _get_progbar_cp(self, p: int) -> int:
+        if p < 40:
+            return 4
+        return 7
+
+
+class SimpleView(Views):
     r"""Just prints"""
 
     def display(self) -> None:
@@ -751,7 +838,7 @@ Precipitation: {precipitation}%
         cache.save()
 
 
-class NiceView(View):
+class NiceView(Views):
     """Nice view"""
 
     def screen(self, stdscr: curses.window) -> None:
@@ -971,7 +1058,7 @@ class NiceView(View):
         curses.wrapper(self.screen)
 
 
-class ColorView(View):
+class ColorView(ColorViews):
     """Color view - same as NiceView but with colors"""
 
     def screen(self, stdscr: curses.window) -> None:
@@ -1118,19 +1205,19 @@ class ColorView(View):
             status_win.addstr(4, 3, "Temp   :")
             status_win.addstr(5, 3, "Range  :")
             status_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
-            status_win.attron(curses.color_pair(self.get_sky_cp(sky)))
+            status_win.attron(curses.color_pair(self._get_sky_cp(sky)))
             status_win.addstr(3, datax, sky)
-            status_win.attroff(curses.color_pair(self.get_sky_cp(sky)))
-            status_win.attron(curses.color_pair(self.get_temp_cp(temperature)))
+            status_win.attroff(curses.color_pair(self._get_sky_cp(sky)))
+            status_win.attron(curses.color_pair(self._get_temp_cp(temperature)))
             status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
-            status_win.attroff(curses.color_pair(self.get_temp_cp(temperature)))
-            status_win.attron(curses.color_pair(self.get_temp_cp(tmin)))
+            status_win.attroff(curses.color_pair(self._get_temp_cp(temperature)))
+            status_win.attron(curses.color_pair(self._get_temp_cp(tmin)))
             status_win.addstr(5, datax, f"{tmin}°{tsuffix}")
-            status_win.attroff(curses.color_pair(self.get_temp_cp(tmin)))
+            status_win.attroff(curses.color_pair(self._get_temp_cp(tmin)))
             status_win.addstr(5, datax + 4, "/")
-            status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
+            status_win.attron(curses.color_pair(self._get_temp_cp(tmax)))
             status_win.addstr(5, datax + 6, f"{tmax}°{tsuffix}")
-            status_win.attron(curses.color_pair(self.get_temp_cp(tmax)))
+            status_win.attron(curses.color_pair(self._get_temp_cp(tmax)))
 
             air_win.erase()
             air_win.move(0, 0)
@@ -1149,21 +1236,21 @@ class ColorView(View):
             air_win.attron(curses.color_pair(col_cloudy))
             air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
             air_win.attroff(curses.color_pair(col_cloudy))
-            air_win.attron(curses.color_pair(self.get_aqistr_cp(airquality)))
+            air_win.attron(curses.color_pair(self._get_aqistr_cp(airquality)))
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
-            air_win.attroff(curses.color_pair(self.get_aqistr_cp(airquality)))
+            air_win.attroff(curses.color_pair(self._get_aqistr_cp(airquality)))
             air_win.attron(curses.color_pair(col_rain))
             air_win.addstr(5, datax, "[")
             air_win.attroff(curses.color_pair(col_rain))
-            air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
             air_win.addstr(5, datax + 1, self.prog_bar(precipitation))
-            air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
             air_win.attron(curses.color_pair(col_rain))
             air_win.addstr(5, datax + 10, "]")
             air_win.attroff(curses.color_pair(col_rain))
-            air_win.attron(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
             air_win.addstr(5, datax + 12, f"{precipitation}%  ")
-            air_win.attroff(curses.color_pair(self.get_progbar_cp(precipitation)))
+            air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
 
             forecast_win.erase()
             forecast_win.move(0, 0)
@@ -1221,29 +1308,29 @@ class ColorView(View):
                 forecast_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
                 forecast_win.addstr(wy, wx, f"{dow}:")
                 forecast_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
-                forecast_win.attron(curses.color_pair(self.get_temp_cp(dmin)))
+                forecast_win.attron(curses.color_pair(self._get_temp_cp(dmin)))
                 tmins = f"{dmin:>2}°"
                 forecast_win.addstr(wy, wx + 5, f"{tmins}:")
-                forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmin)))
+                forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmin)))
                 forecast_win.attron(curses.color_pair(col_cloudy))
                 forecast_win.addstr(wy, wx + 8, "/")
                 forecast_win.attroff(curses.color_pair(col_cloudy))
-                forecast_win.attron(curses.color_pair(self.get_temp_cp(dmax)))
+                forecast_win.attron(curses.color_pair(self._get_temp_cp(dmax)))
                 tmaxs = f"{dmax}°{tsuffix}"
                 forecast_win.addstr(wy, wx + 9, f"{tmaxs}")
-                forecast_win.attroff(curses.color_pair(self.get_temp_cp(dmax)))
+                forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmax)))
                 forecast_win.attron(curses.color_pair(col_rain))
                 forecast_win.addstr(wy, wx + 14, "[")
                 forecast_win.attroff(curses.color_pair(col_rain))
-                forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
                 forecast_win.addstr(wy, wx + 15, self.prog_bar(dprecip))
-                forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
                 forecast_win.attron(curses.color_pair(col_rain))
                 forecast_win.addstr(wy, wx + 25, "]")
                 forecast_win.attroff(curses.color_pair(col_rain))
-                forecast_win.attron(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
                 forecast_win.addstr(wy, wx + 27, f"{dprecip}%  ")
-                forecast_win.attroff(curses.color_pair(self.get_progbar_cp(dprecip)))
+                forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
 
             # Data update
             if elapsed % self.weather_refresh_interval == 0:
@@ -1277,7 +1364,7 @@ class WeatherGirl:
     def __init__(self, config: Configuration, data: WeatherData) -> None:
         self.view: str = config.view
         present_config: PresentationConfiguration = PresentationConfiguration(config)
-        self.views: dict[str, View] = {
+        self.views: dict[str, Views] = {
             "simple": SimpleView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
             "color": ColorView(config, data, present_config),
@@ -1289,36 +1376,22 @@ class WeatherGirl:
         self.views[view or self.view].display()
 
 
-def get_view() -> str:
-    r"""Get the view name from the command-line argument"""
-
-    args: list[str] = []
-    if len(sys.argv) > 1:
-        args = [arg.lower().lstrip("-") for arg in sys.argv]
-        del args[0]  # Deleting the script name
-    else:
-        # args.append(DEFAULT_ARG)  # Defaulting
-        args.append("")
-
-    # Technically these two should be outside this function,
-    # but will leave them here
-
-    for ar in args:
-        if len(ar) > 0 and ar not in VALID_ARGS:
-            print(f"Unknown option '{ar}'. Run with --help for help.")
-            sys.exit(os.EX_USAGE)
-
-    if "help" in args:
-        print(USAGE)
-        sys.exit()
-
-    # At the moment we use only the first argument, disregarding what's next
-    return args[0]
-
-
 if __name__ == "__main__":
-    view: str = get_view()
-    script_dir: str = str(Path(sys.argv[0]).resolve().parent)
+    cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="tuiweathergirl",
+        epilog=EPILOGUE_HELP,
+        description=DESCRIPTION_HELP,
+    )
+    cli_parser.add_argument(
+        "--view",
+        choices=["simple", "nice", "color"],
+        default="",
+        help="Select the view",
+    )
+    cli_arguments: argparse.Namespace = cli_parser.parse_args()
+
+    # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
     config: Configuration = Configuration()
 
     # Attempt auto-configuration
@@ -1336,4 +1409,4 @@ if __name__ == "__main__":
     forecaster.get_data(weather_data)
 
     weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
-    weather_girl.present(view)
+    weather_girl.present(cli_arguments.view)
