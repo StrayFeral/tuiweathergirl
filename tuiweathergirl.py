@@ -5,15 +5,17 @@
 
 import argparse
 import configparser
+import csv
 import curses
 import os
 import re
-import sys
+# import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
+import tempfile
 
 import requests
 from babel import Locale
@@ -50,6 +52,82 @@ MIN_COLS: int = 79
 MIN_LINES: int = 24
 
 
+class MajorEventsLogger:
+    def __init__(self):
+        self.keep_max_days: int = 7
+        self.filename: str = "~/.tuiweathergirl_event_log"
+
+        if os.name == "nt":
+            self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_event.log"
+        
+    def __cleanup(self) -> None:
+        """Removes entries older than keep_max_days."""
+
+        full_path = Path(self.filename).expanduser()
+        if not full_path.exists():
+            return
+
+        cutoff = datetime.now() - timedelta(days=self.keep_max_days)
+        remaining_rows = []
+
+        with open(full_path, "r") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                try:
+                    log_date = datetime.strptime(row[0], "%Y-%m-%d")
+                    if log_date >= cutoff:
+                        remaining_rows.append(row)
+                except (ValueError, IndexError):
+                    continue
+
+        with open(full_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(remaining_rows)
+
+    def append(self, s: str) -> None:
+        full_path = Path(self.filename).expanduser()
+        # Format: yyyy-mm-dd, HH:MM:SS
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
+        
+        # Append mode ensures we don't overwrite
+        with open(full_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([date_str, time_str, s[:50]])
+        
+        # Optional: Housekeeping to keep file small
+        self.__cleanup()
+
+    def read(self, i: int = 4) -> list[list[str]]:
+        full_path = Path(self.filename).expanduser()
+        if not full_path.exists():
+            return []
+
+        # Calculate the threshold: 00:00:00 of the previous day
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today - timedelta(days=1)
+        
+        valid_entries = []
+
+        with open(full_path, "r") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) < 3:
+                    continue
+                
+                # Parse the date and time from the log
+                log_dt = datetime.strptime(f"{row[0]} {row[1]}", "%Y-%m-%d %H:%M:%S")
+                
+                if log_dt >= yesterday_start:
+                    # Combine date/time as one timestamp string for the return format
+                    timestamp = f"{row[0]} {row[1]}"
+                    valid_entries.append([timestamp, row[2]])
+
+        # Sort newest first and slice the last 'i' elements
+        valid_entries.reverse()
+        return valid_entries[:i]
+
 class CachedData:
     r"""For when doing tests often or just restarting the app too often
     and avoid being banned by the APIs
@@ -57,7 +135,7 @@ class CachedData:
 
     def __init__(self) -> None:
         self.testfilename: str = "tuiweathergirl_test.ini"
-        self.cachefilename: str = "/tmp/tuiweathergirl_cache.ini"
+        self.cachefilename: str = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.ini"
         self.filename: str = self.testfilename
         self.loaded: bool = False
 
@@ -102,9 +180,6 @@ class CachedData:
             return True
         if cache_path.exists():
             self.filename: str = self.cachefilename
-            mtime = cache_path.stat().st_mtime
-            last_modified_date = datetime.fromtimestamp(mtime).astimezone()
-            now = datetime.now().astimezone()
 
             # Modified less than 5 mins ago:
             # Load the cache, don't bother the API
@@ -178,8 +253,6 @@ class CachedData:
 class Configuration:
     r"""Weather configuration"""
 
-    __CONFIGFILE: str = "~/.tuiweathergirlrc"
-
     def __init__(self) -> None:
         self.country: str = ""
         self.country_code2: str = ""
@@ -198,17 +271,24 @@ class Configuration:
         self.date_format_length: str = "medium"
         self.view: str = DEFAULT_ARG
 
-        self.configfile = self.__CONFIGFILE
+        self.filename = "~/.tuiweathergirlrc"
 
         if os.name == "nt":
-            self.configfile = "~/tuiweathergirl.rc"
+            self.filename = "~/tuiweathergirl.rc"
 
     def __str__(self) -> str:
         return f"{self.city}/{self.province}/{self.country}/{self.continent_code}"
+    
+    @property
+    def dst(self) -> bool:
+        if len(self.timezone) == 0:
+            return False
+        now = datetime.now(ZoneInfo(self.timezone))
+        return now.dst().total_seconds() != 0
 
     @property
     def saved(self) -> bool:
-        return Path(self.configfile).expanduser().exists()
+        return Path(self.filename).expanduser().exists()
 
     def save(self) -> None:
         r"""Write the configuration to the config file"""
@@ -237,7 +317,7 @@ class Configuration:
         }
 
         # Write to a file
-        full_path = Path(self.configfile).expanduser()
+        full_path = Path(self.filename).expanduser()
         with open(full_path, "w") as configfile:
             config.write(configfile)
 
@@ -248,7 +328,7 @@ class Configuration:
             raise Exception("Tried to load unsaved configuration.")
 
         config = configparser.ConfigParser()
-        full_path = Path(self.configfile).expanduser()
+        full_path = Path(self.filename).expanduser()
         config.read(full_path)
 
         self.country = config["LOCATION"]["country"]
@@ -271,24 +351,68 @@ class Configuration:
 class Locator:
     r"""Gets location data"""
 
-    def config(self, config: Configuration) -> None:
-        url: str = (
-            "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
-        )
-        response = requests.get(url).json()
+    def __init__(self) -> None:
+        self.tzapi_calls: int = 0  # Counts the TZ data API calls
 
-        if response.get("status") == "fail":
-            raise Exception(f"Request failed: {response.get("message")}. Try again!")
+    def config(self, config: Configuration, city: str = "", country: str = "") -> None:
+        if city == "" or country == "":
+            # Attempt auto-location
 
-        config.country = response.get("country")
-        config.country_code2 = response.get("countryCode")
-        config.city = response.get("city")
-        config.postal_code = response.get("zip")
-        config.province = response.get("region")
-        config.lat = response.get("lat")  # XX.XXX, Fallback plan
-        config.lon = response.get("lon")  # XX.XXX
-        config.timezone = response.get("timezone")
-        config.continent_code = response.get("continentCode")
+            url: str = (
+                "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
+            )
+            response = requests.get(url).json()
+
+            if response.get("status") == "fail":
+                raise Exception(f"Request failed: {response.get("message")}. Try again!")
+
+            config.country = response.get("country")
+            config.country_code2 = response.get("countryCode")
+            config.city = response.get("city")
+            config.postal_code = response.get("zip")
+            config.province = response.get("region")
+            config.lat = response.get("lat")  # XX.XXX, Fallback plan
+            config.lon = response.get("lon")  # XX.XXX
+            config.timezone = response.get("timezone")
+            config.continent_code = response.get("continentCode")
+        else:
+            # Attempt to get information for the city and the country
+
+            city = city.capitalize()
+            country = country.capitalize()
+            continents: dict[str, str] = {'us': 'NA', 'de': 'EU', 'fr': 'EU', 'gb': 'EU', 'cn': 'AS', 'br': 'SA'}
+
+            headers: dict[str, str] = {'User-Agent': 'MyPythonScript/1.0 (contact@example.com)'}
+            url: str = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
+            response: requests.Response = requests.get(url, headers=headers).json()
+
+            if not response:
+                return False
+            
+            location: dict = response[0]
+            addr: dict = location.get('address', {})
+            lat: str = location['lat']
+            lon: str = location['lon']
+
+            if self.tzapi_calls > 0:
+                time.sleep(1)  # API limit
+            url = f"http://api.timezonedb.com/v2.1/get-time-zone?key=P6010WN96110&format=json&by=position&lat={lat}&lng={lon}"
+            response: requests.Response = requests.get(url).json()
+            self.tzapi_calls += 1
+
+            if response.get("status") == "FAILED":
+                raise Exception(f"Timezone request failed. Try again later. Error: {response.get("status")}")
+
+            config.country = country
+            config.country_code2 = addr.get('country_code', '').upper()
+            config.city = city
+            config.postal_code = addr.get('postcode')
+            config.province = addr.get('state_code', addr.get('state'))
+            config.lat = lat
+            config.lon = lon
+            config.timezone = response.get("zoneName")
+            config.continent_code = continents.get(addr.get('country_code', '').lower(), "Unknown") # Manual Mapping
+        return True
 
 
 class Configurator:
@@ -516,7 +640,7 @@ class WeatherForecaster:
             f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
             f"&timezone={self.config.timezone.replace('/', '%2F')}"
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
-            f"&forecast_days=8"  # <--- ADD THIS PARAMETER
+            f"&forecast_days=8"
         )
 
         # Air Quality API (Separate endpoint but same coordinates)
@@ -764,6 +888,7 @@ class SimpleView(Views):
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
+        dst: str = "*DST*" if self.config.dst else ""
         # ---
         city: str = self.config.city
         province: str = self.presconf.province
@@ -785,7 +910,7 @@ class SimpleView(Views):
 
         print(f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
 
-TODAY: {timenow}, {datenow}
+TODAY: {timenow}, {datenow}  {dst}
 Location: {city}, {province}{country}
 Sky: {sky}
 Current Temp: {temperature}{tsuffix}, Today: {tmin}{tsuffix}/{tmax}{tsuffix}
@@ -897,6 +1022,7 @@ class NiceView(Views):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
+            dst: str = "*DST*" if self.config.dst else ""
 
             if len(last_refresh) == 0:
                 last_refresh = f"Last refresh: {datenow} {timenow}"
@@ -1137,6 +1263,7 @@ class ColorView(ColorViews):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
+            dst: str = "*DST*" if self.config.dst else ""
 
             if len(last_refresh) == 0:
                 last_refresh = f"Last refresh: {datenow} {timenow}"
@@ -1377,36 +1504,42 @@ class WeatherGirl:
 
 
 if __name__ == "__main__":
-    cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        prog="tuiweathergirl",
-        epilog=EPILOGUE_HELP,
-        description=DESCRIPTION_HELP,
-    )
-    cli_parser.add_argument(
-        "--view",
-        choices=["simple", "nice", "color"],
-        default="",
-        help="Select the view",
-    )
-    cli_arguments: argparse.Namespace = cli_parser.parse_args()
+    try:
+        cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            prog="tuiweathergirl",
+            epilog=EPILOGUE_HELP,
+            description=DESCRIPTION_HELP,
+        )
+        cli_parser.add_argument(
+            "--view",
+            choices=["simple", "nice", "color"],
+            default="",
+            help="Select the view",
+        )
+        cli_arguments: argparse.Namespace = cli_parser.parse_args()
 
-    # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
-    config: Configuration = Configuration()
+        # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
+        config: Configuration = Configuration()
 
-    # Attempt auto-configuration
-    if not config.saved:
-        locator: Locator = Locator()
-        configurator: Configurator = Configurator()
-        locator.config(config)
-        configurator.config(config)
-        config.save()
+        # Attempt auto-configuration
+        if not config.saved:
+            locator: Locator = Locator()
+            configurator: Configurator = Configurator()
+            locator.config(config)
+            configurator.config(config)
+            config.save()
 
-    config.load()
+        config.load()
 
-    forecaster: WeatherForecaster = WeatherForecaster(config)
-    weather_data: WeatherData = WeatherData()
-    forecaster.get_data(weather_data)
+        forecaster: WeatherForecaster = WeatherForecaster(config)
+        weather_data: WeatherData = WeatherData()
+        forecaster.get_data(weather_data)
 
-    weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
-    weather_girl.present(cli_arguments.view)
+        weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
+        weather_girl.present(cli_arguments.view)
+
+    except Exception e:
+        print("\n=================================================================[ EXCEPTION ]")
+        print(e)
+        exit(1)
