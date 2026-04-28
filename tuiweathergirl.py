@@ -46,15 +46,12 @@ EPILOGUE_HELP: str = """VIEWS:
     setup
         Prints the currently set cities.
 
-NOTE: --addcity and --country must be passed together.
+NOTE: --addcity/--removecity and --country must be passed together.
 
 HOW DOES TUIWEATHERGIRL WORKS:
-    - The application would first check for ~/.tuiweathergirlrc
-    - If file is not found, the application would try to auto-configure
-    - Once configured, the application would always load the config from the file
-    - Feel free to edit the config file
-    - To enforce auto-configuration or if you mess-up the config file,
-        just delete it and run the application again
+    - The app would auto-configure. Config file: ~/.tuiweathergirlrc
+    - You may edit it, but if you mess-it up, better delete it and run the app again
+    - You may add up to 10 additional cities, but not every view will show them all
 """
 MIN_COLS: int = 79
 MIN_LINES: int = 24
