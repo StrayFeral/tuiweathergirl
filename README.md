@@ -6,9 +6,11 @@
 
 Terminal application to display the daily and weekly weather forecast.
 
-The application was written with the most basic to modern terminals in mind and paying special attention to ease the API calls and prevent the APIs being called too often while still being useful to the user.
+The application was written with the most basic to modern terminals in mind and paying special attention to ease the API calls and prevent the APIs being called too often, thus improving the speed while still being useful to the user.
 
 The application have minimal dependencies (only `python3-babel`) and is portability-centric.
+
+Not vibe-coded.
 
 ## FEATURES
 
