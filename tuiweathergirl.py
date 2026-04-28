@@ -1729,18 +1729,19 @@ if __name__ == "__main__":
             epilog=EPILOGUE_HELP,
             description=DESCRIPTION_HELP,
         )
+        action_group = cli_parser.add_mutually_exclusive_group()
         cli_parser.add_argument(
             "--view",
             choices=["setup", "simple", "nice", "color"],
             default="",
             help="Select the view",
         )
-        cli_parser.add_argument(
+        action_group.add_argument(
             "--addcity",
-            dest="city",
+            dest="newcity",
             help="Add a new city to follow",
         )
-        cli_parser.add_argument(
+        action_group.add_argument(
             "--removecity",
             dest="city",
             help="Remove a city which is currently followed",
@@ -1756,10 +1757,15 @@ if __name__ == "__main__":
             help="A bit more printing on errors",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
+        cli_city: str = ""
+        city_add: bool = True
 
-        cli_city: str = (
-            cli_arguments.city.strip().capitalize() if cli_arguments.city else ""
-        )
+        if cli_arguments.newcity:
+            cli_city = cli_arguments.newcity.strip().capitalize()
+            # city_add = "add"
+        if cli_arguments.city:
+            cli_city = cli_arguments.city.strip().capitalize()
+            city_add = False
         cli_country: str = (
             cli_arguments.country.strip().capitalize() if cli_arguments.country else ""
         )
@@ -1782,26 +1788,38 @@ if __name__ == "__main__":
 
         config.load()
 
-        # Add and locate new city
+        # Add or remove city
         if cli_city:
-            config.follow_city(cli_city, cli_country)
+            if city_add:
+                config.follow_city(cli_city, cli_country)
 
-            for i in range(len(config.followcities)):
-                locator: Locator = Locator()
+                for i in range(len(config.followcities)):
+                    locator: Locator = Locator()
 
-                if "lat" not in config.followcities[i]:
-                    # new_city = True
-                    city_entry: dict[str | int] = locator.config(
-                        config,
-                        config.followcities[i]["city"],
-                        config.followcities[i]["country"],
+                    if "lat" not in config.followcities[i]:
+                        # new_city = True
+                        city_entry: dict[str | int] = locator.config(
+                            config,
+                            config.followcities[i]["city"],
+                            config.followcities[i]["country"],
+                        )
+                        config.followcities[i] = {
+                            **config.followcities[i],
+                            **city_entry,
+                        }  # Update values
+            else:
+                found: bool = False
+                for i, c in enumerate(config.followcities):
+                    if cli_city == c["city"] and cli_country == c["country"]:
+                        found = True
+                        config.followcities.pop(i)
+                        break
+                if not found:
+                    raise Exception(
+                        f"City '{cli_city}/{cli_country}' was not found among the followed cities."
                     )
-                    config.followcities[i] = {
-                        **config.followcities[i],
-                        **city_entry,
-                    }  # Update values
 
-            config.save()
+            config.save()  # Update config
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
         weather_data: WeatherData = WeatherData()
