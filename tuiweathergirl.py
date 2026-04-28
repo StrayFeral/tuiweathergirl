@@ -10,13 +10,12 @@ import curses
 import os
 import re
 import tempfile
-# import sys
 import time
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from pprint import pprint as pp
 from pprint import pformat as pf
+from pprint import pprint as pp
 from zoneinfo import ZoneInfo
 
 import requests
@@ -26,7 +25,6 @@ from babel.languages import get_official_languages
 
 DEBUG_MODE: bool = False
 DEFAULT_ARG: str = "color"
-# VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
 VERSION: str = "1.0"
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {VERSION} by StrayF 2026. Your daily terminal weathergirl."
@@ -55,7 +53,9 @@ HOW DOES TUIWEATHERGIRL WORKS:
 """
 MIN_COLS: int = 79
 MIN_LINES: int = 24
-USERAGENT: str = f"TUIWeatherGirl/{VERSION} (https://github.com/StrayFeral/tuiweathergirl)"
+USERAGENT: str = (
+    f"TUIWeatherGirl/{VERSION} (https://github.com/StrayFeral/tuiweathergirl)"
+)
 API_PROBLEMS: dict[int, str] = {
     403: "You have been soft-banned by the API. Please wait 24 hours and try again.",
     429: "You have been temporarely banned by the API. Please wait 2 minutes and try again.",
@@ -65,6 +65,7 @@ API_PROBLEMS: dict[int, str] = {
     503: "The API server is down for maintenance. Please try again in few hours.",
     504: "Problem with the API server. Please try again in 10 minutes",
 }
+
 
 def get_api_problem(http_code: int) -> str:
     return API_PROBLEMS[http_code] if http_code in API_PROBLEMS else ""
@@ -77,7 +78,7 @@ class MajorEventsLogger:
 
         if os.name == "nt":
             self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_event.log"
-        
+
     def __cleanup(self) -> None:
         """Removes entries older than keep_max_days."""
 
@@ -108,12 +109,12 @@ class MajorEventsLogger:
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
-        
+
         # Append mode ensures we don't overwrite
         with open(full_path, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([date_str, time_str, s[:50]])
-        
+
         # Optional: Housekeeping to keep file small
         self.__cleanup()
 
@@ -125,7 +126,7 @@ class MajorEventsLogger:
         # Calculate the threshold: 00:00:00 of the previous day
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         yesterday_start = today - timedelta(days=1)
-        
+
         valid_entries = []
 
         with open(full_path, "r") as f:
@@ -133,10 +134,10 @@ class MajorEventsLogger:
             for row in reader:
                 if len(row) < 3:
                     continue
-                
+
                 # Parse the date and time from the log
                 log_dt = datetime.strptime(f"{row[0]} {row[1]}", "%Y-%m-%d %H:%M:%S")
-                
+
                 if log_dt >= yesterday_start:
                     # Combine date/time as one timestamp string for the return format
                     timestamp = f"{row[0]} {row[1]}"
@@ -146,6 +147,7 @@ class MajorEventsLogger:
         valid_entries.reverse()
         return valid_entries[:i]
 
+
 class CachedData:
     r"""For when doing tests often or just restarting the app too often
     and avoid being banned by the APIs
@@ -153,7 +155,9 @@ class CachedData:
 
     def __init__(self) -> None:
         self.testfilename: str = "tuiweathergirl_test.ini"
-        self.cachefilename: str = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.ini"
+        self.cachefilename: str = (
+            Path(tempfile.gettempdir()) / "tuiweathergirl_cache.ini"
+        )
         self.filename: str = self.testfilename
         self.loaded: bool = False
 
@@ -174,7 +178,7 @@ class CachedData:
         self.maxs: list[str] = []
         self.precipitations: list[str] = []
 
-        self.followcities: list[dict[str|bool|int]] = []
+        self.followcities: list[dict[str | bool | int]] = []
 
         if self.saved:
             self.load()
@@ -237,7 +241,7 @@ class CachedData:
         for i in range(10):
             index: str = f"FOLLOWCITY{i+1}"
             if index in config:
-                city: dict[str|bool|int] = {
+                city: dict[str | bool | int] = {
                     "is_day": config.getboolean(index, "is_day"),
                     "temperature": int(config[index]["temperature"]),
                     "tmin": int(config[index]["tmin"]),
@@ -315,7 +319,7 @@ class Configuration:
         self.date_format_length: str = "medium"
         self.view: str = DEFAULT_ARG
 
-        self.followcities: list[dict[str|int]] = []
+        self.followcities: list[dict[str | int]] = []
 
         self.filename = "~/.tuiweathergirlrc"
 
@@ -324,7 +328,7 @@ class Configuration:
 
     def __str__(self) -> str:
         return f"{self.city}/{self.province}/{self.country}/{self.continent_code}"
-    
+
     def __repr__(self) -> str:
         s: str = f"""CONFIGURATION OBJECT:
 City: {self.city}/{self.province}/{self.country}({self.country_code2})/{self.continent_code}
@@ -334,7 +338,11 @@ Primary language: {self.language}
 Timezone: {self.timezone}"""
         s += f"Time: 24h\n" if self.time24 else f"Time: 12h\n"
         s += f"Speed units: Metric\n" if self.metric else f"Speed units: Imperial\n"
-        s += f"Temperature units: Celsius\n" if self.celsius else f"Temperature units: Fahrenheit\n"
+        s += (
+            f"Temperature units: Celsius\n"
+            if self.celsius
+            else f"Temperature units: Fahrenheit\n"
+        )
         s += f"Date format length: {self.date_format_length}\n"
         s += f"Default view: {self.view}\n"
         s += f"Filename: {self.filename}\n"
@@ -344,7 +352,7 @@ Timezone: {self.timezone}"""
         s += "\n"
 
         return s
-    
+
     @property
     def dst(self) -> bool:
         if len(self.timezone) == 0:
@@ -382,7 +390,6 @@ Timezone: {self.timezone}"""
             "view": self.view,
         }
 
-        # i: int = 0
         for i, city in enumerate(self.followcities):
             config[f"FOLLOWCITY{i+1}"] = {
                 "country": city["country"],
@@ -395,13 +402,12 @@ Timezone: {self.timezone}"""
                 "continent_code": city["continent_code"],
                 "timezone": city["timezone"],
             }
-            # i += 1
 
         # Write to a file
         full_path = Path(self.filename).expanduser()
         with open(full_path, "w") as configfile:
             config.write(configfile)
-    
+
     def load(self) -> None:
         r"""Read the configuration from the config file"""
 
@@ -431,7 +437,7 @@ Timezone: {self.timezone}"""
         for i in range(10):
             index: str = f"FOLLOWCITY{i+1}"
             if index in config:
-                city: dict[str|int] = {
+                city: dict[str | int] = {
                     "country": config[index]["country"],
                     "country_code2": config[index]["country_code2"],
                     "city": config[index]["city"],
@@ -443,15 +449,18 @@ Timezone: {self.timezone}"""
                     "timezone": config[index]["timezone"],
                 }
                 self.followcities.append(city)
-    
+
     def follow_city(self, city: str, country: str) -> None:
         for city_entry in self.followcities:
-            if city.upper() == city_entry["city"].upper() and country.upper() == city_entry["country"].upper():
+            if (
+                city.upper() == city_entry["city"].upper()
+                and country.upper() == city_entry["country"].upper()
+            ):
                 raise Exception(f"City '{city}/{country}' is already followed.")
         if len(self.followcities) > 9:
             raise Exception("Cannot follow city. Max cities limit is 10.")
-        
-        city_entry: dict[str|int] = {
+
+        city_entry: dict[str | int] = {
             "country": country,
             "city": city,
         }
@@ -464,7 +473,9 @@ class Locator:
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
 
-    def config(self, config: Configuration, city: str = "", country: str = "") -> None | dict[str|int]:
+    def config(
+        self, config: Configuration, city: str = "", country: str = ""
+    ) -> None | dict[str | int]:
         if city == "" or country == "":
             # Attempt auto-location
 
@@ -472,14 +483,18 @@ class Locator:
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
             )
             response: requests.Response = requests.get(url)
-            
+
             if not response:
-                raise Exception(f"Cannot autoconfigure. Error {response.status_code}: {get_api_problem(response.status_code)}")
-            
+                raise Exception(
+                    f"Cannot autoconfigure. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                )
+
             response = response.json()
 
             if response.get("status") == "fail":
-                raise Exception(f"Request failed: {response.get("message")}. Try again!")
+                raise Exception(
+                    f"Request failed: {response.get("message")}. Try again!"
+                )
 
             config.country = response.get("country")
             config.country_code2 = response.get("countryCode")
@@ -495,26 +510,39 @@ class Locator:
 
             city = city.capitalize()
             country = country.capitalize()
-            continents: dict[str, str] = {'us': 'NA', 'de': 'EU', 'fr': 'EU', 'gb': 'EU', 'cn': 'AS', 'br': 'SA'}
+            continents: dict[str, str] = {
+                "us": "NA",
+                "de": "EU",
+                "fr": "EU",
+                "gb": "EU",
+                "cn": "AS",
+                "br": "SA",
+            }
 
             headers: dict[str, str] = {
-                'User-Agent': USERAGENT,
+                "User-Agent": USERAGENT,
             }
-            url: str = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
+            url: str = (
+                f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
+            )
             response: requests.Response = requests.get(url, headers=headers)
 
             if not response:
-                raise Exception(f"Location API server error. Error {response.status_code}: {get_api_problem(response.status_code)}")
-            
+                raise Exception(
+                    f"Location API server error. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                )
+
             response = response.json()
 
             if not response:
-                raise Exception(f"Cannot locate city '{city}/{country}'. Please check your syntax and try again.")
+                raise Exception(
+                    f"Cannot locate city '{city}/{country}'. Please check your syntax and try again."
+                )
 
             location: dict = response[0]
-            addr: dict = location.get('address', {})
-            lat: str = location['lat']
-            lon: str = location['lon']
+            addr: dict = location.get("address", {})
+            lat: str = location["lat"]
+            lon: str = location["lon"]
 
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
@@ -523,37 +551,31 @@ class Locator:
             self.tzapi_calls += 1
 
             if not response:
-                raise Exception(f"Cannot obtain timezone for '{city}/{country}'. Error {response.status_code}: {get_api_problem(response.status_code)}")
-            
+                raise Exception(
+                    f"Cannot obtain timezone for '{city}/{country}'. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                )
+
             response = response.json()
 
             if response.get("status") == "FAILED":
                 raise Exception(f"Timezone request failed. Try again later.")
 
-            # config.country = country
-            # config.country_code2 = addr.get('country_code', '').upper()
-            # config.city = city
-            # config.postal_code = addr.get('postcode')
-            # config.province = addr.get('state_code', addr.get('state'))
-            # config.lat = lat
-            # config.lon = lon
-            # config.timezone = response.get("zoneName")
-            # config.continent_code = continents.get(addr.get('country_code', '').lower(), "Unknown") # Manual Mapping
-            
-            city_entry: dict[str|int] = {
+            city_entry: dict[str | int] = {
                 "city": city,
                 "country": country,
-                "country_code2": addr.get('country_code', '').upper(),
-                "postal_code": addr.get('postcode'),
-                "province": addr.get('state_code', addr.get('state')),
+                "country_code2": addr.get("country_code", "").upper(),
+                "postal_code": addr.get("postcode"),
+                "province": addr.get("state_code", addr.get("state")),
                 "lat": lat,
                 "lon": lon,
-                "continent_code": continents.get(addr.get('country_code', '').lower(), "Unknown"), # Manual Mapping
+                "continent_code": continents.get(
+                    addr.get("country_code", "").lower(), "Unknown"
+                ),  # Manual Mapping
                 "timezone": response.get("zoneName"),
             }
 
             time.sleep(1)  # API requirement
-            
+
             return city_entry
 
 
@@ -829,10 +851,14 @@ class WeatherForecaster:
             aq_result: requests.Response = requests.get(aq_url)
 
             if not weather_result:
-                raise Exception(f"Cannot obtain weather data. Error {weather_result.status_code}: {get_api_problem(weather_result.status_code)}")
+                raise Exception(
+                    f"Cannot obtain weather data. Error {weather_result.status_code}: {get_api_problem(weather_result.status_code)}"
+                )
             if not aq_result:
-                raise Exception(f"Cannot obtain air quality data. Error {aq_result.status_code}: {get_api_problem(aq_result.status_code)}")
-            
+                raise Exception(
+                    f"Cannot obtain air quality data. Error {aq_result.status_code}: {get_api_problem(aq_result.status_code)}"
+                )
+
             weather_result = weather_result.json()
             aq_result = aq_result.json()
 
@@ -1048,7 +1074,7 @@ class SetupView(Views):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-        followed_cities: list[dict[str|int]] = self.config.followcities
+        followed_cities: list[dict[str | int]] = self.config.followcities
 
         print(f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
 
@@ -1060,9 +1086,14 @@ MAIN LOCATION     |  {city}, {province}{country}""")
             print("None")
         else:
             for i, c in enumerate(followed_cities):
-                print(f"{c["city"]}, {c["country"]}") if i == 0 else print(f"                  |  {c["city"]}, {c["country"]}")
+                (
+                    print(f"{c["city"]}, {c["country"]}")
+                    if i == 0
+                    else print(f"                  |  {c["city"]}, {c["country"]}")
+                )
 
         print("\nTry: tuiweathergirl --help")
+
 
 class SimpleView(Views):
     r"""Just prints"""
@@ -1719,14 +1750,19 @@ if __name__ == "__main__":
             help="Which country is that city in",
         )
         cli_parser.add_argument(
-            "-d", "--debug",
-            action='store_true',
+            "-d",
+            "--debug",
+            action="store_true",
             help="A bit more printing on errors",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
 
-        cli_city: str = cli_arguments.city.strip().capitalize() if cli_arguments.city else ""
-        cli_country: str = cli_arguments.country.strip().capitalize() if cli_arguments.country else ""
+        cli_city: str = (
+            cli_arguments.city.strip().capitalize() if cli_arguments.city else ""
+        )
+        cli_country: str = (
+            cli_arguments.country.strip().capitalize() if cli_arguments.country else ""
+        )
 
         DEBUG_MODE = cli_arguments.debug
 
@@ -1743,9 +1779,9 @@ if __name__ == "__main__":
             locator.config(config)
             configurator.config(config)
             config.save()
-        
+
         config.load()
-        
+
         # Add and locate new city
         if cli_city:
             config.follow_city(cli_city, cli_country)
@@ -1755,9 +1791,16 @@ if __name__ == "__main__":
 
                 if "lat" not in config.followcities[i]:
                     # new_city = True
-                    city_entry: dict[str|int] = locator.config(config, config.followcities[i]["city"], config.followcities[i]["country"])
-                    config.followcities[i] = {**config.followcities[i], **city_entry}  # Update values
-        
+                    city_entry: dict[str | int] = locator.config(
+                        config,
+                        config.followcities[i]["city"],
+                        config.followcities[i]["country"],
+                    )
+                    config.followcities[i] = {
+                        **config.followcities[i],
+                        **city_entry,
+                    }  # Update values
+
             config.save()
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
@@ -1768,10 +1811,14 @@ if __name__ == "__main__":
         weather_girl.present(cli_arguments.view)
 
     except Exception as e:
-        print("\n=================================================================[ EXCEPTION ]")
+        print(
+            "\n=================================================================[ EXCEPTION ]"
+        )
         print(e)
 
         if DEBUG_MODE:
-            print("\n----------------------------------------------------------------[ STACKTRACE ]")
+            print(
+                "\n----------------------------------------------------------------[ STACKTRACE ]"
+            )
             traceback.print_exc()
         exit(1)
