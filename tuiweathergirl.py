@@ -9,21 +9,23 @@ import csv
 import curses
 import os
 import re
+import tempfile
 # import sys
 import time
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
-import tempfile
 
 import requests
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
 
+DEBUG_MODE: bool = False
 DEFAULT_ARG: str = "color"
-VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
+# VALID_ARGS: list[str] = ["help", "simple", "nice", "color", "fancy" "glamour"]
 VERSION: str = "1.0"
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {VERSION} by StrayF 2026. Your daily terminal weathergirl."
@@ -39,6 +41,11 @@ EPILOGUE_HELP: str = """VIEWS:
     
     color
         This is just the Nice view, but with colors.
+    
+    setup
+        Prints the currently set cities.
+
+NOTE: --followcity and --country must be passed together.
 
 HOW DOES TUIWEATHERGIRL WORKS:
     - The application would first check for ~/.tuiweathergirlrc
@@ -139,6 +146,7 @@ class CachedData:
         self.filename: str = self.testfilename
         self.loaded: bool = False
 
+        self.is_day: bool = True
         self.sky: str = ""
         self.temperature: int = 0
         self.tmin: int = 0
@@ -154,6 +162,8 @@ class CachedData:
         self.mins: list[str] = []
         self.maxs: list[str] = []
         self.precipitations: list[str] = []
+
+        self.followcities: list[dict[str|bool|int]] = []
 
         if self.saved:
             self.load()
@@ -196,6 +206,7 @@ class CachedData:
         full_path = Path(self.filename).expanduser()
         config.read(full_path)
 
+        self.is_day = config.getboolean("TODAY", "is_day")
         self.sky = config["TODAY"]["sky"]
         self.temperature = int(config["TODAY"]["temperature"])
         self.tmin = int(config["TODAY"]["tmin"])
@@ -212,6 +223,17 @@ class CachedData:
         self.maxs = config.get("FORECAST", "maxs").split(",")
         self.precipitations = config.get("FORECAST", "precipitations").split(",")
 
+        for i in range(10):
+            index: str = f"FOLLOWCITY{i+1}"
+            if index in config:
+                city: dict[str|bool|int] = {
+                    "is_day": config.getboolean(index, "is_day"),
+                    "temperature": int(config[index]["temperature"]),
+                    "tmin": int(config[index]["tmin"]),
+                    "tmax": int(config[index]["tmax"]),
+                }
+                self.followcities.append(city)
+
         self.loaded = True
 
     def save(self):
@@ -227,6 +249,7 @@ class CachedData:
         config = configparser.ConfigParser()
 
         config["TODAY"] = {
+            "is_day": self.is_day,
             "sky": self.sky,
             "temperature": str(self.temperature),
             "tmin": str(self.tmin),
@@ -245,6 +268,16 @@ class CachedData:
             "maxs": ",".join(map(str, self.maxs)),
             "precipitations": ",".join(map(str, self.precipitations)),
         }
+
+        i: int = 0
+        for city in self.followcities:
+            config[f"FOLLOWCITY{i+1}"] = {
+                "is_day": city["is_day"],
+                "temperature": str(city["temperature"]),
+                "tmin": str(self["tmin"]),
+                "tmax": str(self["tmax"]),
+            }
+            i += 1
 
         with open(self.cachefilename, "w", encoding="utf-8") as f:
             config.write(f)
@@ -270,6 +303,8 @@ class Configuration:
         self.celsius: bool = True
         self.date_format_length: str = "medium"
         self.view: str = DEFAULT_ARG
+
+        self.followcities: list[dict[str|int]] = []
 
         self.filename = "~/.tuiweathergirlrc"
 
@@ -316,11 +351,26 @@ class Configuration:
             "view": self.view,
         }
 
+        i: int = 0
+        for city in self.followcities:
+            config[f"FOLLOWCITY{i+1}"] = {
+                "country": city["country"],
+                "country_code2": city["country_code2"],
+                "city": city["city"],
+                "postal_code": city["postal_code"],
+                "province": city["province"],
+                "lat": city["lat"],
+                "lon": city["lon"],
+                "continent_code": city["continent_code"],
+                "timezone": city["timezone"],
+            }
+            i += 1
+
         # Write to a file
         full_path = Path(self.filename).expanduser()
         with open(full_path, "w") as configfile:
             config.write(configfile)
-
+    
     def load(self) -> None:
         r"""Read the configuration from the config file"""
 
@@ -347,6 +397,42 @@ class Configuration:
         # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
 
+        for i in range(10):
+            index: str = f"FOLLOWCITY{i+1}"
+            if index in config:
+                city: dict[str|int] = {
+                    "country": config[index]["country"],
+                    "country_code2": config[index]["country_code2"],
+                    "city": config[index]["city"],
+                    "postal_code": config[index]["postal_code"],
+                    "province": config[index]["province"],
+                    "lat": config[index]["lat"],
+                    "lon": config[index]["lon"],
+                    "continent_code": config[index]["continent_code"],
+                    "timezone": config[index]["timezone"],
+                }
+                self.followcities.append(city)
+    
+    def follow_city(self, city: str, country: str) -> None:
+        for city_entry in self.followcities:
+            if city == city_entry["city"] and country == city_entry["country"]:
+                raise Exception(f"City '{city}/{country}' is already followed.")
+        if len(self.followcities) > 9:
+            raise Exception("Cannot follow city. Max cities limit is 10.")
+        
+        city_entry: dict[str|int] = {
+            "country": country,
+            "city": city,
+            # "country_code2": config[index]["country_code2"],
+            # "postal_code": config[index]["postal_code"],
+            # "province": config[index]["province"],
+            # "lat": config[index]["lat"],
+            # "lon": config[index]["lon"],
+            # "continent_code": config[index]["continent_code"],
+            # "timezone": config[index]["timezone"],
+        }
+        self.followcities.append(city_entry)
+
 
 class Locator:
     r"""Gets location data"""
@@ -354,7 +440,7 @@ class Locator:
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
 
-    def config(self, config: Configuration, city: str = "", country: str = "") -> None:
+    def config(self, config: Configuration, city: str = "", country: str = "") -> None | dict[str|int]:
         if city == "" or country == "":
             # Attempt auto-location
 
@@ -387,7 +473,7 @@ class Locator:
             response: requests.Response = requests.get(url, headers=headers).json()
 
             if not response:
-                return False
+                raise Exception(f"Cannot locate city '{city}/{country}'")
             
             location: dict = response[0]
             addr: dict = location.get('address', {})
@@ -412,7 +498,20 @@ class Locator:
             config.lon = lon
             config.timezone = response.get("zoneName")
             config.continent_code = continents.get(addr.get('country_code', '').lower(), "Unknown") # Manual Mapping
-        return True
+            
+            city_entry: dict[str|int] = {
+                "city": city,
+                "country": country,
+                "country_code2": addr.get('country_code', '').upper(),
+                "postal_code": addr.get('postcode'),
+                "province": addr.get('state_code', addr.get('state')),
+                "lat": lat,
+                "lon": lon,
+                "continent_code": continents.get(addr.get('country_code', '').lower(), "Unknown"), # Manual Mapping
+                "timezone": response.get("zoneName"),
+            }
+            
+            return city_entry
 
 
 class Configurator:
@@ -486,6 +585,7 @@ class WeatherData:
         self.min: int = 0
         self.max: int = 0
         self.weather_code: int = 0
+        self.is_day: bool = True
 
         self.warnings: list[str] = []
         self.week: list[BriefDailyForecast] = []
@@ -636,7 +736,7 @@ class WeatherForecaster:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={self.config.lat}&longitude={self.config.lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
             f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
             f"&timezone={self.config.timezone.replace('/', '%2F')}"
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
@@ -656,6 +756,7 @@ class WeatherForecaster:
 
         if cache.loaded:
             # Fill the object with data
+            weather_data.is_day = cache.is_day  # True if cache.is_day == "1" else False
             weather_data.sky = cache.sky
             weather_data.temperature = cache.temperature
             weather_data.min = cache.tmin
@@ -690,6 +791,7 @@ class WeatherForecaster:
             aqi = aq_result["current"]["us_aqi"]
 
             # Fill the object with data
+            weather_data.is_day = True if current["weather_code"] == "1" else False
             weather_data.sky = self.__get_weather_description(current["weather_code"])
             weather_data.temperature = int(current["temperature_2m"])
             weather_data.min = int(daily["temperature_2m_min"][0])
@@ -806,6 +908,12 @@ class Views:
 class ColorViews(Views):
     r"""Definition of color views"""
 
+    def _get_daynight_cp(self, is_day: bool) -> int:
+        r"""Get the day or night color pair"""
+        if is_day:
+            return 3
+        return 4
+
     def _get_temp_cp(self, t: int) -> int:
         r"""Get the appropriate temperature color pair"""
 
@@ -881,6 +989,31 @@ class ColorViews(Views):
         return 7
 
 
+class SetupView(Views):
+    r"""Prints the setup"""
+
+    def display(self) -> None:
+        # Data to display
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+        followed_cities: list[dict[str|int]] = self.config.followcities
+
+        print(f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
+
+==================================================[ SETUP ]
+MAIN LOCATION: {city}, {province}{country}""")
+
+        print("FOLLOWED CITIES: ", end="")
+        if len(followed_cities) == 0:
+            print("None")
+        else:
+            print("\n")
+            for city in followed_cities:
+                print(f"    {city.city}, {city.country}")
+
+        print("\nTry: tuiweathergirl --help")
+
 class SimpleView(Views):
     r"""Just prints"""
 
@@ -904,6 +1037,7 @@ class SimpleView(Views):
         aqi: int = self.data.aqi
         airquality: str = self.data.air_quality
         precipitation: int = self.data.precipitation
+        is_day: bool = self.data.is_day
         # ---
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
@@ -1040,6 +1174,7 @@ class NiceView(Views):
             aqi: int = self.data.aqi
             airquality: str = self.data.air_quality
             precipitation: int = self.data.precipitation
+            is_day: bool = self.data.is_day
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
@@ -1281,6 +1416,7 @@ class ColorView(ColorViews):
             aqi: int = self.data.aqi
             airquality: str = self.data.air_quality
             precipitation: int = self.data.precipitation
+            is_day: bool = self.data.is_day
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
@@ -1492,6 +1628,7 @@ class WeatherGirl:
         self.view: str = config.view
         present_config: PresentationConfiguration = PresentationConfiguration(config)
         self.views: dict[str, Views] = {
+            "setup": SetupView(config, data, present_config),
             "simple": SimpleView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
             "color": ColorView(config, data, present_config),
@@ -1513,11 +1650,27 @@ if __name__ == "__main__":
         )
         cli_parser.add_argument(
             "--view",
-            choices=["simple", "nice", "color"],
+            choices=["setup", "simple", "nice", "color"],
             default="",
             help="Select the view",
         )
+        cli_parser.add_argument(
+            "--followcity",
+            dest="city",
+            help="Follow a city",
+        )
+        cli_parser.add_argument(
+            "--country",
+            help="Which country is the city to follow",
+        )
+        cli_parser.add_argument(
+            "-d", "--debug",
+            action='store_true',
+            help="A bit more printing on errors",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
+
+        DEBUG_MODE = cli_arguments.debug
 
         # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
         config: Configuration = Configuration()
@@ -1529,6 +1682,19 @@ if __name__ == "__main__":
             locator.config(config)
             configurator.config(config)
             config.save()
+        
+        # Locate new city
+        new_city: bool = False
+        for i in range(len(config.followcities)):
+            locator: Locator = Locator()
+
+            if "lat" not in config.followcities[i]:
+                new_city = True
+                city_entry: dict[str|int] = locator.config(city.city, city.couyntry)
+                config.followcities[i] = {**config.followcities[i], **city_entry}  # Update values
+        
+        if new_city:
+            config.save()
 
         config.load()
 
@@ -1539,7 +1705,11 @@ if __name__ == "__main__":
         weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
         weather_girl.present(cli_arguments.view)
 
-    except Exception e:
+    except Exception as e:
         print("\n=================================================================[ EXCEPTION ]")
         print(e)
+
+        if DEBUG_MODE:
+            print("\n-----------------------------------------------[ STACKTRACE ]")
+            traceback.print_exc()
         exit(1)
