@@ -65,6 +65,7 @@ API_PROBLEMS: dict[int, str] = {
     503: "The API server is down for maintenance. Please try again in few hours.",
     504: "Problem with the API server. Please try again in 10 minutes",
 }
+REFRESH_INTERVAL: int = 1200  # 20 minutes
 
 
 def get_api_problem(http_code: int) -> str:
@@ -194,7 +195,7 @@ class CachedData:
         now = datetime.now().astimezone()
 
         # Modified less than 5 mins ago:
-        return now - last_modified_date < timedelta(minutes=5)
+        return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL//60)
 
     @property
     def saved(self) -> bool:
@@ -949,7 +950,7 @@ class Views:
         self.config: Configuration = config
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
-        self.weather_refresh_interval: int = 1200  # 20 minutes
+        self.weather_refresh_interval: int = REFRESH_INTERVAL
 
     def prog_bar(self, percent: int, maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
