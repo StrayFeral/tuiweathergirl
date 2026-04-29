@@ -14,7 +14,9 @@ Not vibe-coded.
 
 ## FEATURES
 
-NOTE: Features marked with an asterisk (*) are automatically converted to the appropriate format and units for the current location. Therefore supported temperature units are Celsius and Fahrenheit, as well as speed units will be displayed in MpH and KpH accordingly.
+> Features marked with an asterisk (*) are automatically converted to the appropriate format and units for the current location. Therefore supported temperature units are Celsius and Fahrenheit, as well as speed units will be displayed in MpH and KpH accordingly.
+
+> Not all metrics are displayed on each view
 
 - Display:
   - Location
@@ -26,9 +28,26 @@ NOTE: Features marked with an asterisk (*) are automatically converted to the ap
   - Current Air Quality Index (AQI)
   - Today's precipitation probability
   - 7 day weather forecast with minimum/maximum temperatures and precipitation probability
-  - A dangerous weather warning
-- Several cachine methods to ease the API calls and prevent being banned
-- Different views, ranging from simple prints for super basic terminals to colorful views for modern terminals
+  - Dangerous weather condition warnings
+  - DST
+  - Day/night
+  - Wind type assessment
+  - Precipitation type assessment
+  - Up to 10 additional cities available to monitor
+- Robustness:
+  - Several cachine methods to ease the API calls and prevent being banned
+- Extensibility:
+  - Different views, ranging from simple prints for super basic terminals to colorful views for modern terminals
+  - Users could add their own views, assuming they have knowledge of Python programming language
+- Flexibility:
+  - Application can handle scenario when user is behind VPN and still provide the relevant data
+- Accessibility:
+  - Convenient for people using screen-reading software
+- Portability:
+  - The application makes use of only one external Python library (`python3-babel`), everything else used are core libraries
+  - The application was written as a single file to simplify the portability
+- Usability:
+  - Extensive help screen with detailed description of the application
 
 ## INSTALLATION
 
