@@ -10,7 +10,7 @@ The application was written with the most basic to modern terminals in mind and 
 
 The application have minimal dependencies (only `python3-babel`) and is portability-centric.
 
-Not vibe-coded.
+> Not vibe-coded.
 
 ## FEATURES
 
