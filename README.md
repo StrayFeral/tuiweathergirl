@@ -57,29 +57,15 @@ make install
 
 ## USAGE
 
+> Please consult the help screen for the most up-to-date command-line options
+
 ```bash
-tuiweathergirl [--help|<VIEW>]
-
-VIEWS:
-    --simple
-        Best for barebone terminals.
-        Simple print of the date, time, weather data and then exit.
-
-    --nice
-        Still nice for barebone terminals.
-        Basic text interface with tables (ncurses).
-    
-    --color
-        This is just the Nice view, but with colors.
-
-    --fancy
-        Better for moderate to modern terminals.
-        Color text interface.
-
-    --glamour
-        ***WIP***
+tuiweathergirl --help
 ```
 
-After the very first run, the application would auto-configure itself and will create the configuration file. Feel free to modify it. The configuration file is `~/.tuiweathergirlrc`.
+After the very first run, the application would auto-configure itself and will create the configuration file (`~/.tuiweathergirlrc`). You are not required to modify it, as there are command-line options to do it, but you are free to do so if you wish.
 
 If you mess it up and the application start throwing errors, just delete it and run the appliation again. It will create new configuration file, filled with the proper data.
+
+> If you are behind VPN, still let the application detect your location, then add the city you're actually in manually with the `--addcity` option, then use the `--sethome` option to set which city is your actual home.
+
