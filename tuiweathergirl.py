@@ -852,8 +852,8 @@ class WeatherForecaster:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={self.config.lat}&longitude={self.config.lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,relative_humidity_2m_min,relative_humidity_2m_max"
-            f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
+            f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max"
             f"&timezone={self.config.timezone.replace('/', '%2F')}"
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
             f"&forecast_days=8"
@@ -1165,9 +1165,9 @@ HOME CITY         |  {city}, {province}{country}""")
         else:
             for i, c in enumerate(followed_cities):
                 (
-                    print(f"{i}) {c["city"]}, {c["country"]}")
+                    print(f"{i+1}) {c["city"]}, {c["country"]}")
                     if i == 0
-                    else print(f"                  |  {i}) {c["city"]}, {c["country"]}")
+                    else print(f"                  |  {i+1}) {c["city"]}, {c["country"]}")
                 )
 
         print("\nTry: tuiweathergirl --help")
@@ -1835,7 +1835,7 @@ if __name__ == "__main__":
         )
         action_group.add_argument(
             "--sethome",
-            dest="home",
+            dest="homecity",
             type=int,
             help="Set which city is home (city must be already added)",
         )
@@ -1913,6 +1913,26 @@ if __name__ == "__main__":
                     )
 
             config.save()  # Update config
+        
+        if cli_arguments.homecity:
+            if len(config.followcities) == 0:
+                raise Exception("There are no currently added cities. You must add a city first with `--addcity`.")
+            if 1 <= cli_arguments.homecity > len(config.followcities):
+                raise Exception(f"City must be a number between 1 and {len(config.followcities)}.")
+            
+            config.country, config.followcities[cli_arguments.homecity-1]["country"] = config.followcities[cli_arguments.homecity-1]["country"], config.country
+            config.country_code2, config.followcities[cli_arguments.homecity-1]["country_code2"] = config.followcities[cli_arguments.homecity-1]["country_code2"], config.country_code2
+            config.city, config.followcities[cli_arguments.homecity-1]["city"] = config.followcities[cli_arguments.homecity-1]["city"], config.city
+            config.postal_code, config.followcities[cli_arguments.homecity-1]["postal_code"] = config.followcities[cli_arguments.homecity-1]["postal_code"], config.postal_code
+            config.province, config.followcities[cli_arguments.homecity-1]["province"] = config.followcities[cli_arguments.homecity-1]["province"], config.province
+            config.lat, config.followcities[cli_arguments.homecity-1]["lat"] = config.followcities[cli_arguments.homecity-1]["lat"], config.lat
+            config.lon, config.followcities[cli_arguments.homecity-1]["lon"] = config.followcities[cli_arguments.homecity-1]["lon"], config.lon
+            config.continent_code, config.followcities[cli_arguments.homecity-1]["continent_code"] = config.followcities[cli_arguments.homecity-1]["continent_code"], config.continent_code
+            config.timezone, config.followcities[cli_arguments.homecity-1]["timezone"] = config.followcities[cli_arguments.homecity-1]["timezone"], config.timezone
+
+            print(f"Home city is now set to: {config.city}, {config.country}")
+            config.save()  # Update config
+            exit(0)
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
         weather_data: WeatherData = WeatherData()
