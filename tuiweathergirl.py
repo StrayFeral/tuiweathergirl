@@ -46,12 +46,14 @@ EPILOGUE_HELP: str = """VIEWS:
     setup
         Prints the currently set cities.
 
-NOTE: --addcity/--removecity and --country must be passed together.
+NOTE: --addcity and --country must be passed together.
 
 HOW DOES TUIWEATHERGIRL WORKS:
     - The app would auto-configure. Config file: ~/.tuiweathergirlrc
     - You may edit it, but if you mess-it up, better delete it and run the app again
     - You may add up to 10 additional cities, but not every view will show them all
+
+PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 """
 MIN_COLS: int = 79
 MIN_LINES: int = 24
@@ -85,6 +87,205 @@ COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
 
+CONTINENT_MAP: dict[str, list[str]] = {
+    "AF": [
+        "DZ",
+        "AO",
+        "BJ",
+        "BW",
+        "BF",
+        "BI",
+        "CV",
+        "CM",
+        "CF",
+        "TD",
+        "KM",
+        "CD",
+        "CG",
+        "CI",
+        "DJ",
+        "EG",
+        "GQ",
+        "ER",
+        "SZ",
+        "ET",
+        "GA",
+        "GM",
+        "GH",
+        "GN",
+        "GW",
+        "KE",
+        "LS",
+        "LR",
+        "LY",
+        "MG",
+        "MW",
+        "ML",
+        "MR",
+        "MU",
+        "MA",
+        "MZ",
+        "NA",
+        "NE",
+        "NG",
+        "RW",
+        "ST",
+        "SN",
+        "SC",
+        "SL",
+        "SO",
+        "ZA",
+        "SS",
+        "SD",
+        "TZ",
+        "TG",
+        "TN",
+        "UG",
+        "ZM",
+        "ZW",
+    ],
+    "AS": [
+        "AF",
+        "AM",
+        "AZ",
+        "BH",
+        "BD",
+        "BT",
+        "BN",
+        "KH",
+        "CN",
+        "CY",
+        "GE",
+        "IN",
+        "ID",
+        "IR",
+        "IQ",
+        "IL",
+        "JP",
+        "JO",
+        "KZ",
+        "KW",
+        "KG",
+        "LA",
+        "LB",
+        "MY",
+        "MV",
+        "MN",
+        "MM",
+        "NP",
+        "KP",
+        "OM",
+        "PK",
+        "PS",
+        "PH",
+        "QA",
+        "SA",
+        "SG",
+        "KR",
+        "LK",
+        "SY",
+        "TW",
+        "TJ",
+        "TH",
+        "TL",
+        "TR",
+        "TM",
+        "AE",
+        "UZ",
+        "VN",
+        "YE",
+    ],
+    "EU": [
+        "AL",
+        "AD",
+        "AT",
+        "BY",
+        "BE",
+        "BA",
+        "BG",
+        "HR",
+        "CZ",
+        "DK",
+        "EE",
+        "FI",
+        "FR",
+        "DE",
+        "GR",
+        "HU",
+        "IS",
+        "IE",
+        "IT",
+        "LV",
+        "LI",
+        "LT",
+        "LU",
+        "MT",
+        "MD",
+        "MC",
+        "ME",
+        "NL",
+        "MK",
+        "NO",
+        "PL",
+        "PT",
+        "RO",
+        "RU",
+        "SM",
+        "RS",
+        "SK",
+        "SI",
+        "ES",
+        "SE",
+        "CH",
+        "UA",
+        "GB",
+        "VA",
+    ],
+    "NA": [
+        "AG",
+        "BS",
+        "BB",
+        "BZ",
+        "CA",
+        "CR",
+        "CU",
+        "DM",
+        "DO",
+        "SV",
+        "GD",
+        "GT",
+        "HT",
+        "HN",
+        "JM",
+        "MX",
+        "NI",
+        "PA",
+        "KN",
+        "LC",
+        "VC",
+        "TT",
+        "US",
+    ],
+    "OC": [
+        "AU",
+        "FJ",
+        "KI",
+        "MH",
+        "FM",
+        "NR",
+        "NZ",
+        "PW",
+        "PG",
+        "WS",
+        "SB",
+        "TO",
+        "TV",
+        "VU",
+    ],
+    "SA": ["AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY", "VE"],
+    "AN": ["AQ"],
+}
+
 
 def ensure_single_instance(port=47382):
     global lock_socket
@@ -102,6 +303,12 @@ ensure_single_instance()
 
 def get_api_problem(http_code: int) -> str:
     return API_PROBLEMS[http_code] if http_code in API_PROBLEMS else ""
+
+
+def get_continent_code(country: str) -> str:
+    return next(
+        (key for key, values in CONTINENT_MAP.items() if country in values), "Unknown"
+    )
 
 
 class MajorEventsLogger:
@@ -341,9 +548,9 @@ class Configuration:
     r"""Weather configuration"""
 
     def __init__(self) -> None:
-        self.country: str = ""
-        self.country_code2: str = ""
-        self.city: str = ""
+        self._country: str = ""
+        self._country_code2: str = ""
+        self._city: str = ""
         self.postal_code: str = ""
         self.province: str = ""
         self.lat: str = ""
@@ -364,6 +571,34 @@ class Configuration:
 
         if os.name == "nt":
             self.filename = "~/tuiweathergirl.ini"
+
+    @property
+    def country(self) -> str:
+        return self._country
+
+    @country.setter
+    def country(self, s: str) -> None:
+        self._country = s.title()
+
+        # Proper abbreviations support
+        if self._country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
+            self._country = self._country.upper()
+
+    @property
+    def country_code2(self) -> str:
+        return self._country_code2
+
+    @country_code2.setter
+    def country_code2(self, s: str) -> None:
+        self._country_code2 = s.upper()
+
+    @property
+    def city(self) -> str:
+        return self._city
+
+    @city.setter
+    def city(self, s: str) -> None:
+        self._city = s.title()
 
     def __str__(self) -> str:
         return f"{self.city}/{self.province}/{self.country}/{self.continent_code}"
@@ -547,16 +782,11 @@ class Locator:
         else:
             # Attempt to get information for the city and the country
 
-            city = city.capitalize()
-            country = country.capitalize()
-            continents: dict[str, str] = {
-                "us": "NA",
-                "de": "EU",
-                "fr": "EU",
-                "gb": "EU",
-                "cn": "AS",
-                "br": "SA",
-            }
+            city = city.title()
+            country = country.title()
+
+            if country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
+                country = country.upper()
 
             headers: dict[str, str] = {
                 "User-Agent": USERAGENT,
@@ -566,7 +796,7 @@ class Locator:
             )
             response: requests.Response = requests.get(url, headers=headers)
 
-            if not response:
+            if not response.ok:
                 raise Exception(
                     f"Location API server error. Error {response.status_code}: {get_api_problem(response.status_code)}"
                 )
@@ -580,8 +810,8 @@ class Locator:
 
             location: dict = response[0]
             addr: dict = location.get("address", {})
-            lat: str = location["lat"]
-            lon: str = location["lon"]
+            lat: str = location.get("lat", "")
+            lon: str = location.get("lon", "")
 
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
@@ -589,9 +819,14 @@ class Locator:
             response: requests.Response = requests.get(url)
             self.tzapi_calls += 1
 
+            if not response.ok:
+                raise Exception(
+                    f"Timezone API server error. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                )
+
             if not response:
                 raise Exception(
-                    f"Cannot obtain timezone for '{city}/{country}'. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                    f"Cannot obtain timezone for '{city}/{country}'. Please check your syntax and try again."
                 )
 
             response = response.json()
@@ -600,17 +835,17 @@ class Locator:
                 raise Exception(f"Timezone request failed. Try again later.")
 
             city_entry: dict[str | int] = {
-                "city": city,
-                "country": country,
+                "city": location.get("name", "").title(),
+                "country": addr.get("country", "").title(),
                 "country_code2": addr.get("country_code", "").upper(),
-                "postal_code": addr.get("postcode"),
-                "province": addr.get("state_code", addr.get("state")),
+                "postal_code": addr.get("postcode", ""),
+                "province": addr.get("state_code", addr.get("state", "")),
                 "lat": lat,
                 "lon": lon,
-                "continent_code": continents.get(
-                    addr.get("country_code", "").lower(), "Unknown"
-                ),  # Manual Mapping
-                "timezone": response.get("zoneName"),
+                "continent_code": get_continent_code(
+                    addr.get("country_code", "").upper()
+                ),
+                "timezone": response.get("zoneName", ""),
             }
 
             time.sleep(1)  # API requirement
@@ -1836,6 +2071,11 @@ if __name__ == "__main__":
         )
         action_group = cli_parser.add_mutually_exclusive_group()
         cli_parser.add_argument(
+            "--version",
+            action="store_true",
+            help="Print the version",
+        )
+        cli_parser.add_argument(
             "--view",
             choices=["setup", "simple", "nice", "color"],
             default="",
@@ -1848,7 +2088,7 @@ if __name__ == "__main__":
         )
         action_group.add_argument(
             "--removecity",
-            dest="city",
+            type=int,
             help="Remove a city which is currently followed",
         )
         action_group.add_argument(
@@ -1859,6 +2099,7 @@ if __name__ == "__main__":
         )
         cli_parser.add_argument(
             "--country",
+            dest="country",
             help="Which country is that city in",
         )
         cli_parser.add_argument(
@@ -1868,18 +2109,21 @@ if __name__ == "__main__":
             help="A bit more printing on errors",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
-        cli_city: str = ""
-        city_add: bool = True
 
-        if cli_arguments.newcity:
-            cli_city = cli_arguments.newcity.strip().capitalize()
-            # city_add = "add"
-        if cli_arguments.city:
-            cli_city = cli_arguments.city.strip().capitalize()
-            city_add = False
-        cli_country: str = (
-            cli_arguments.country.strip().capitalize() if cli_arguments.country else ""
+        if cli_arguments.version:
+            print(DESCRIPTION_HELP)
+            sys.exit(0)
+
+        cli_city: str = (
+            cli_arguments.newcity.strip().title() if cli_arguments.newcity else ""
         )
+        cli_country: str = ""
+        if cli_arguments.country:
+            cli_country = cli_arguments.country.strip().title()
+
+            # Proper abbreviations support
+            if cli_country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
+                cli_country = cli_country.upper()
 
         DEBUG_MODE = cli_arguments.debug
 
@@ -1899,44 +2143,50 @@ if __name__ == "__main__":
 
         config.load()
 
-        # Add or remove city
+        # Add a new city to follow
         if cli_city:
-            if city_add:  # Add city
-                config.follow_city(cli_city, cli_country)
+            config.follow_city(cli_city, cli_country)
 
-                for i in range(len(config.followcities)):
-                    locator: Locator = Locator()
+            for i in range(len(config.followcities)):
+                locator: Locator = Locator()
 
-                    if "lat" not in config.followcities[i]:
-                        # new_city = True
-                        city_entry: dict[str | int] = locator.config(
-                            config,
-                            config.followcities[i]["city"],
-                            config.followcities[i]["country"],
-                        )
-                        config.followcities[i] = {
-                            **config.followcities[i],
-                            **city_entry,
-                        }  # Update values
-            else:  # Remove city
-                found: bool = False
-                for i, c in enumerate(config.followcities):
-                    if cli_city == c["city"] and cli_country == c["country"]:
-                        found = True
-                        config.followcities.pop(i)
-                        break
-                if not found:
-                    raise Exception(
-                        f"City '{cli_city}/{cli_country}' was not found among the followed cities."
+                if "lat" not in config.followcities[i]:
+                    # new_city = True
+                    city_entry: dict[str | int] = locator.config(
+                        config,
+                        config.followcities[i]["city"],
+                        config.followcities[i]["country"],
                     )
+                    config.followcities[i] = {
+                        **config.followcities[i],
+                        **city_entry,
+                    }  # Update values
+            config.save()  # Update config
+
+        # Remove a currently followed city
+        if cli_arguments.removecity:
+            if len(config.followcities) == 0:
+                raise Exception(
+                    "There are no currently added cities. You must first add a city with `--addcity`."
+                )
+            if 1 <= cli_arguments.removecity > len(config.followcities):
+                raise Exception(
+                    f"City must be a number between 1 and {len(config.followcities)}."
+                )
+
+            city: str = config.followcities[cli_arguments.removecity - 1]["city"]
+            country: str = config.followcities[cli_arguments.removecity - 1]["country"]
+            del config.followcities[cli_arguments.removecity - 1]
 
             config.save()  # Update config
+            # print(f"Removed city: {city}, {country}")
+            # sys.exit(0)
 
         # Change home city
         if cli_arguments.homecity:
             if len(config.followcities) == 0:
                 raise Exception(
-                    "There are no currently added cities. You must add a city first with `--addcity`."
+                    "There are no currently added cities. You must first add a city with `--addcity`."
                 )
             if 1 <= cli_arguments.homecity > len(config.followcities):
                 raise Exception(
