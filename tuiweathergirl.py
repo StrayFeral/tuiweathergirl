@@ -56,14 +56,21 @@ MIN_LINES: int = 24
 USERAGENT: str = (
     f"TUIWeatherGirl/{VERSION} (https://github.com/StrayFeral/tuiweathergirl)"
 )
+SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 API_PROBLEMS: dict[int, str] = {
-    403: "You have been soft-banned by the API. Please wait 24 hours and try again.",
-    429: "You have been temporarely banned by the API. Please wait 2 minutes and try again.",
+    400: f"Bad request. Fix the API request. {SUBMIT_BUG}",
     401: "You have been PERMANENTLY banned by the API. There is nothing I could do to help. Sorry.",
+    402: "Payment required.",
+    403: "You have been soft-banned by the API. Please wait 24 hours and try again.",
+    407: "Proxy Authentication Required.",
+    408: "Request Timeout.",
+    410: f"Seems the API provider does not exist anymore. {SUBMIT_BUG}",
+    429: "You have been temporarely banned by the API. Please wait 2 minutes and try again.",
     500: "The API server crashed. Please try again in few hours.",
     502: "API server problem. Please try again in few hours.",
     503: "The API server is down for maintenance. Please try again in few hours.",
     504: "Problem with the API server. Please try again in 10 minutes",
+    505: f"HTTP version not supported. {SUBMIT_BUG}",
 }
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 
@@ -206,7 +213,7 @@ class CachedData:
         now = datetime.now().astimezone()
 
         # Modified less than 5 mins ago:
-        return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL//60)
+        return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL // 60)
 
     @property
     def saved(self) -> bool:
@@ -757,7 +764,7 @@ class WeatherForecaster:
 
     def __get_weather_description(self, weather_code: int) -> str:
         r"""Simplified WMO Weather interpretation codes"""
-        
+
         mapping: dict[int, str] = {
             0: "Sunny",
             1: "Mainly Clear",
@@ -789,7 +796,7 @@ class WeatherForecaster:
                 return assessments[aqilevel]
 
         return "Hazardous"
-    
+
     def _get_humidity_assessment(self, humidity: int, temperature: int) -> str:
         r"""Returns a human-readable assessment based on the humidity and temperature."""
 
@@ -1150,7 +1157,7 @@ class SetupView(Views):
         print(f"""TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026
 
 ==================================================[ SETUP ]
-HOME LOCATION     |  {city}, {province}{country}""")
+HOME CITY         |  {city}, {province}{country}""")
 
         print("ADDITIONAL CITIES |  ", end="")
         if len(followed_cities) == 0:
@@ -1158,9 +1165,9 @@ HOME LOCATION     |  {city}, {province}{country}""")
         else:
             for i, c in enumerate(followed_cities):
                 (
-                    print(f"{c["city"]}, {c["country"]}")
+                    print(f"{i}) {c["city"]}, {c["country"]}")
                     if i == 0
-                    else print(f"                  |  {c["city"]}, {c["country"]}")
+                    else print(f"                  |  {i}) {c["city"]}, {c["country"]}")
                 )
 
         print("\nTry: tuiweathergirl --help")
@@ -1485,9 +1492,15 @@ class ColorView(ColorViews):
     def screen(self, stdscr: curses.window) -> None:
         # Color definitions
         curses.start_color()
-        curses.init_pair(COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED)  # Warnings
-        curses.init_pair(COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Sunny
-        curses.init_pair(COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK)  # Cloudy
+        curses.init_pair(
+            COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED
+        )  # Warnings
+        curses.init_pair(
+            COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK
+        )  # Sunny
+        curses.init_pair(
+            COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK
+        )  # Cloudy
         curses.init_pair(COL_BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
         curses.init_pair(COL_REDBLACK, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
         curses.init_pair(COL_GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
@@ -1910,13 +1923,13 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(
-            "\n=================================================================[ EXCEPTION ]"
+            f"\nTUIWEATHERGIRL {VERSION} =============================================[ EXCEPTION ]"
         )
         print(e)
 
         if DEBUG_MODE:
             print(
-                "\n----------------------------------------------------------------[ STACKTRACE ]"
+                "\n---------------------------------------------------------------[ STACKTRACE ]"
             )
             traceback.print_exc()
         exit(1)
