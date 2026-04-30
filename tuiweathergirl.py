@@ -89,6 +89,7 @@ COL_CYANBLACK: int = 7
 def ensure_single_instance(port=47382):
     global lock_socket
     lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         lock_socket.bind(("127.0.0.1", port))
     except socket.error:
@@ -362,7 +363,7 @@ class Configuration:
         self.filename = "~/.tuiweathergirlrc"
 
         if os.name == "nt":
-            self.filename = "~/tuiweathergirl.rc"
+            self.filename = "~/tuiweathergirl.ini"
 
     def __str__(self) -> str:
         return f"{self.city}/{self.province}/{self.country}/{self.continent_code}"
