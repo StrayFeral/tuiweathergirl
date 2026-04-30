@@ -1999,7 +1999,7 @@ if __name__ == "__main__":
 
             config.save()  # Update config
             print(f"Home city is now set to: {config.city}, {config.country}")
-            exit(0)
+            sys.exit(0)
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
         weather_data: WeatherData = WeatherData()
@@ -2019,4 +2019,4 @@ if __name__ == "__main__":
                 "\n---------------------------------------------------------------[ STACKTRACE ]"
             )
             traceback.print_exc()
-        exit(1)
+        sys.exit(1)
