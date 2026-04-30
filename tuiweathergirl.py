@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # TUIWEATHERGIRL
-# 2026 by StrayF
+# 2026 by Evgueni Antonov (StrayF)
 
 import argparse
 import configparser
@@ -27,7 +27,7 @@ DEBUG_MODE: bool = False
 DEFAULT_ARG: str = "color"
 VERSION: str = "1.0"
 DESCRIPTION_HELP: str = (
-    f"TUIWEATHERGIRL {VERSION} by StrayF 2026. Your daily terminal weathergirl."
+    f"TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
 )
 EPILOGUE_HELP: str = """VIEWS:
     simple
@@ -66,6 +66,15 @@ API_PROBLEMS: dict[int, str] = {
     504: "Problem with the API server. Please try again in 10 minutes",
 }
 REFRESH_INTERVAL: int = 1200  # 20 minutes
+
+# Color indexes
+COL_YELOWRED: int = 1
+COL_YELOWBLACK: int = 2
+COL_WHITEBLACK: int = 3
+COL_BLUEBLACK: int = 4
+COL_REDBLACK: int = 5
+COL_GREENBLACK: int = 6
+COL_CYANBLACK: int = 7
 
 
 def get_api_problem(http_code: int) -> str:
@@ -172,7 +181,9 @@ class CachedData:
         self.aqi: int = 0
         self.precipitation: int = 0
         self.weather_code: int = 0
-        self.warning: str = "NOT LOADED"
+        self.warning: str = "NOTLOADED"
+        self.hmin: int = 0
+        self.hmax: int = 0
 
         self.daynames: list[str] = []
         self.mins: list[str] = []
@@ -233,6 +244,8 @@ class CachedData:
         self.precipitation = int(config["TODAY"]["precipitation"])
         self.weather_code = int(config["TODAY"]["weather_code"])
         self.warning = config["TODAY"]["warning"]
+        self.hmin = int(config["TODAY"]["hmin"])
+        self.hmax = int(config["TODAY"]["hmax"])
 
         self.daynames = config.get("FORECAST", "daynames").split(",")
         self.mins = config.get("FORECAST", "mins").split(",")
@@ -276,6 +289,8 @@ class CachedData:
             "precipitation": str(self.precipitation),
             "weather_code": str(self.weather_code),
             "warning": self.warning,
+            "hmin": self.hmin,
+            "hmax": self.hmax,
         }
 
         config["FORECAST"] = {
@@ -370,7 +385,7 @@ Timezone: {self.timezone}"""
 
         config = configparser.ConfigParser()
 
-        config["LOCATION"] = {
+        config["HOME"] = {
             "country": self.country,
             "country_code2": self.country_code2,
             "city": self.city,
@@ -419,15 +434,15 @@ Timezone: {self.timezone}"""
         full_path = Path(self.filename).expanduser()
         config.read(full_path)
 
-        self.country = config["LOCATION"]["country"]
-        self.country_code2 = config["LOCATION"]["country_code2"]
-        self.city = config["LOCATION"]["city"]
-        self.postal_code = config["LOCATION"]["postal_code"]
-        self.province = config["LOCATION"]["province"]
-        self.lat = config["LOCATION"]["lat"]
-        self.lon = config["LOCATION"]["lon"]
-        self.continent_code = config["LOCATION"]["continent_code"]
-        self.timezone = config["LOCATION"]["timezone"]
+        self.country = config["HOME"]["country"]
+        self.country_code2 = config["HOME"]["country_code2"]
+        self.city = config["HOME"]["city"]
+        self.postal_code = config["HOME"]["postal_code"]
+        self.province = config["HOME"]["province"]
+        self.lat = config["HOME"]["lat"]
+        self.lon = config["HOME"]["lon"]
+        self.continent_code = config["HOME"]["continent_code"]
+        self.timezone = config["HOME"]["timezone"]
         self.language = config["PREFERENCES"]["language"]
         self.time24 = config.getboolean("PREFERENCES", "time24")
         self.metric = config.getboolean("PREFERENCES", "metric")
@@ -652,6 +667,8 @@ class WeatherData:
         self.max: int = 0
         self.weather_code: int = 0
         self.is_day: bool = True
+        self.hmin: int = 0
+        self.hmax: int = 0
 
         self.warnings: list[str] = []
         self.week: list[BriefDailyForecast] = []
@@ -688,6 +705,7 @@ class WeatherForecaster:
 
     def __get_wind_type(self, wind_speed: int, unit: str) -> str:
         r"""Beaufort Scale"""
+
         if (wind_speed < 6 and unit == "kmh") or (wind_speed < 4 and unit == "mph"):
             return "Calm"
         if (6 >= wind_speed <= 11 and unit == "kmh") or (
@@ -734,10 +752,12 @@ class WeatherForecaster:
             return "VIOLENT STORM"
         if (wind_speed > 117 and unit == "kmh") or (wind_speed > 72 and unit == "mph"):
             return "HURRICANE"
+
         return ""
 
     def __get_weather_description(self, weather_code: int) -> str:
-        # Simplified WMO Weather interpretation codes
+        r"""Simplified WMO Weather interpretation codes"""
+        
         mapping: dict[int, str] = {
             0: "Sunny",
             1: "Mainly Clear",
@@ -769,6 +789,29 @@ class WeatherForecaster:
                 return assessments[aqilevel]
 
         return "Hazardous"
+    
+    def _get_humidity_assessment(self, humidity: int, temperature: int) -> str:
+        r"""Returns a human-readable assessment based on the humidity and temperature."""
+
+        if humidity >= 70 and temperature > 30:
+            return "HIGH"
+        if humidity >= 80 and 27 <= temperature <= 31:
+            return "Caution"
+        if humidity >= 50 and 32 <= temperature <= 34:
+            return "Extreme Caution"
+        if humidity >= 40 and 35 <= temperature <= 37:
+            return "DANGER"
+        if humidity >= 35 and temperature > 38:
+            return "EXTREME DANGER"
+
+        if humidity < 15:
+            return "LOW"
+        if humidity < 30:
+            return "Dry"
+        if humidity <= 60:
+            return "Comfortable"
+
+        return "Humid"
 
     def __get_precipitation_type(self, weather_code: int) -> str:
         if 51 <= weather_code <= 67 or 80 <= weather_code <= 82:
@@ -802,7 +845,7 @@ class WeatherForecaster:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={self.config.lat}&longitude={self.config.lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,relative_humidity_2m_min,relative_humidity_2m_max"
             f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
             f"&timezone={self.config.timezone.replace('/', '%2F')}"
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
@@ -827,6 +870,8 @@ class WeatherForecaster:
             weather_data.temperature = cache.temperature
             weather_data.min = cache.tmin
             weather_data.max = cache.tmax
+            weather_data.hmin = cache.hmin
+            weather_data.hmax = cache.hmax
             weather_data.aqi = cache.aqi
             weather_data.air_quality = self.__get_air_quality_assessment(cache.aqi)
             weather_data.precipitation = cache.precipitation
@@ -874,6 +919,8 @@ class WeatherForecaster:
             weather_data.temperature = int(current["temperature_2m"])
             weather_data.min = int(daily["temperature_2m_min"][0])
             weather_data.max = int(daily["temperature_2m_max"][0])
+            weather_data.hmin = int(daily["relative_humidity_2m_min"][0])
+            weather_data.hmax = int(daily["relative_humidity_2m_max"][0])
             weather_data.aqi = int(aqi)
             weather_data.air_quality = self.__get_air_quality_assessment(aqi)
             weather_data.precipitation = daily["precipitation_probability_max"][0]
@@ -986,58 +1033,81 @@ class Views:
 class ColorViews(Views):
     r"""Definition of color views"""
 
+    def _get_humidity_cp(self, humidity: int, temperature) -> int:
+        r"""Get the humidity color pair"""
+
+        if humidity >= 70 and temperature > 30:
+            return COL_YELOWBLACK
+        if humidity >= 80 and 27 <= temperature <= 31:
+            return COL_YELOWBLACK
+        if humidity >= 50 and 32 <= temperature <= 34:
+            return COL_YELOWBLACK
+        if humidity >= 40 and 35 <= temperature <= 37:
+            return COL_YELOWBLACK
+        if humidity >= 35 and temperature > 38:
+            return COL_YELOWRED
+
+        if humidity < 15:
+            return COL_YELOWRED
+        if humidity < 30:
+            return COL_YELOWBLACK
+        if humidity <= 60:
+            return COL_GREENBLACK
+
+        return COL_CYANBLACK
+
     def _get_daynight_cp(self, is_day: bool) -> int:
         r"""Get the day or night color pair"""
         if is_day:
-            return 3
-        return 4
+            return COL_WHITEBLACK
+        return COL_BLUEBLACK
 
     def _get_temp_cp(self, t: int) -> int:
         r"""Get the appropriate temperature color pair"""
 
         if t < 11:
-            return 7
+            return COL_CYANBLACK
         if 11 <= t <= 20:
-            return 6
+            return COL_GREENBLACK
         if 21 <= t <= 38:
-            return 2
+            return COL_YELOWBLACK
         if 39 <= t <= 44:
-            return 5
-        return 1
+            return COL_REDBLACK
+        return COL_YELOWRED
 
     def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
         r"""Beaufort Scale"""
 
         scale: dict[str, dict[int, int]] = {
-            "kmh": {50: 3, 89: 2, 117: 5},
-            "mph": {32: 3, 55: 2, 72: 5},
+            "kmh": {50: COL_WHITEBLACK, 89: COL_YELOWBLACK, 117: COL_REDBLACK},
+            "mph": {32: COL_WHITEBLACK, 55: COL_YELOWBLACK, 72: COL_REDBLACK},
         }
 
         for treshold in scale[unit].keys():
             if wind_speed < treshold:
                 return scale[unit][treshold]
 
-        return 1  # Extreme (Hurricane)
+        return COL_YELOWRED  # Extreme (Hurricane)
 
     def _get_sky_cp(self, sky: str) -> int:
         r"""Get the appropriate sky color pair"""
 
         d: dict[str, int] = {
             # -------------------- nice
-            "Sunny": 2,
-            "Mainly Clear": 2,
+            "Sunny": COL_YELOWBLACK,
+            "Mainly Clear": COL_YELOWBLACK,
             # -------------------- clouds
-            "Partly Cloudy": 3,
-            "Overcast": 3,
-            "Foggy": 3,
-            "Rime Fog": 3,
-            "Cloudy": 3,
+            "Partly Cloudy": COL_WHITEBLACK,
+            "Overcast": COL_WHITEBLACK,
+            "Foggy": COL_WHITEBLACK,
+            "Rime Fog": COL_WHITEBLACK,
+            "Cloudy": COL_WHITEBLACK,
             # -------------------- rains
-            "Drizzle": 4,
-            "Rain": 4,
-            "Snow": 4,
-            "Rain Showers": 4,
-            "Thunderstorm": 4,
+            "Drizzle": COL_BLUEBLACK,
+            "Rain": COL_BLUEBLACK,
+            "Snow": COL_BLUEBLACK,
+            "Rain Showers": COL_BLUEBLACK,
+            "Thunderstorm": COL_BLUEBLACK,
         }
         if sky not in d:
             raise Exception(f"Invalid sky value '{sky}'.")
@@ -1048,14 +1118,14 @@ class ColorViews(Views):
 
         d: dict[str, int] = {
             # -------------------- green
-            "Good": 6,
+            "Good": COL_GREENBLACK,
             # -------------------- yellow
-            "Moderate": 2,
-            "Unhealthy for Sensitive Groups": 2,
+            "Moderate": COL_YELOWBLACK,
+            "Unhealthy for Sensitive Groups": COL_YELOWBLACK,
             # -------------------- red
-            "Unhealthy": 5,
-            "Very Unhealthy": 5,
-            "Hazardous": 5,
+            "Unhealthy": COL_REDBLACK,
+            "Very Unhealthy": COL_REDBLACK,
+            "Hazardous": COL_REDBLACK,
         }
         if aqistr not in d:
             raise Exception(f"Invalid AQI value '{aqistr}'.")
@@ -1063,8 +1133,8 @@ class ColorViews(Views):
 
     def _get_progbar_cp(self, p: int) -> int:
         if p < 40:
-            return 4
-        return 7
+            return COL_BLUEBLACK
+        return COL_CYANBLACK
 
 
 class SetupView(Views):
@@ -1077,10 +1147,10 @@ class SetupView(Views):
         country: str = self.config.country
         followed_cities: list[dict[str | int]] = self.config.followcities
 
-        print(f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
+        print(f"""TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026
 
 ==================================================[ SETUP ]
-MAIN LOCATION     |  {city}, {province}{country}""")
+HOME LOCATION     |  {city}, {province}{country}""")
 
         print("ADDITIONAL CITIES |  ", end="")
         if len(followed_cities) == 0:
@@ -1112,6 +1182,8 @@ class SimpleView(Views):
         temperature: int = self.data.temperature
         tmin: int = self.data.min
         tmax: int = self.data.max
+        hmin: int = self.hmin
+        hmax: int = self.hmax
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
         wind: int = self.data.wind
@@ -1124,10 +1196,10 @@ class SimpleView(Views):
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
-        print(f"""TUIWEATHERGIRL {VERSION} by StrayF 2026
+        print(f"""TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026
 
 TODAY: {timenow}, {datenow}  {dst}
-Location: {city}, {province}{country}
+Home: {city}, {province}{country}
 Sky: {sky}
 Current Temp: {temperature}{tsuffix}, Today: {tmin}{tsuffix}/{tmax}{tsuffix}
 Wind: {wind}{wunit} {winddir}
@@ -1156,6 +1228,8 @@ Precipitation: {precipitation}%
         cache.temperature = temperature
         cache.tmin = tmin
         cache.tmax = tmax
+        cache.hmin = hmin
+        cache.hmax = hmax
         cache.wind = wind
         cache.wind_direction = winddir
         cache.aqi = aqi
@@ -1220,11 +1294,11 @@ class NiceView(Views):
         title_win.addstr(
             1,
             2,
-            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026",
+            f"TUIWEATHERGIRL {VERSION}                      Evgueni Antonov (StrayF) 2026",
         )
 
         location_win.attron(curses.A_DIM)
-        location_win.addstr(0, 0, f"Location: {city}, {province}{country}")
+        location_win.addstr(0, 0, f"Home: {city}, {province}{country}")
 
         last_refresh: str = ""
 
@@ -1249,6 +1323,8 @@ class NiceView(Views):
             temperature: int = self.data.temperature
             tmin: int = self.data.min
             tmax: int = self.data.max
+            hmin: int = self.hmin
+            hmax: int = self.hmax
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -1267,6 +1343,8 @@ class NiceView(Views):
             cache.temperature = temperature
             cache.tmin = tmin
             cache.tmax = tmax
+            cache.hmin = hmin
+            cache.hmax = hmax
             cache.wind = wind
             cache.wind_direction = winddir
             cache.aqi = aqi
@@ -1407,24 +1485,15 @@ class ColorView(ColorViews):
     def screen(self, stdscr: curses.window) -> None:
         # Color definitions
         curses.start_color()
-        curses.init_pair(1, curses.COLOR_YELLOW, curses.COLOR_RED)  # Warnings
-        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Sunny
-        curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_BLACK)  # Cloudy
-        curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
-        curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
-        curses.init_pair(6, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
-        curses.init_pair(7, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
+        curses.init_pair(COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED)  # Warnings
+        curses.init_pair(COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Sunny
+        curses.init_pair(COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK)  # Cloudy
+        curses.init_pair(COL_BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
+        curses.init_pair(COL_REDBLACK, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
+        curses.init_pair(COL_GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
+        curses.init_pair(COL_CYANBLACK, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
 
         stdscr.attron(curses.A_DIM)
-
-        # Color indexes
-        col_warn: int = 1
-        col_sunny: int = 2
-        col_cloudy: int = 3
-        col_rain: int = 4
-        col_bad: int = 5
-        col_good: int = 6
-        col_title: int = 7
 
         forecaster: WeatherForecaster = WeatherForecaster(self.config)
 
@@ -1457,18 +1526,18 @@ class ColorView(ColorViews):
         brief_win = curses.newwin(1, view_width, 25, 1)
         last_refresh_win = curses.newwin(1, view_width, 26, 1)
 
-        title_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+        title_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
         title_win.box()
-        title_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
-        title_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+        title_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
+        title_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
         title_win.addstr(
             1,
             2,
-            f"TUIWEATHERGIRL {VERSION}                                     by StrayF 2026",
+            f"TUIWEATHERGIRL {VERSION}                      Evgueni Antonov (StrayF) 2026",
         )
-        title_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+        title_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
 
-        location_win.addstr(0, 0, f"Location: {city}, {province}{country}")
+        location_win.addstr(0, 0, f"Home: {city}, {province}{country}")
 
         last_refresh: str = ""
 
@@ -1491,6 +1560,8 @@ class ColorView(ColorViews):
             temperature: int = self.data.temperature
             tmin: int = self.data.min
             tmax: int = self.data.max
+            hmin: int = self.hmin
+            hmax: int = self.hmax
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -1509,6 +1580,8 @@ class ColorView(ColorViews):
             cache.temperature = temperature
             cache.tmin = tmin
             cache.tmax = tmax
+            cache.hmin = hmin
+            cache.hmax = hmax
             cache.wind = wind
             cache.wind_direction = winddir
             cache.aqi = aqi
@@ -1538,18 +1611,18 @@ class ColorView(ColorViews):
 
             status_win.erase()
             status_win.move(0, 0)
-            status_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            status_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
             status_win.box()
             status_win.addstr(2, 0, "├──────────────────────────────────┤")
-            status_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
-            status_win.attron(curses.color_pair(col_title))
+            status_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
+            status_win.attron(curses.color_pair(COL_CYANBLACK))
             status_win.addstr(1, 11, "CURRENT STATUS")
-            status_win.attroff(curses.color_pair(col_title))
-            status_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+            status_win.attroff(curses.color_pair(COL_CYANBLACK))
+            status_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
             status_win.addstr(3, 3, "Sky    :")
             status_win.addstr(4, 3, "Temp   :")
             status_win.addstr(5, 3, "Range  :")
-            status_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+            status_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
             status_win.attron(curses.color_pair(self._get_sky_cp(sky)))
             status_win.addstr(3, datax, sky)
             status_win.attroff(curses.color_pair(self._get_sky_cp(sky)))
@@ -1566,64 +1639,64 @@ class ColorView(ColorViews):
 
             air_win.erase()
             air_win.move(0, 0)
-            air_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            air_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
             air_win.box()
             air_win.addstr(2, 0, "├──────────────────────────────────┤")
-            air_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
-            air_win.attron(curses.color_pair(col_title))
+            air_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
+            air_win.attron(curses.color_pair(COL_CYANBLACK))
             air_win.addstr(1, 10, "AIR & CONDITIONS")
-            air_win.attroff(curses.color_pair(col_title))
-            air_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+            air_win.attroff(curses.color_pair(COL_CYANBLACK))
+            air_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
             air_win.addstr(3, 3, "Wind   :")
             air_win.addstr(4, 3, "AQI    :")
             air_win.addstr(5, 3, "Precip :")
-            air_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
-            air_win.attron(curses.color_pair(col_cloudy))
+            air_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
+            air_win.attron(curses.color_pair(COL_WHITEBLACK))
             air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
-            air_win.attroff(curses.color_pair(col_cloudy))
+            air_win.attroff(curses.color_pair(COL_WHITEBLACK))
             air_win.attron(curses.color_pair(self._get_aqistr_cp(airquality)))
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
             air_win.attroff(curses.color_pair(self._get_aqistr_cp(airquality)))
-            air_win.attron(curses.color_pair(col_rain))
+            air_win.attron(curses.color_pair(COL_BLUEBLACK))
             air_win.addstr(5, datax, "[")
-            air_win.attroff(curses.color_pair(col_rain))
+            air_win.attroff(curses.color_pair(COL_BLUEBLACK))
             air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
             air_win.addstr(5, datax + 1, self.prog_bar(precipitation))
             air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
-            air_win.attron(curses.color_pair(col_rain))
+            air_win.attron(curses.color_pair(COL_BLUEBLACK))
             air_win.addstr(5, datax + 10, "]")
-            air_win.attroff(curses.color_pair(col_rain))
+            air_win.attroff(curses.color_pair(COL_BLUEBLACK))
             air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
             air_win.addstr(5, datax + 12, f"{precipitation}%  ")
             air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
 
             forecast_win.erase()
             forecast_win.move(0, 0)
-            forecast_win.attron(curses.color_pair(col_rain) | curses.A_DIM)
+            forecast_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
             forecast_win.box()
-            forecast_win.attroff(curses.color_pair(col_rain) | curses.A_DIM)
-            forecast_win.attron(curses.color_pair(col_title))
+            forecast_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
+            forecast_win.attron(curses.color_pair(COL_CYANBLACK))
             forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
-            forecast_win.attroff(curses.color_pair(col_title))
+            forecast_win.attroff(curses.color_pair(COL_CYANBLACK))
             forecast_win.attroff(curses.A_DIM)
 
             warnings_win.erase()
             warnings_win.move(0, 0)
-            warnings_win.attron(curses.color_pair(col_bad))
+            warnings_win.attron(curses.color_pair(COL_REDBLACK))
             warnings_win.box()
-            warnings_win.attroff(curses.color_pair(col_bad))
-            warnings_win.attron(curses.color_pair(col_cloudy))
+            warnings_win.attroff(curses.color_pair(COL_REDBLACK))
+            warnings_win.attron(curses.color_pair(COL_WHITEBLACK))
             warnings_win.addstr(0, 30, " WARNINGS ")
-            warnings_win.attroff(curses.color_pair(col_cloudy))
+            warnings_win.attroff(curses.color_pair(COL_WHITEBLACK))
             if len(warnings) > 0:
-                warnings_win.attron(curses.color_pair(col_sunny))
+                warnings_win.attron(curses.color_pair(COL_YELOWBLACK))
                 for i in range(len(warnings)):
                     warnings_win.addstr(1 + i, 2, warnings[i])
-                warnings_win.attroff(curses.color_pair(col_bad))
+                warnings_win.attroff(curses.color_pair(COL_YELOWBLACK))
             else:
-                warnings_win.attron(curses.color_pair(col_good) | curses.A_DIM)
+                warnings_win.attron(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
                 warnings_win.addstr(1, 2, "No warnings.")
-                warnings_win.attroff(curses.color_pair(col_good) | curses.A_DIM)
+                warnings_win.attroff(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
 
             brief_win.erase()
             brief_win.move(0, 0)
@@ -1650,29 +1723,29 @@ class ColorView(ColorViews):
                 dow: str = day.dow
 
                 forecast_win.move(wy, wx)
-                forecast_win.attron(curses.color_pair(col_cloudy) | curses.A_DIM)
+                forecast_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
                 forecast_win.addstr(wy, wx, f"{dow}:")
-                forecast_win.attroff(curses.color_pair(col_cloudy) | curses.A_DIM)
+                forecast_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
                 forecast_win.attron(curses.color_pair(self._get_temp_cp(dmin)))
                 tmins = f"{dmin:>2}°"
                 forecast_win.addstr(wy, wx + 5, f"{tmins}:")
                 forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmin)))
-                forecast_win.attron(curses.color_pair(col_cloudy))
+                forecast_win.attron(curses.color_pair(COL_WHITEBLACK))
                 forecast_win.addstr(wy, wx + 8, "/")
-                forecast_win.attroff(curses.color_pair(col_cloudy))
+                forecast_win.attroff(curses.color_pair(COL_WHITEBLACK))
                 forecast_win.attron(curses.color_pair(self._get_temp_cp(dmax)))
                 tmaxs = f"{dmax}°{tsuffix}"
                 forecast_win.addstr(wy, wx + 9, f"{tmaxs}")
                 forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmax)))
-                forecast_win.attron(curses.color_pair(col_rain))
+                forecast_win.attron(curses.color_pair(COL_BLUEBLACK))
                 forecast_win.addstr(wy, wx + 14, "[")
-                forecast_win.attroff(curses.color_pair(col_rain))
+                forecast_win.attroff(curses.color_pair(COL_BLUEBLACK))
                 forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
                 forecast_win.addstr(wy, wx + 15, self.prog_bar(dprecip))
                 forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
-                forecast_win.attron(curses.color_pair(col_rain))
+                forecast_win.attron(curses.color_pair(COL_BLUEBLACK))
                 forecast_win.addstr(wy, wx + 25, "]")
-                forecast_win.attroff(curses.color_pair(col_rain))
+                forecast_win.attroff(curses.color_pair(COL_BLUEBLACK))
                 forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
                 forecast_win.addstr(wy, wx + 27, f"{dprecip}%  ")
                 forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
@@ -1746,6 +1819,12 @@ if __name__ == "__main__":
             "--removecity",
             dest="city",
             help="Remove a city which is currently followed",
+        )
+        action_group.add_argument(
+            "--sethome",
+            dest="home",
+            type=int,
+            help="Set which city is home (city must be already added)",
         )
         cli_parser.add_argument(
             "--country",
