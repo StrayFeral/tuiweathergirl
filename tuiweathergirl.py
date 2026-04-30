@@ -9,6 +9,8 @@ import csv
 import curses
 import os
 import re
+import socket
+import sys
 import tempfile
 import time
 import traceback
@@ -82,6 +84,19 @@ COL_BLUEBLACK: int = 4
 COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
+
+
+def ensure_single_instance(port=47382):
+    global lock_socket
+    lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        lock_socket.bind(("127.0.0.1", port))
+    except socket.error:
+        print("Error: TUIWeatherGirl is already running.")
+        sys.exit(1)
+
+
+ensure_single_instance()
 
 
 def get_api_problem(http_code: int) -> str:
@@ -1167,7 +1182,9 @@ HOME CITY         |  {city}, {province}{country}""")
                 (
                     print(f"{i+1}) {c["city"]}, {c["country"]}")
                     if i == 0
-                    else print(f"                  |  {i+1}) {c["city"]}, {c["country"]}")
+                    else print(
+                        f"                  |  {i+1}) {c["city"]}, {c["country"]}"
+                    )
                 )
 
         print("\nTry: tuiweathergirl --help")
@@ -1883,7 +1900,7 @@ if __name__ == "__main__":
 
         # Add or remove city
         if cli_city:
-            if city_add:
+            if city_add:  # Add city
                 config.follow_city(cli_city, cli_country)
 
                 for i in range(len(config.followcities)):
@@ -1900,7 +1917,7 @@ if __name__ == "__main__":
                             **config.followcities[i],
                             **city_entry,
                         }  # Update values
-            else:
+            else:  # Remove city
                 found: bool = False
                 for i, c in enumerate(config.followcities):
                     if cli_city == c["city"] and cli_country == c["country"]:
@@ -1913,25 +1930,75 @@ if __name__ == "__main__":
                     )
 
             config.save()  # Update config
-        
+
+        # Change home city
         if cli_arguments.homecity:
             if len(config.followcities) == 0:
-                raise Exception("There are no currently added cities. You must add a city first with `--addcity`.")
+                raise Exception(
+                    "There are no currently added cities. You must add a city first with `--addcity`."
+                )
             if 1 <= cli_arguments.homecity > len(config.followcities):
-                raise Exception(f"City must be a number between 1 and {len(config.followcities)}.")
-            
-            config.country, config.followcities[cli_arguments.homecity-1]["country"] = config.followcities[cli_arguments.homecity-1]["country"], config.country
-            config.country_code2, config.followcities[cli_arguments.homecity-1]["country_code2"] = config.followcities[cli_arguments.homecity-1]["country_code2"], config.country_code2
-            config.city, config.followcities[cli_arguments.homecity-1]["city"] = config.followcities[cli_arguments.homecity-1]["city"], config.city
-            config.postal_code, config.followcities[cli_arguments.homecity-1]["postal_code"] = config.followcities[cli_arguments.homecity-1]["postal_code"], config.postal_code
-            config.province, config.followcities[cli_arguments.homecity-1]["province"] = config.followcities[cli_arguments.homecity-1]["province"], config.province
-            config.lat, config.followcities[cli_arguments.homecity-1]["lat"] = config.followcities[cli_arguments.homecity-1]["lat"], config.lat
-            config.lon, config.followcities[cli_arguments.homecity-1]["lon"] = config.followcities[cli_arguments.homecity-1]["lon"], config.lon
-            config.continent_code, config.followcities[cli_arguments.homecity-1]["continent_code"] = config.followcities[cli_arguments.homecity-1]["continent_code"], config.continent_code
-            config.timezone, config.followcities[cli_arguments.homecity-1]["timezone"] = config.followcities[cli_arguments.homecity-1]["timezone"], config.timezone
+                raise Exception(
+                    f"City must be a number between 1 and {len(config.followcities)}."
+                )
 
-            print(f"Home city is now set to: {config.city}, {config.country}")
+            (
+                config.country,
+                config.followcities[cli_arguments.homecity - 1]["country"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["country"],
+                config.country,
+            )
+            (
+                config.country_code2,
+                config.followcities[cli_arguments.homecity - 1]["country_code2"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["country_code2"],
+                config.country_code2,
+            )
+            config.city, config.followcities[cli_arguments.homecity - 1]["city"] = (
+                config.followcities[cli_arguments.homecity - 1]["city"],
+                config.city,
+            )
+            (
+                config.postal_code,
+                config.followcities[cli_arguments.homecity - 1]["postal_code"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["postal_code"],
+                config.postal_code,
+            )
+            (
+                config.province,
+                config.followcities[cli_arguments.homecity - 1]["province"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["province"],
+                config.province,
+            )
+            config.lat, config.followcities[cli_arguments.homecity - 1]["lat"] = (
+                config.followcities[cli_arguments.homecity - 1]["lat"],
+                config.lat,
+            )
+            config.lon, config.followcities[cli_arguments.homecity - 1]["lon"] = (
+                config.followcities[cli_arguments.homecity - 1]["lon"],
+                config.lon,
+            )
+            (
+                config.continent_code,
+                config.followcities[cli_arguments.homecity - 1]["continent_code"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["continent_code"],
+                config.continent_code,
+            )
+            (
+                config.timezone,
+                config.followcities[cli_arguments.homecity - 1]["timezone"],
+            ) = (
+                config.followcities[cli_arguments.homecity - 1]["timezone"],
+                config.timezone,
+            )
+
             config.save()  # Update config
+            print(f"Home city is now set to: {config.city}, {config.country}")
             exit(0)
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
