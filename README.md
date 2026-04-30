@@ -51,8 +51,16 @@ The application have minimal dependencies (only `python3-babel`) and is portabil
 
 ## INSTALLATION
 
+### LINUX/UNIX
+
 ```bash
 make install
+```
+
+### WINDOWS
+
+```batch
+windows_install.bat
 ```
 
 ## USAGE
