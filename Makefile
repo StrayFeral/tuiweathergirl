@@ -4,7 +4,6 @@ SHELL := /bin/bash
 
 # by StrayF 2026
 
-PACKAGE = python3-babel
 BIN_DIR = $(HOME)/.local/bin
 SCRIPT_NAME = tuiweathergirl.py
 TARGET_NAME = tuiweathergirl
@@ -14,7 +13,10 @@ TARGET_NAME = tuiweathergirl
 MAKEFILEPATH := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 install:
-	sudo apt-get update && sudo apt-get install -y $(PACKAGE)
+	@if ! command -v python3 &> /dev/null; then \
+		sudo apt-get update && sudo apt-get install -y python3; \
+	fi
+	sudo apt-get update && sudo apt-get install -y python3-babel python3-requests libncurses6 tzdata
 	mkdir -p $(BIN_DIR)
 	cp $(SCRIPT_NAME) $(BIN_DIR)/$(TARGET_NAME)
 	chmod +x $(BIN_DIR)/$(TARGET_NAME)
