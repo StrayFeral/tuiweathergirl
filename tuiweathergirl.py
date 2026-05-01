@@ -1040,7 +1040,7 @@ class WeatherForecaster:
         r"""Simplified WMO Weather interpretation codes"""
 
         mapping: dict[int, str] = {
-            0: "Sunny",
+            0: "Clear",
             1: "Mainly Clear",
             2: "Partly Cloudy",
             3: "Overcast",
@@ -1123,6 +1123,7 @@ class WeatherForecaster:
         tunit = "celsius" if self.config.celsius else "fahrenheit"
         wunit = "kmh" if self.config.metric else "mph"
 
+        #  &timezone=auto # current
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={self.config.lat}&longitude={self.config.lon}"
@@ -1146,7 +1147,7 @@ class WeatherForecaster:
 
         if cache.loaded:
             # Fill the object with data
-            weather_data.is_day = cache.is_day  # True if cache.is_day == "1" else False
+            weather_data.is_day = cache.is_day
             weather_data.sky = cache.sky
             weather_data.temperature = cache.temperature
             weather_data.min = cache.tmin
@@ -1195,7 +1196,7 @@ class WeatherForecaster:
             aqi: str = aq_result["current"]["us_aqi"]
 
             # Fill the object with data
-            weather_data.is_day = True if current["weather_code"] == "1" else False
+            weather_data.is_day = True if current["is_day"] == "1" else False
             weather_data.sky = self.__get_weather_description(current["weather_code"])
             weather_data.temperature = int(current["temperature_2m"])
             weather_data.min = int(daily["temperature_2m_min"][0])
@@ -1249,15 +1250,45 @@ class PresentationConfiguration:
         self.time24: bool = config.time24
         self.timezone: str = config.timezone
         self.date_format_length: str = config.date_format_length
+        self.continent_code: str = config.continent_code
 
         self.date: str = ""
         self.time: str = ""
+        self.dow: str = ""
+        self.season: str = ""
+
+    def get_season(self, continent_code: str) -> str:
+        now: datetime = datetime.now()
+        md: int = now.month * 100 + now.day  # May 2nd is 502
+        season: str = "Winter"
+
+        if 320 <= md < 621:
+            season = "Spring"
+        if 621 <= md < 922:
+            season = "Summer"
+        if 922 <= md < 1221:
+            season = "Fall"
+
+        if continent_code in ["SA", "OC", "AN", "AF"]:
+            # Logic to flip seasons for the South
+            flip = {
+                "Spring": "Fall",
+                "Summer": "Winter",
+                "Fall": "Spring",
+                "Winter": "Summer",
+            }
+            return flip[season]
+
+        return season
 
     def update_time(self) -> str:
         now = datetime.now(ZoneInfo(self.timezone))
         self.date = format_date(
             now, format=self.date_format_length, locale=self.locale_id
         )
+        # self.dow = format_date(now, format="cccccc", locale=self.locale_id).title()
+        self.dow = format_date(now, format="EEE", locale="en_US").title()
+        self.season = self.get_season(self.continent_code)
 
         # Time 12/24
         time_pattern = "%H:%M" if self.time24 else "%I:%M %p"
@@ -1375,7 +1406,7 @@ class ColorViews(Views):
 
         d: dict[str, int] = {
             # -------------------- nice
-            "Sunny": COL_YELOWBLACK,
+            "Clear": COL_YELOWBLACK,
             "Mainly Clear": COL_YELOWBLACK,
             # -------------------- clouds
             "Partly Cloudy": COL_WHITEBLACK,
@@ -1456,7 +1487,9 @@ class SimpleView(Views):
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
-        dst: str = "*DST*" if self.config.dst else ""
+        dow: str = self.presconf.dow
+        season: str = self.presconf.season
+        dstmark: str = "*" if self.config.dst else ""
         # ---
         city: str = self.config.city
         province: str = self.presconf.province
@@ -1479,25 +1512,31 @@ class SimpleView(Views):
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
+        day: str = "day" if is_day else "night"
+
+        hr: str = "============================"
+
         print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
 
-TODAY: {timenow}, {datenow}  {dst}
-Home: {city}, {province}{country}
-Sky: {sky}
-Current Temp: {temperature}{tsuffix}, Today: {tmin}{tsuffix}/{tmax}{tsuffix}
+TODAY                  ({dow})
+{hr}
+It is a {sky} {season} {day} in {city}, {province}{country} on {datenow} at {timenow}{dstmark}.
+Current Temp: {temperature}°{tsuffix}, Today: {tmin}°/{tmax}°{tsuffix}
 Wind: {wind}{wunit} {winddir}
 Air Quality (AQI): {aqi} ({airquality})
 Precipitation: {precipitation}%
+Humidity: {hmin}/{hmax}%
 """)
 
-        print("7-DAY FORECAST:")
+        print("7-DAY FORECAST")
+        print(hr)
         for day in week:
             dmin: int = day.min
             dmax: int = day.max
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}/{dmax}{tsuffix}"
+            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
             print(f"  {dow}: {temperatures:<6} | {dprecip:>3}%")
 
         for warning in warnings:
@@ -1518,6 +1557,7 @@ Precipitation: {precipitation}%
         cache.aqi = aqi
         cache.precipitation = precipitation
         cache.weather_code = self.data.weather_code
+        cache.is_day = is_day
 
         cache.warning = "No warnings."
         if len(warnings) > 0:
@@ -1595,7 +1635,9 @@ class NiceView(Views):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
-            dst: str = "*DST*" if self.config.dst else ""
+            dow: str = self.presconf.dow
+            season: str = self.presconf.season
+            dstmark: str = "*" if self.config.dst else ""
 
             if len(last_refresh) == 0:
                 last_refresh = f"Last refresh: {datenow} {timenow}"
@@ -1633,6 +1675,7 @@ class NiceView(Views):
             cache.aqi = aqi
             cache.precipitation = precipitation
             cache.weather_code = self.data.weather_code
+            cache.is_day = is_day
 
             cache.warning = "No warnings."
             if len(warnings) > 0:
@@ -1838,7 +1881,9 @@ class ColorView(ColorViews):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
-            dst: str = "*DST*" if self.config.dst else ""
+            dow: str = self.presconf.dow
+            season: str = self.presconf.season
+            dstmark: str = "*" if self.config.dst else ""
 
             if len(last_refresh) == 0:
                 last_refresh = f"Last refresh: {datenow} {timenow}"
@@ -1876,6 +1921,7 @@ class ColorView(ColorViews):
             cache.aqi = aqi
             cache.precipitation = precipitation
             cache.weather_code = self.data.weather_code
+            cache.is_day = is_day
 
             cache.warning = "No warnings."
             if len(warnings) > 0:
