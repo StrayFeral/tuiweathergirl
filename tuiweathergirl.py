@@ -60,7 +60,9 @@ HOW DOES TUIWEATHERGIRL WORKS:
     - You may add up to 10 additional cities, but not every view will show them all
 
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
+Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.com/
 """
+APIKEYENVVARNAME: str = "TIMEZONEAPIKEY"
 MIN_COLS: int = 79
 MIN_LINES: int = 24
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
@@ -827,10 +829,16 @@ class Locator:
             addr: dict = location.get("address", {})
             lat: str = location.get("lat", "")
             lon: str = location.get("lon", "")
+            apikey: str = os.getenv(APIKEYENVVARNAME)
+
+            if not apikey:
+                raise Exception(
+                    f"Environment variable {APIKEYENVVARNAME} is not set. Please get API key and set it in this variable before running this application."
+                )
 
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
-            url = f"http://api.timezonedb.com/v2.1/get-time-zone?key=P6010WN96110&format=json&by=position&lat={lat}&lng={lon}"
+            url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
             response: requests.Response = requests.get(url)
             self.tzapi_calls += 1
 
@@ -1457,8 +1465,8 @@ class SimpleView(Views):
         temperature: int = self.data.temperature
         tmin: int = self.data.min
         tmax: int = self.data.max
-        hmin: int = self.hmin
-        hmax: int = self.hmax
+        hmin: int = self.data.hmin
+        hmax: int = self.data.hmax
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
         wind: int = self.data.wind
@@ -1598,8 +1606,8 @@ class NiceView(Views):
             temperature: int = self.data.temperature
             tmin: int = self.data.min
             tmax: int = self.data.max
-            hmin: int = self.hmin
-            hmax: int = self.hmax
+            hmin: int = self.data.hmin
+            hmax: int = self.data.hmax
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -1841,8 +1849,8 @@ class ColorView(ColorViews):
             temperature: int = self.data.temperature
             tmin: int = self.data.min
             tmax: int = self.data.max
-            hmin: int = self.hmin
-            hmax: int = self.hmax
+            hmin: int = self.data.hmin
+            hmax: int = self.data.hmax
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -2099,6 +2107,7 @@ class ParseCommandline:
         action_group.add_argument(
             "--addcity",
             dest="newcity",
+            default="",
             help="Add a new city to follow",
         )
         action_group.add_argument(
@@ -2115,6 +2124,7 @@ class ParseCommandline:
         cli_parser.add_argument(
             "--country",
             dest="country",
+            default="",
             help="Which country is that city in",
         )
         cli_parser.add_argument(
@@ -2126,13 +2136,13 @@ class ParseCommandline:
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
-        if "version" in args:
+        if args.get("version"):
             print(DESCRIPTION_HELP)
             sys.exit(0)
 
-        if "newcity" in args:
+        if args.get("newcity"):
             args["newcity"] = args["newcity"].strip().title()
-        if "country" in args:
+        if args.get("country"):
             args["country"] = args["country"].strip().title()
 
             # Proper abbreviations support
@@ -2264,8 +2274,15 @@ if __name__ == "__main__":
 
         DEBUG_MODE = cli_arguments["debug"]
 
-        if ("city" in cli_arguments) ^ ("country" in cli_arguments):
-            raise Exception("City and country must be passed together.")
+        if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
+            raise Exception("City and country must be provided together.")
+
+        # No point to run everything if this is not set
+        apikey: str = os.getenv(APIKEYENVVARNAME)
+        if not apikey:
+            raise Exception(
+                f"Environment variable {APIKEYENVVARNAME} is not set. Run the app with --help"
+            )
 
         # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
         config: Configuration = Configuration()
@@ -2282,13 +2299,13 @@ if __name__ == "__main__":
         config.load()
 
         # Location management
-        if "city" in cli_arguments:
+        if cli_arguments.get("newcity"):
             location_manager.add_city(
-                cli_arguments["city"], cli_arguments["country"], config
+                cli_arguments["newcity"], cli_arguments["country"], config
             )
-        if "removecity" in cli_arguments:
+        if cli_arguments.get("removecity"):
             location_manager.remove_city(cli_arguments["removecity"], config)
-        if "homecity" in cli_arguments:
+        if cli_arguments.get("homecity"):
             location_manager.set_home(cli_arguments["homecity"], config)
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
@@ -2296,7 +2313,7 @@ if __name__ == "__main__":
         forecaster.get_data(weather_data)
 
         weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
-        weather_girl.present(cli_arguments.view)
+        weather_girl.present(cli_arguments.get("view"))
 
     except Exception as e:
         print(

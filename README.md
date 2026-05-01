@@ -51,15 +51,24 @@ The application have minimal dependencies (only `python3-babel`) and is portabil
 
 ## INSTALLATION
 
+1. Create a *FREE* account on https://timezonedb.com/
+2. Get a *FREE* API key
+3. Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
+
+> The application will not work without this API key set in the environment
+
 ### LINUX/UNIX
 
 ```bash
+printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
+source ~/.profile
 make install
 ```
 
 ### WINDOWS
 
 ```batch
+setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
 windows_install.bat
 ```
 
