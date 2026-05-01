@@ -25,6 +25,12 @@ from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
 
+# Normally I don't leave global variables hanging in the source just like that
+# however since this application was designed to be a single file from the
+# very begining and I knew it would grow-up in size, I intentionally left these
+# here, as I tend to change them time to time and don't want to
+# scroll too much to find them
+
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "color"
 APPVERSION: str = "1.0"
@@ -73,17 +79,16 @@ COL_CYANBLACK: int = 7
 class InstanceGuard:
     @staticmethod
     def ensure_single_instance(port=47382):
+        ip: str = "127.0.0.1"
         global lock_socket
         lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            lock_socket.bind(("127.0.0.1", port))
+            lock_socket.bind((ip, port))
         except socket.error:
-            print("Error: TUIWeatherGirl is already running.")
-            sys.exit(1)
-
-
-InstanceGuard.ensure_single_instance()
+            raise Exception(
+                "Error: Application is already running. If you suspect another instance stalled, please check applications listening at {ip}:{port}."
+            )
 
 
 class APIIssues:
@@ -2071,8 +2076,8 @@ class WeatherGirl:
         self.views[view or self.view].display()
 
 
-if __name__ == "__main__":
-    try:
+class ParseCommandline:
+    def parse(self) -> dict[str, str | int | bool]:
         cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
             formatter_class=argparse.RawDescriptionHelpFormatter,
             prog="tuiweathergirl",
@@ -2119,29 +2124,152 @@ if __name__ == "__main__":
             help="A bit more printing on errors",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
+        args: dict[str, str | int | bool] = vars(cli_arguments)
 
-        if cli_arguments.version:
+        if "version" in args:
             print(DESCRIPTION_HELP)
             sys.exit(0)
 
-        cli_city: str = (
-            cli_arguments.newcity.strip().title() if cli_arguments.newcity else ""
-        )
-        cli_country: str = ""
-        if cli_arguments.country:
-            cli_country = cli_arguments.country.strip().title()
+        if "newcity" in args:
+            args["newcity"] = args["newcity"].strip().title()
+        if "country" in args:
+            args["country"] = args["country"].strip().title()
 
             # Proper abbreviations support
-            if cli_country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
-                cli_country = cli_country.upper()
+            if args["country"].upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
+                args["country"] = args["country"].upper()
 
-        DEBUG_MODE = cli_arguments.debug
+        return args
 
-        if bool(cli_city) != bool(cli_country):
+
+class LocationManager:
+    def set_home(self, citynum: int, config: Configuration) -> None:
+        r"""Change home city"""
+
+        if len(config.followcities) == 0:
+            raise Exception(
+                "There are no currently added cities. You must first add a city with `--addcity`."
+            )
+        if 1 <= citynum > len(config.followcities):
+            raise Exception(
+                f"City must be a number between 1 and {len(config.followcities)}."
+            )
+
+        (
+            config.country,
+            config.followcities[citynum - 1]["country"],
+        ) = (
+            config.followcities[citynum - 1]["country"],
+            config.country,
+        )
+        (
+            config.country_code2,
+            config.followcities[citynum - 1]["country_code2"],
+        ) = (
+            config.followcities[citynum - 1]["country_code2"],
+            config.country_code2,
+        )
+        config.city, config.followcities[citynum - 1]["city"] = (
+            config.followcities[citynum - 1]["city"],
+            config.city,
+        )
+        (
+            config.postal_code,
+            config.followcities[citynum - 1]["postal_code"],
+        ) = (
+            config.followcities[citynum - 1]["postal_code"],
+            config.postal_code,
+        )
+        (
+            config.province,
+            config.followcities[citynum - 1]["province"],
+        ) = (
+            config.followcities[citynum - 1]["province"],
+            config.province,
+        )
+        config.lat, config.followcities[citynum - 1]["lat"] = (
+            config.followcities[citynum - 1]["lat"],
+            config.lat,
+        )
+        config.lon, config.followcities[citynum - 1]["lon"] = (
+            config.followcities[citynum - 1]["lon"],
+            config.lon,
+        )
+        (
+            config.continent_code,
+            config.followcities[citynum - 1]["continent_code"],
+        ) = (
+            config.followcities[citynum - 1]["continent_code"],
+            config.continent_code,
+        )
+        (
+            config.timezone,
+            config.followcities[citynum - 1]["timezone"],
+        ) = (
+            config.followcities[citynum - 1]["timezone"],
+            config.timezone,
+        )
+
+        config.save()  # Update config
+        print(f"Home city is now set to: {config.city}, {config.country}")
+        sys.exit(0)
+
+    def remove_city(self, citynum: int, config: Configuration) -> None:
+        r"""Remove a currently followed city"""
+
+        if len(config.followcities) == 0:
+            raise Exception(
+                "There are no currently added cities. You must first add a city with `--addcity`."
+            )
+        if 1 <= citynum > len(config.followcities):
+            raise Exception(
+                f"City must be a number between 1 and {len(config.followcities)}."
+            )
+
+        # city: str = config.followcities[citynum - 1]["city"]
+        # country: str = config.followcities[citynum - 1]["country"]
+        del config.followcities[citynum - 1]
+
+        config.save()  # Update config
+        # print(f"Removed city: {city}, {country}")
+        # sys.exit(0)
+
+    def add_city(self, city: str, country: str, config: Configuration) -> None:
+        r"""Add a new city to follow"""
+
+        config.follow_city(cli_arguments["city"], cli_arguments["country"])
+
+        for i in range(len(config.followcities)):
+            locator: Locator = Locator()
+
+            if "lat" not in config.followcities[i]:
+                city_entry: dict[str | int] = locator.config(
+                    config,
+                    config.followcities[i]["city"],
+                    config.followcities[i]["country"],
+                )
+                config.followcities[i] = {
+                    **config.followcities[i],
+                    **city_entry,
+                }  # Update values
+        config.save()  # Update config
+
+
+# ================================================================[ MAIN LOOP ]
+if __name__ == "__main__":
+    try:
+        InstanceGuard.ensure_single_instance()
+        parser: ParseCommandline = ParseCommandline()
+        cli_arguments: dict[str, str | int | bool] = parser.parse()
+
+        DEBUG_MODE = cli_arguments["debug"]
+
+        if ("city" in cli_arguments) ^ ("country" in cli_arguments):
             raise Exception("City and country must be passed together.")
 
         # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
         config: Configuration = Configuration()
+        location_manager: LocationManager = LocationManager()
 
         # Attempt auto-configuration
         if not config.saved:
@@ -2153,114 +2281,15 @@ if __name__ == "__main__":
 
         config.load()
 
-        # Add a new city to follow
-        if cli_city:
-            config.follow_city(cli_city, cli_country)
-
-            for i in range(len(config.followcities)):
-                locator: Locator = Locator()
-
-                if "lat" not in config.followcities[i]:
-                    # new_city = True
-                    city_entry: dict[str | int] = locator.config(
-                        config,
-                        config.followcities[i]["city"],
-                        config.followcities[i]["country"],
-                    )
-                    config.followcities[i] = {
-                        **config.followcities[i],
-                        **city_entry,
-                    }  # Update values
-            config.save()  # Update config
-
-        # Remove a currently followed city
-        if cli_arguments.removecity:
-            if len(config.followcities) == 0:
-                raise Exception(
-                    "There are no currently added cities. You must first add a city with `--addcity`."
-                )
-            if 1 <= cli_arguments.removecity > len(config.followcities):
-                raise Exception(
-                    f"City must be a number between 1 and {len(config.followcities)}."
-                )
-
-            city: str = config.followcities[cli_arguments.removecity - 1]["city"]
-            country: str = config.followcities[cli_arguments.removecity - 1]["country"]
-            del config.followcities[cli_arguments.removecity - 1]
-
-            config.save()  # Update config
-            # print(f"Removed city: {city}, {country}")
-            # sys.exit(0)
-
-        # Change home city
-        if cli_arguments.homecity:
-            if len(config.followcities) == 0:
-                raise Exception(
-                    "There are no currently added cities. You must first add a city with `--addcity`."
-                )
-            if 1 <= cli_arguments.homecity > len(config.followcities):
-                raise Exception(
-                    f"City must be a number between 1 and {len(config.followcities)}."
-                )
-
-            (
-                config.country,
-                config.followcities[cli_arguments.homecity - 1]["country"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["country"],
-                config.country,
+        # Location management
+        if "city" in cli_arguments:
+            location_manager.add_city(
+                cli_arguments["city"], cli_arguments["country"], config
             )
-            (
-                config.country_code2,
-                config.followcities[cli_arguments.homecity - 1]["country_code2"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["country_code2"],
-                config.country_code2,
-            )
-            config.city, config.followcities[cli_arguments.homecity - 1]["city"] = (
-                config.followcities[cli_arguments.homecity - 1]["city"],
-                config.city,
-            )
-            (
-                config.postal_code,
-                config.followcities[cli_arguments.homecity - 1]["postal_code"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["postal_code"],
-                config.postal_code,
-            )
-            (
-                config.province,
-                config.followcities[cli_arguments.homecity - 1]["province"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["province"],
-                config.province,
-            )
-            config.lat, config.followcities[cli_arguments.homecity - 1]["lat"] = (
-                config.followcities[cli_arguments.homecity - 1]["lat"],
-                config.lat,
-            )
-            config.lon, config.followcities[cli_arguments.homecity - 1]["lon"] = (
-                config.followcities[cli_arguments.homecity - 1]["lon"],
-                config.lon,
-            )
-            (
-                config.continent_code,
-                config.followcities[cli_arguments.homecity - 1]["continent_code"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["continent_code"],
-                config.continent_code,
-            )
-            (
-                config.timezone,
-                config.followcities[cli_arguments.homecity - 1]["timezone"],
-            ) = (
-                config.followcities[cli_arguments.homecity - 1]["timezone"],
-                config.timezone,
-            )
-
-            config.save()  # Update config
-            print(f"Home city is now set to: {config.city}, {config.country}")
-            sys.exit(0)
+        if "removecity" in cli_arguments:
+            location_manager.remove_city(cli_arguments["removecity"], config)
+        if "homecity" in cli_arguments:
+            location_manager.set_home(cli_arguments["homecity"], config)
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
         weather_data: WeatherData = WeatherData()
