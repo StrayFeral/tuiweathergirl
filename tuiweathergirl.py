@@ -26,10 +26,10 @@ from babel.dates import format_date
 from babel.languages import get_official_languages
 
 DEBUG_MODE: bool = False
-DEFAULT_ARG: str = "color"
-VERSION: str = "1.0"
+DEFAULT_VIEW: str = "color"
+APPVERSION: str = "1.0"
 DESCRIPTION_HELP: str = (
-    f"TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
+    f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
 )
 EPILOGUE_HELP: str = """VIEWS:
     simple
@@ -57,25 +57,7 @@ PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 """
 MIN_COLS: int = 79
 MIN_LINES: int = 24
-USERAGENT: str = (
-    f"TUIWeatherGirl/{VERSION} (https://github.com/StrayFeral/tuiweathergirl)"
-)
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
-API_PROBLEMS: dict[int, str] = {
-    400: f"Bad request. Fix the API request. {SUBMIT_BUG}",
-    401: "You have been PERMANENTLY banned by the API. There is nothing I could do to help. Sorry.",
-    402: "Payment required.",
-    403: "You have been soft-banned by the API. Please wait 24 hours and try again.",
-    407: "Proxy Authentication Required.",
-    408: "Request Timeout.",
-    410: f"Seems the API provider does not exist anymore. {SUBMIT_BUG}",
-    429: "You have been temporarely banned by the API. Please wait 2 minutes and try again.",
-    500: "The API server crashed. Please try again in few hours.",
-    502: "API server problem. Please try again in few hours.",
-    503: "The API server is down for maintenance. Please try again in few hours.",
-    504: "Problem with the API server. Please try again in 10 minutes",
-    505: f"HTTP version not supported. {SUBMIT_BUG}",
-}
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 
 # Color indexes
@@ -87,228 +69,47 @@ COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
 
-CONTINENT_MAP: dict[str, list[str]] = {
-    "AF": [
-        "DZ",
-        "AO",
-        "BJ",
-        "BW",
-        "BF",
-        "BI",
-        "CV",
-        "CM",
-        "CF",
-        "TD",
-        "KM",
-        "CD",
-        "CG",
-        "CI",
-        "DJ",
-        "EG",
-        "GQ",
-        "ER",
-        "SZ",
-        "ET",
-        "GA",
-        "GM",
-        "GH",
-        "GN",
-        "GW",
-        "KE",
-        "LS",
-        "LR",
-        "LY",
-        "MG",
-        "MW",
-        "ML",
-        "MR",
-        "MU",
-        "MA",
-        "MZ",
-        "NA",
-        "NE",
-        "NG",
-        "RW",
-        "ST",
-        "SN",
-        "SC",
-        "SL",
-        "SO",
-        "ZA",
-        "SS",
-        "SD",
-        "TZ",
-        "TG",
-        "TN",
-        "UG",
-        "ZM",
-        "ZW",
-    ],
-    "AS": [
-        "AF",
-        "AM",
-        "AZ",
-        "BH",
-        "BD",
-        "BT",
-        "BN",
-        "KH",
-        "CN",
-        "CY",
-        "GE",
-        "IN",
-        "ID",
-        "IR",
-        "IQ",
-        "IL",
-        "JP",
-        "JO",
-        "KZ",
-        "KW",
-        "KG",
-        "LA",
-        "LB",
-        "MY",
-        "MV",
-        "MN",
-        "MM",
-        "NP",
-        "KP",
-        "OM",
-        "PK",
-        "PS",
-        "PH",
-        "QA",
-        "SA",
-        "SG",
-        "KR",
-        "LK",
-        "SY",
-        "TW",
-        "TJ",
-        "TH",
-        "TL",
-        "TR",
-        "TM",
-        "AE",
-        "UZ",
-        "VN",
-        "YE",
-    ],
-    "EU": [
-        "AL",
-        "AD",
-        "AT",
-        "BY",
-        "BE",
-        "BA",
-        "BG",
-        "HR",
-        "CZ",
-        "DK",
-        "EE",
-        "FI",
-        "FR",
-        "DE",
-        "GR",
-        "HU",
-        "IS",
-        "IE",
-        "IT",
-        "LV",
-        "LI",
-        "LT",
-        "LU",
-        "MT",
-        "MD",
-        "MC",
-        "ME",
-        "NL",
-        "MK",
-        "NO",
-        "PL",
-        "PT",
-        "RO",
-        "RU",
-        "SM",
-        "RS",
-        "SK",
-        "SI",
-        "ES",
-        "SE",
-        "CH",
-        "UA",
-        "GB",
-        "VA",
-    ],
-    "NA": [
-        "AG",
-        "BS",
-        "BB",
-        "BZ",
-        "CA",
-        "CR",
-        "CU",
-        "DM",
-        "DO",
-        "SV",
-        "GD",
-        "GT",
-        "HT",
-        "HN",
-        "JM",
-        "MX",
-        "NI",
-        "PA",
-        "KN",
-        "LC",
-        "VC",
-        "TT",
-        "US",
-    ],
-    "OC": [
-        "AU",
-        "FJ",
-        "KI",
-        "MH",
-        "FM",
-        "NR",
-        "NZ",
-        "PW",
-        "PG",
-        "WS",
-        "SB",
-        "TO",
-        "TV",
-        "VU",
-    ],
-    "SA": ["AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY", "VE"],
-    "AN": ["AQ"],
-}
+
+class InstanceGuard:
+    @staticmethod
+    def ensure_single_instance(port=47382):
+        global lock_socket
+        lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            lock_socket.bind(("127.0.0.1", port))
+        except socket.error:
+            print("Error: TUIWeatherGirl is already running.")
+            sys.exit(1)
 
 
-def ensure_single_instance(port=47382):
-    global lock_socket
-    lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        lock_socket.bind(("127.0.0.1", port))
-    except socket.error:
-        print("Error: TUIWeatherGirl is already running.")
-        sys.exit(1)
+InstanceGuard.ensure_single_instance()
 
 
-ensure_single_instance()
+class APIIssues:
+    _API_PROBLEMS: dict[int, str] = {
+        400: f"Bad request. Fix the API request. {SUBMIT_BUG}",
+        401: "You have been PERMANENTLY banned by the API. There is nothing I could do to help. Sorry.",
+        402: "Payment required.",
+        403: "You have been soft-banned by the API. Please wait 24 hours and try again.",
+        407: "Proxy Authentication Required.",
+        408: "Request Timeout.",
+        410: f"Seems the API provider does not exist anymore. {SUBMIT_BUG}",
+        429: "You have been temporarely banned by the API. Please wait 2 minutes and try again.",
+        500: "The API server crashed. Please try again in few hours.",
+        502: "API server problem. Please try again in few hours.",
+        503: "The API server is down for maintenance. Please try again in few hours.",
+        504: "Problem with the API server. Please try again in 10 minutes",
+        505: f"HTTP version not supported. {SUBMIT_BUG}",
+    }
 
-
-def get_api_problem(http_code: int) -> str:
-    return API_PROBLEMS[http_code] if http_code in API_PROBLEMS else ""
-
-
-def get_continent_code(country: str) -> str:
-    return next(
-        (key for key, values in CONTINENT_MAP.items() if country in values), "Unknown"
-    )
+    @staticmethod
+    def get_api_problem(http_code: int) -> str:
+        return (
+            APIIssues._API_PROBLEMS[http_code]
+            if http_code in APIIssues._API_PROBLEMS
+            else ""
+        )
 
 
 class MajorEventsLogger:
@@ -563,7 +364,7 @@ class Configuration:
         self.metric: bool = True
         self.celsius: bool = True
         self.date_format_length: str = "medium"
-        self.view: str = DEFAULT_ARG
+        self.view: str = DEFAULT_VIEW
 
         self.followcities: list[dict[str | int]] = []
 
@@ -744,8 +545,217 @@ Timezone: {self.timezone}"""
 class Locator:
     r"""Gets location data"""
 
+    __CONTINENT_MAP: dict[str, list[str]] = {
+        "AF": [
+            "DZ",
+            "AO",
+            "BJ",
+            "BW",
+            "BF",
+            "BI",
+            "CV",
+            "CM",
+            "CF",
+            "TD",
+            "KM",
+            "CD",
+            "CG",
+            "CI",
+            "DJ",
+            "EG",
+            "GQ",
+            "ER",
+            "SZ",
+            "ET",
+            "GA",
+            "GM",
+            "GH",
+            "GN",
+            "GW",
+            "KE",
+            "LS",
+            "LR",
+            "LY",
+            "MG",
+            "MW",
+            "ML",
+            "MR",
+            "MU",
+            "MA",
+            "MZ",
+            "NA",
+            "NE",
+            "NG",
+            "RW",
+            "ST",
+            "SN",
+            "SC",
+            "SL",
+            "SO",
+            "ZA",
+            "SS",
+            "SD",
+            "TZ",
+            "TG",
+            "TN",
+            "UG",
+            "ZM",
+            "ZW",
+        ],
+        "AS": [
+            "AF",
+            "AM",
+            "AZ",
+            "BH",
+            "BD",
+            "BT",
+            "BN",
+            "KH",
+            "CN",
+            "CY",
+            "GE",
+            "IN",
+            "ID",
+            "IR",
+            "IQ",
+            "IL",
+            "JP",
+            "JO",
+            "KZ",
+            "KW",
+            "KG",
+            "LA",
+            "LB",
+            "MY",
+            "MV",
+            "MN",
+            "MM",
+            "NP",
+            "KP",
+            "OM",
+            "PK",
+            "PS",
+            "PH",
+            "QA",
+            "SA",
+            "SG",
+            "KR",
+            "LK",
+            "SY",
+            "TW",
+            "TJ",
+            "TH",
+            "TL",
+            "TR",
+            "TM",
+            "AE",
+            "UZ",
+            "VN",
+            "YE",
+        ],
+        "EU": [
+            "AL",
+            "AD",
+            "AT",
+            "BY",
+            "BE",
+            "BA",
+            "BG",
+            "HR",
+            "CZ",
+            "DK",
+            "EE",
+            "FI",
+            "FR",
+            "DE",
+            "GR",
+            "HU",
+            "IS",
+            "IE",
+            "IT",
+            "LV",
+            "LI",
+            "LT",
+            "LU",
+            "MT",
+            "MD",
+            "MC",
+            "ME",
+            "NL",
+            "MK",
+            "NO",
+            "PL",
+            "PT",
+            "RO",
+            "RU",
+            "SM",
+            "RS",
+            "SK",
+            "SI",
+            "ES",
+            "SE",
+            "CH",
+            "UA",
+            "GB",
+            "VA",
+        ],
+        "NA": [
+            "AG",
+            "BS",
+            "BB",
+            "BZ",
+            "CA",
+            "CR",
+            "CU",
+            "DM",
+            "DO",
+            "SV",
+            "GD",
+            "GT",
+            "HT",
+            "HN",
+            "JM",
+            "MX",
+            "NI",
+            "PA",
+            "KN",
+            "LC",
+            "VC",
+            "TT",
+            "US",
+        ],
+        "OC": [
+            "AU",
+            "FJ",
+            "KI",
+            "MH",
+            "FM",
+            "NR",
+            "NZ",
+            "PW",
+            "PG",
+            "WS",
+            "SB",
+            "TO",
+            "TV",
+            "VU",
+        ],
+        "SA": ["AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY", "VE"],
+        "AN": ["AQ"],
+    }
+
+    _USERAGENT: str = (
+        f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
+    )
+
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
+
+    def __get_continent_code(self, country: str) -> str:
+        return next(
+            (key for key, values in self.__CONTINENT_MAP.items() if country in values),
+            "Unknown",
+        )
 
     def config(
         self, config: Configuration, city: str = "", country: str = ""
@@ -760,7 +770,7 @@ class Locator:
 
             if not response:
                 raise Exception(
-                    f"Cannot autoconfigure. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                    f"Cannot autoconfigure. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
                 )
 
             response = response.json()
@@ -789,7 +799,7 @@ class Locator:
                 country = country.upper()
 
             headers: dict[str, str] = {
-                "User-Agent": USERAGENT,
+                "User-Agent": self._USERAGENT,
             }
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
@@ -798,7 +808,7 @@ class Locator:
 
             if not response.ok:
                 raise Exception(
-                    f"Location API server error. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                    f"Location API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
                 )
 
             response = response.json()
@@ -821,7 +831,7 @@ class Locator:
 
             if not response.ok:
                 raise Exception(
-                    f"Timezone API server error. Error {response.status_code}: {get_api_problem(response.status_code)}"
+                    f"Timezone API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
                 )
 
             if not response:
@@ -842,7 +852,7 @@ class Locator:
                 "province": addr.get("state_code", addr.get("state", "")),
                 "lat": lat,
                 "lon": lon,
-                "continent_code": get_continent_code(
+                "continent_code": self._get_continent_code(
                     addr.get("country_code", "").upper()
                 ),
                 "timezone": response.get("zoneName", ""),
@@ -1156,11 +1166,11 @@ class WeatherForecaster:
 
             if not weather_result:
                 raise Exception(
-                    f"Cannot obtain weather data. Error {weather_result.status_code}: {get_api_problem(weather_result.status_code)}"
+                    f"Cannot obtain weather data. Error {weather_result.status_code}: {APIIssues.get_api_problem(weather_result.status_code)}"
                 )
             if not aq_result:
                 raise Exception(
-                    f"Cannot obtain air quality data. Error {aq_result.status_code}: {get_api_problem(aq_result.status_code)}"
+                    f"Cannot obtain air quality data. Error {aq_result.status_code}: {APIIssues.get_api_problem(aq_result.status_code)}"
                 )
 
             weather_result = weather_result.json()
@@ -1405,7 +1415,7 @@ class SetupView(Views):
         country: str = self.config.country
         followed_cities: list[dict[str | int]] = self.config.followcities
 
-        print(f"""TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026
+        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
 
 ==================================================[ SETUP ]
 HOME CITY         |  {city}, {province}{country}""")
@@ -1456,7 +1466,7 @@ class SimpleView(Views):
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
-        print(f"""TUIWEATHERGIRL {VERSION} by Evgueni Antonov (StrayF) 2026
+        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
 
 TODAY: {timenow}, {datenow}  {dst}
 Home: {city}, {province}{country}
@@ -1554,7 +1564,7 @@ class NiceView(Views):
         title_win.addstr(
             1,
             2,
-            f"TUIWEATHERGIRL {VERSION}                      Evgueni Antonov (StrayF) 2026",
+            f"TUIWEATHERGIRL {APPVERSION}                      Evgueni Antonov (StrayF) 2026",
         )
 
         location_win.attron(curses.A_DIM)
@@ -1799,7 +1809,7 @@ class ColorView(ColorViews):
         title_win.addstr(
             1,
             2,
-            f"TUIWEATHERGIRL {VERSION}                      Evgueni Antonov (StrayF) 2026",
+            f"TUIWEATHERGIRL {APPVERSION}                      Evgueni Antonov (StrayF) 2026",
         )
         title_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
 
@@ -2261,7 +2271,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(
-            f"\nTUIWEATHERGIRL {VERSION} =============================================[ EXCEPTION ]"
+            f"\nTUIWEATHERGIRL {APPVERSION} =============================================[ EXCEPTION ]"
         )
         print(e)
 
