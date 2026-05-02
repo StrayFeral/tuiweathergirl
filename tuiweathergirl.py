@@ -1729,7 +1729,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
 
 {hr3}""")
 
-        print("And by the next seven days one's fate would be like this")
+        print("And by the next seven days one's fate would go like this")
         print(hr3)
         for day in week:
             dmin: int = day.min
