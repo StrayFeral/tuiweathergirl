@@ -19,17 +19,16 @@ from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
+import random
 
 import requests
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
 
-# Normally I don't leave global variables hanging in the source just like that
-# however since this application was designed to be a single file from the
-# very begining and I knew it would grow-up in size, I intentionally left these
-# here, as I tend to change them time to time and don't want to
-# scroll too much to find them
+# Normally I don't leave global variables hanging in the source but
+# I intentionally left these here, as I tend to change them time to time
+# and don't want to scroll too much to find them
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "color"
@@ -38,9 +37,9 @@ DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
 )
 EPILOGUE_HELP: str = """VIEWS:
-    simple
+    simple and basic
         Best for barebone terminals.
-        Simple print of the date, time, weather data and then exit.
+        Printing to STDOUT then exit. You would enjoy the simple view a lot.
 
     nice
         Still nice for barebone terminals.
@@ -922,8 +921,49 @@ class Configurator:
         config.celsius = self.__detect_celsius(config.country_code2)
 
 
+class Motivator:
+    r"""Daily motivator"""
+
+    @staticmethod
+    def get_motivation() -> list[str]:
+        r"""Fetches a random inspirational quote from Quotable API."""
+
+        try:
+            response = requests.get("https://zenquotes.io/api/random", timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list) and len(data) > 0:
+                    return [data[0].get("q"), data[0].get("a")]
+        except Exception:
+            pass
+        
+        time.sleep(1)
+        # Fallback quote in case the internet is slow or API is down
+        return ["To appreciate the beauty of a snowflake, it is necessary to stand out in the cold.", "Aristotle"]
+
+
+class MindDrifter:
+    r"""Letting your mind drift into eternity"""
+
+    @staticmethod
+    def drift() -> str:
+        insomnias: list[str] = [
+            "It is by walking into the forest that you unfold the steps of eternity",
+            "It is the sound of the waves that brings the smell of the ocean", 
+            "It is the sand of the beach that tickles the voice of the seagulls",
+            "It is the song of the starlings that makes the wind whisper to the ears of the hopeless",
+            "It is by the will of time that we walk to the sands of eternity",
+            "It is the bloom of the ages that makes us drink the wine of wisdom",
+            "It is the void of silence that makes us a whisper apart",
+            "It is the fragrance of the innocence that makes the time whisper to the face of damnation",
+            "It is by the the well of eternity that we embrace the fate of time",
+            "It is by the blood of the roses that one hears the echoes of untruth"
+        ]
+        return random.choice(insomnias)
+
+
 class BriefDailyForecast:
-    """For the daily forecast for the upcoming week we don't need all data"""
+    r"""For the daily forecast for the upcoming week we don't need all data"""
 
     def __init__(self) -> None:
         self.dow: str = ""
@@ -950,6 +990,11 @@ class WeatherData:
         self.is_day: bool = True
         self.hmin: int = 0
         self.hmax: int = 0
+        self.wind_type: str = ""
+        self.precipitation_type: str = ""
+        self.humidity_level_min: str = ""
+        self.humidity_level_max: str = ""
+        self.wind_direction_long: str = ""
 
         self.warnings: list[str] = []
         self.week: list[BriefDailyForecast] = []
@@ -983,6 +1028,27 @@ class WeatherForecaster:
         ]
         ix = int((degrees + 11.25) / 22.5)
         return dirs[ix % 16]
+    
+    def __get_wind_direction_long(self, winddir: str) -> str:
+        dirs: dict(str, str) = {
+            "N": "North",
+            "NNE": "North-Northeast",
+            "NE": "Northeast",
+            "ENE": "East-Northeast",
+            "E": "East",
+            "ESE": "East-Southeast",
+            "SE": "Southeast",
+            "SSE": "South-Southeast",
+            "S": "South",
+            "SSW": "South-Southwest",
+            "SW": "Southwest",
+            "WSW": "West-Southwest",
+            "W": "West",
+            "WNW": "West-Northwest",
+            "NW": "Northwest",
+            "NNW": "North-Northwest",
+        }
+        return dirs.get(winddir, "Unknown")
 
     def __get_wind_type(self, wind_speed: int, unit: str) -> str:
         r"""Beaufort Scale"""
@@ -1071,7 +1137,7 @@ class WeatherForecaster:
 
         return "Hazardous"
 
-    def _get_humidity_assessment(self, humidity: int, temperature: int) -> str:
+    def __get_humidity_assessment(self, humidity: int, temperature: int) -> str:
         r"""Returns a human-readable assessment based on the humidity and temperature."""
 
         if humidity >= 70 and temperature > 30:
@@ -1101,7 +1167,7 @@ class WeatherForecaster:
             return "Snow"
         if 95 <= weather_code <= 99:
             return "Storm"
-        return "Precip"
+        return "Precipitation"
 
     def __get_storm_warning(self, weather_code: int, wind: int) -> str:
         if 95 <= weather_code <= 99:
@@ -1228,6 +1294,12 @@ class WeatherForecaster:
                 day.precip = int(daily["precipitation_probability_max"][i])
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 weather_data.week.append(day)
+        
+        weather_data.wind_type = self.__get_wind_type(weather_data.wind, wunit)
+        weather_data.precipitation_type = self.__get_precipitation_type(weather_data.weather_code)  # Rain, Snow, Storm, Precip
+        weather_data.humidity_level_min = self.__get_humidity_assessment(weather_data.hmin, weather_data.temperature)
+        weather_data.humidity_level_max = self.__get_humidity_assessment(weather_data.hmax, weather_data.temperature)
+        weather_data.wind_direction_long = self.__get_wind_direction_long(weather_data.wind_direction)
 
 
 class PresentationConfiguration:
@@ -1478,6 +1550,109 @@ HOME CITY         |  {city}, {province}{country}""")
                 )
 
         print("\nTry: tuiweathergirl --help")
+    
+
+class BasicView(Views):
+    r"""Just prints"""
+
+    def display(self) -> None:
+        # Data to display
+        timenow: str = self.presconf.update_time()
+        datenow: str = self.presconf.date
+        dow: str = self.presconf.dow
+        season: str = self.presconf.season
+        dstmark: str = "*" if self.config.dst else ""
+        # ---
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+        sky: str = self.data.sky
+        temperature: int = self.data.temperature
+        tmin: int = self.data.min
+        tmax: int = self.data.max
+        hmin: int = self.data.hmin
+        hmax: int = self.data.hmax
+        tsuffix: str = self.presconf.tsuffix
+        wunit: str = self.presconf.wunit
+        wind: int = self.data.wind
+        winddir: str = self.data.wind_direction
+        aqi: int = self.data.aqi
+        airquality: str = self.data.air_quality
+        precipitation: int = self.data.precipitation
+        is_day: bool = self.data.is_day
+        wind_type: str = self.data.wind_type
+        precipitation_type: str = self.data.precipitation_type
+        humidity_level_min: str = self.data.humidity_level_min
+        humidity_level_max: str = self.data.humidity_level_max
+        wind_direction_long: str = self.data.wind_direction_long
+        # ---
+        warnings: list[str] = self.data.warnings
+        week: list[BriefDailyForecast] = self.data.week
+
+        day: str = "day" if is_day else "night"
+
+        hr: str = "============================"
+
+        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
+
+TODAY                  ({dow})
+{hr}
+Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
+Location         | {city}, {province}{country}
+Sky              | {sky}
+Temperature      | {temperature}°{tsuffix} (Today: {tmin}°/{tmax}°{tsuffix})
+Wind             | {wind_type}, {wind}{wunit}, {wind_direction_long}.
+Air Quality      | {airquality} ({aqi})
+{precipitation_type:17}| {precipitation}% chance
+Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
+""")
+
+        print("7-DAY FORECAST")
+        print(hr)
+        for day in week:
+            dmin: int = day.min
+            dmax: int = day.max
+            dprecip: int = day.precip
+            dow: str = day.dow
+
+            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+            print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
+
+        for warning in warnings:
+            print(f"\n{warning}")
+
+        print("\nTry: tuiweathergirl --help")
+
+        # Saving the cache
+        cache = CachedData()
+        cache.sky = sky
+        cache.temperature = temperature
+        cache.tmin = tmin
+        cache.tmax = tmax
+        cache.hmin = hmin
+        cache.hmax = hmax
+        cache.wind = wind
+        cache.wind_direction = winddir
+        cache.aqi = aqi
+        cache.precipitation = precipitation
+        cache.weather_code = self.data.weather_code
+        cache.is_day = is_day
+
+        cache.warning = "No warnings."
+        if len(warnings) > 0:
+            cache.warning = warnings[0]
+
+        cache.daynames = []
+        cache.mins = []
+        cache.maxs = []
+        cache.precipitations = []
+        for day in week:
+            cache.mins.append(day.min)
+            cache.maxs.append(day.max)
+            cache.precipitations.append(day.precip)
+            cache.daynames.append(day.dow)
+
+        cache.save()
 
 
 class SimpleView(Views):
@@ -1508,28 +1683,44 @@ class SimpleView(Views):
         airquality: str = self.data.air_quality
         precipitation: int = self.data.precipitation
         is_day: bool = self.data.is_day
+        wind_type: str = self.data.wind_type
+        precipitation_type: str = self.data.precipitation_type
+        humidity_level_min: str = self.data.humidity_level_min
+        humidity_level_max: str = self.data.humidity_level_max
+        wind_direction_long: str = self.data.wind_direction_long
         # ---
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
 
         day: str = "day" if is_day else "night"
+        
+        motivation: str = Motivator.get_motivation()
+        mind_drift: str = MindDrifter.drift()
 
         hr: str = "============================"
+        hr2: str = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        hr3: str = "~~,~~`~~,~~`~~,~~`~~,~~`~~,~~"
 
         print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
 
-TODAY                  ({dow})
-{hr}
-It is a {sky} {season} {day} in {city}, {province}{country} on {datenow} at {timenow}{dstmark}.
-Current Temp: {temperature}°{tsuffix}, Today: {tmin}°/{tmax}°{tsuffix}
-Wind: {wind}{wunit} {winddir}
-Air Quality (AQI): {aqi} ({airquality})
-Precipitation: {precipitation}%
-Humidity: {hmin}/{hmax}%
-""")
+By unfolding the dusty ancient scrolls, we uncover these secrets of the future:
 
-        print("7-DAY FORECAST")
-        print(hr)
+{hr3}
+{mind_drift}
+as today it is a beautiful, {sky.lower()} {season} {day.lower()} in {city}, {province}{country} on {datenow} at {timenow}{dstmark}.
+The current temperature is {temperature}°{tsuffix} with a forecasted range between {tmin}° and {tmax}°{tsuffix}.
+The wind is {wind_type.lower()}, blowing at {wind}{wunit} from the {wind_direction_long}.
+Air quality is currently {airquality.lower()} with an AQI value of {aqi}.
+There is a {precipitation}% chance of {precipitation_type.lower()} today.
+Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity_level_max.lower()} of {hmax}%.
+{hr3}
+{motivation[0]}
+                                            ~{motivation[1]}
+
+{hr3}""")
+
+        print("And by the next seven days one's fate would be like this")
+        print(hr3)
         for day in week:
             dmin: int = day.min
             dmax: int = day.max
@@ -1537,7 +1728,7 @@ Humidity: {hmin}/{hmax}%
             dow: str = day.dow
 
             temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
-            print(f"  {dow}: {temperatures:<6} | {dprecip:>3}%")
+            print(f"  {dow} + {temperatures:<6} + {dprecip:>3}%")
 
         for warning in warnings:
             print(f"\n{warning}")
@@ -1658,6 +1849,11 @@ class NiceView(Views):
             airquality: str = self.data.air_quality
             precipitation: int = self.data.precipitation
             is_day: bool = self.data.is_day
+            wind_type: str = self.data.wind_type
+            precipitation_type: str = self.data.precipitation_type
+            humidity_level_min: str = self.data.humidity_level_min
+            humidity_level_max: str = self.data.humidity_level_max
+            wind_direction_long: str = self.data.wind_direction_long
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
@@ -1904,6 +2100,11 @@ class ColorView(ColorViews):
             airquality: str = self.data.air_quality
             precipitation: int = self.data.precipitation
             is_day: bool = self.data.is_day
+            wind_type: str = self.data.wind_type
+            precipitation_type: str = self.data.precipitation_type
+            humidity_level_min: str = self.data.humidity_level_min
+            humidity_level_max: str = self.data.humidity_level_max
+            wind_direction_long: str = self.data.wind_direction_long
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
@@ -2119,6 +2320,7 @@ class WeatherGirl:
         present_config: PresentationConfiguration = PresentationConfiguration(config)
         self.views: dict[str, Views] = {
             "setup": SetupView(config, data, present_config),
+            "basic": BasicView(config, data, present_config),
             "simple": SimpleView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
             "color": ColorView(config, data, present_config),
@@ -2146,7 +2348,7 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "simple", "nice", "color"],
+            choices=["setup", "basic", "simple", "nice", "color"],
             default="",
             help="Select the view",
         )
