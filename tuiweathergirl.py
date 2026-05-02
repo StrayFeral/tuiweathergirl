@@ -962,7 +962,7 @@ class MindDrifter:
             "It is by the the well of eternity that we embrace the fate of time",
             "It is by the blood of the roses that one hears the echoes of untruth",
             "It is by defying the restlessness that we deny the shackles of the mortality",
-            "It is the sound of eternity that defines the song of righteousness,
+            "It is the sound of eternity that defines the song of righteousness",
         ]
         return random.choice(insomnias)
 
@@ -1625,7 +1625,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+            temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
         for warning in warnings:
@@ -1737,7 +1737,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+            temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
             print(f"  {dow} + {temperatures:<6} + {dprecip:>3}%")
 
         for warning in warnings:
@@ -1976,7 +1976,7 @@ class NiceView(Views):
                 dmax: int = day.max
                 dprecip: int = day.precip
                 dow: str = day.dow
-                temperatures = f"{dmin:>2}°/{dmax}°{tsuffix}"
+                temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
 
                 forecast_win.move(wy, wx)
                 forecast_win.addstr(
@@ -2280,7 +2280,7 @@ class ColorView(ColorViews):
                 forecast_win.addstr(wy, wx + 8, "/")
                 forecast_win.attroff(curses.color_pair(COL_WHITEBLACK))
                 forecast_win.attron(curses.color_pair(self._get_temp_cp(dmax)))
-                tmaxs = f"{dmax}°{tsuffix}"
+                tmaxs = f"{dmax:>2}°{tsuffix}"
                 forecast_win.addstr(wy, wx + 9, f"{tmaxs}")
                 forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmax)))
                 forecast_win.attron(curses.color_pair(COL_BLUEBLACK))
