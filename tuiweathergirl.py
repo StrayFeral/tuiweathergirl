@@ -1625,7 +1625,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
+            temperatures = f"{dmin:>2}*/{dmax:>2}*{tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
         for warning in warnings:
@@ -1737,8 +1737,8 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
-            print(f"  {dow} + {temperatures:<6} + {dprecip:>3}%")
+            temperatures = f"{dmin:>2} deg/{dmax:>2} deg {tsuffix}"
+            print(f"{dow} + {temperatures:<6} + {dprecip:>3}%")
 
         for warning in warnings:
             print(f"\n{warning}")
