@@ -1610,7 +1610,7 @@ TODAY                  ({dow})
 Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
 Location         | {city}, {province}{country}
 Sky              | {sky}
-Temperature      | {temperature}°{tsuffix} (Today: {tmin}°/{tmax}°{tsuffix})
+Temperature      | {temperature} deg {tsuffix} (Today: {tmin} deg /{tmax} deg {tsuffix})
 Wind             | {wind_type}, {wind}{wunit}, {wind_direction_long}.
 Air Quality      | {airquality} ({aqi})
 {precipitation_type:17}| {precipitation}% chance
@@ -1625,7 +1625,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2}*/{dmax:>2}*{tsuffix}"
+            temperatures = f"{dmin:>2} deg /{dmax:>2} deg {tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
         for warning in warnings:
@@ -1718,7 +1718,7 @@ By unfolding the dusty ancient scrolls, we uncover these secrets of the future:
 {hr3}
 {mind_drift}
 as today it is a beautiful, {sky.lower()} {season} {day.lower()} in {city}, {province}{country} on {datenow} at {timenow}{dstmark}.
-The current temperature is {temperature}°{tsuffix} with a forecasted range between {tmin}° and {tmax}°{tsuffix}.
+The current temperature is {temperature}°{tsuffix} with a forecasted range between {tmin} deg and {tmax} deg {tsuffix}.
 The wind is {wind_type.lower()}, blowing at {wind}{wunit} from the {wind_direction_long}.
 Air quality is currently {airquality.lower()} with an AQI value of {aqi}.
 There is a {precipitation}% chance of {precipitation_type.lower()} today.
@@ -1738,7 +1738,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             dow: str = day.dow
 
             temperatures = f"{dmin:>2} deg/{dmax:>2} deg {tsuffix}"
-            print(f"{dow} + {temperatures:<6} + {dprecip:>3}%")
+            print(f"{dow} ~ {temperatures:<6} ~ {dprecip:>3}%")
 
         for warning in warnings:
             print(f"\n{warning}")
