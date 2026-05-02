@@ -66,6 +66,7 @@ MIN_COLS: int = 79
 MIN_LINES: int = 24
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
+DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -771,6 +772,7 @@ class Locator:
 
             url: str = (
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
+                "&lang=en"
             )
             response: requests.Response = requests.get(url)
 
@@ -806,6 +808,7 @@ class Locator:
 
             headers: dict[str, str] = {
                 "User-Agent": self._USERAGENT,
+                "Accept-Language": "en",
             }
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
@@ -864,7 +867,7 @@ class Locator:
                 "province": addr.get("state_code", addr.get("state", "")),
                 "lat": lat,
                 "lon": lon,
-                "continent_code": self._get_continent_code(
+                "continent_code": self.__get_continent_code(
                     addr.get("country_code", "").upper()
                 ),
                 "timezone": response.get("zoneName", ""),
@@ -952,12 +955,14 @@ class MindDrifter:
             "It is the sound of the waves that brings the smell of the ocean", 
             "It is the sand of the beach that tickles the voice of the seagulls",
             "It is the song of the starlings that makes the wind whisper to the ears of the hopeless",
-            "It is by the will of time that we walk to the sands of eternity",
+            "It is by the will of time that we walk towards the sands of eternity",
             "It is the bloom of the ages that makes us drink the wine of wisdom",
             "It is the void of silence that makes us a whisper apart",
-            "It is the fragrance of the innocence that makes the time whisper to the face of damnation",
+            "It is the fragrance of the innocence that makes the time whisper to the face of creation",
             "It is by the the well of eternity that we embrace the fate of time",
-            "It is by the blood of the roses that one hears the echoes of untruth"
+            "It is by the blood of the roses that one hears the echoes of untruth",
+            "It is by defying the restlessness that we deny the shackles of the mortality",
+            "It is the sound of eternity that defines the song of righteousness,
         ]
         return random.choice(insomnias)
 
@@ -1355,11 +1360,16 @@ class PresentationConfiguration:
 
     def update_time(self) -> str:
         now = datetime.now(ZoneInfo(self.timezone))
-        self.date = format_date(
-            now, format=self.date_format_length, locale=self.locale_id
-        )
+        try:
+            self.date = format_date(
+                now, format=self.date_format_length, locale=self.locale_id
+            )
+        except Exception:
+            self.date = format_date(
+                now, format=self.date_format_length, locale=DEFAULT_LOCALE
+            )
         # self.dow = format_date(now, format="cccccc", locale=self.locale_id).title()
-        self.dow = format_date(now, format="EEE", locale="en_US").title()
+        self.dow = format_date(now, format="EEE", locale=DEFAULT_LOCALE).title()
         self.season = self.get_season(self.continent_code)
 
         # Time 12/24
@@ -2495,7 +2505,7 @@ class LocationManager:
     def add_city(self, city: str, country: str, config: Configuration) -> None:
         r"""Add a new city to follow"""
 
-        config.follow_city(cli_arguments["city"], cli_arguments["country"])
+        config.follow_city(city, country)
 
         for i in range(len(config.followcities)):
             locator: Locator = Locator()
