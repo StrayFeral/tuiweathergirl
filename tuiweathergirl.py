@@ -14,12 +14,13 @@ import sys
 import tempfile
 import time
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
 import random
+import math
 
 import requests
 from babel import Locale
@@ -37,16 +38,15 @@ DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
 )
 EPILOGUE_HELP: str = """VIEWS:
-    simple and basic
+    motivate and basic
         Best for barebone terminals.
-        Printing to STDOUT then exit. You would enjoy the simple view a lot.
+        Printing to STDOUT then exit. You would enjoy the Motivate view a lot.
 
     nice
-        Still nice for barebone terminals.
-        Basic text interface with tables (ncurses).
+        Monochrome ncurses text interface.
     
     color
-        This is just the Nice view, but with colors.
+        Same as Nice view, but with colors.
     
     setup
         Prints the currently set cities.
@@ -1188,6 +1188,90 @@ class WeatherForecaster:
             return "HIGH WIND WARNING"
 
         return ""
+    
+    def __is_daytime(self, lat: str, lon: str, dt: datetime = None) -> bool:
+        """
+        Calculates if it is daytime at a specific coordinate and time 
+        without using external APIs.
+
+        Code written with a Gemini formula.
+        """
+        if dt is None:
+            dt = datetime.now(timezone.utc)
+        
+        lat = float(lat)
+        lon = float(lon)
+
+        zenith = 96.0 
+        day_of_year = dt.timetuple().tm_yday
+
+        # Convert longitude to hour offset and calculate approximate sunrise/sunset
+        # This is a simplified version of the General Solar Position Algorithm
+        lng_hour = lon / 15.0
+        
+        # Calculate sunrise/sunset times
+        t_rise = day_of_year + ((6 - lng_hour) / 24)
+        t_set = day_of_year + ((18 - lng_hour) / 24)
+
+        # Calculate Solar Mean Anomaly
+        m_rise = (0.9856 * t_rise) - 3.289
+        m_set = (0.9856 * t_set) - 3.289
+
+        # Calculate True Longitude
+        l_rise = m_rise + (1.916 * math.sin(math.radians(m_rise))) + (0.020 * math.sin(math.radians(2 * m_rise))) + 282.634
+        l_set = m_set + (1.916 * math.sin(math.radians(m_set))) + (0.020 * math.sin(math.radians(2 * m_set))) + 282.634
+        
+        l_rise = l_rise % 360
+        l_set = l_set % 360
+
+        # Calculate Right Ascension
+        ra_rise = math.degrees(math.atan(0.91764 * math.tan(math.radians(l_rise)))) % 360
+        ra_set = math.degrees(math.atan(0.91764 * math.tan(math.radians(l_set)))) % 360
+
+        # Adjust RA to be in the same quadrant as L
+        l_quadrant = (math.floor(l_rise / 90)) * 90
+        ra_quadrant = (math.floor(ra_rise / 90)) * 90
+        ra_rise = ra_rise + (l_quadrant - ra_quadrant)
+
+        l_quadrant = (math.floor(l_set / 90)) * 90
+        ra_quadrant = (math.floor(ra_set / 90)) * 90
+        ra_set = ra_set + (l_quadrant - ra_quadrant)
+
+        # Convert RA to hours
+        ra_rise /= 15
+        ra_set /= 15
+
+        # Calculate Declination
+        sin_dec = 0.39782 * math.sin(math.radians(l_rise))
+        cos_dec = math.cos(math.asin(sin_dec))
+
+        # Calculate Local Hour Angle
+        cos_h = (math.cos(math.radians(zenith)) - (sin_dec * math.sin(math.radians(lat)))) / (cos_dec * math.cos(math.radians(lat)))
+
+        # If cos_h > 1, sun never rises (Polar Night)
+        # If cos_h < -1, sun never sets (Midnight Sun)
+        if cos_h > 1: return False
+        if cos_h < -1: return True
+
+        h_rise = (360 - math.degrees(math.acos(cos_h))) / 15
+        h_set = math.degrees(math.acos(cos_h)) / 15
+
+        # Calculate Local Mean Time of rise/set
+        t_rise = h_rise + ra_rise - (0.06571 * t_rise) - 6.622
+        t_set = h_set + ra_set - (0.06571 * t_set) - 6.622
+
+        # Convert to UTC
+        utc_rise = (t_rise - lng_hour) % 24
+        utc_set = (t_set - lng_hour) % 24
+
+        # Current UTC time as a float
+        current_utc_hour = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+
+        # Handle the wrap-around for night (if sunset is before sunrise)
+        if utc_rise < utc_set:
+            return utc_rise <= current_utc_hour <= utc_set
+        else:
+            return current_utc_hour >= utc_rise or current_utc_hour <= utc_set
 
     def get_data(self, weather_data: WeatherData) -> None:
         # Build the API URL with your config preferences
@@ -1218,7 +1302,7 @@ class WeatherForecaster:
 
         if cache.loaded:
             # Fill the object with data
-            weather_data.is_day = cache.is_day
+            # weather_data.is_day = cache.is_day
             weather_data.sky = cache.sky
             weather_data.temperature = cache.temperature
             weather_data.min = cache.tmin
@@ -1267,7 +1351,7 @@ class WeatherForecaster:
             aqi: str = aq_result["current"]["us_aqi"]
 
             # Fill the object with data
-            weather_data.is_day = True if current["is_day"] == "1" else False
+            # weather_data.is_day = True if current["is_day"] == "1" else False
             weather_data.sky = self.__get_weather_description(current["weather_code"])
             weather_data.temperature = int(current["temperature_2m"])
             weather_data.min = int(daily["temperature_2m_min"][0])
@@ -1305,6 +1389,7 @@ class WeatherForecaster:
         weather_data.humidity_level_min = self.__get_humidity_assessment(weather_data.hmin, weather_data.temperature)
         weather_data.humidity_level_max = self.__get_humidity_assessment(weather_data.hmax, weather_data.temperature)
         weather_data.wind_direction_long = self.__get_wind_direction_long(weather_data.wind_direction)
+        weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
 
 
 class PresentationConfiguration:
@@ -1665,7 +1750,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         cache.save()
 
 
-class SimpleView(Views):
+class MotivationalView(Views):
     r"""Just prints"""
 
     def display(self) -> None:
@@ -2331,7 +2416,7 @@ class WeatherGirl:
         self.views: dict[str, Views] = {
             "setup": SetupView(config, data, present_config),
             "basic": BasicView(config, data, present_config),
-            "simple": SimpleView(config, data, present_config),
+            "motivate": MotivationalView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
             "color": ColorView(config, data, present_config),
         }
@@ -2358,7 +2443,7 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "basic", "simple", "nice", "color"],
+            choices=["setup", "basic", "motivate", "nice", "color"],
             default="",
             help="Select the view",
         )
