@@ -7,7 +7,9 @@ import argparse
 import configparser
 import csv
 import curses
+import math
 import os
+import random
 import re
 import socket
 import sys
@@ -19,8 +21,6 @@ from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo
-import random
-import math
 
 import requests
 from babel import Locale
@@ -939,10 +939,13 @@ class Motivator:
                     return [data[0].get("q"), data[0].get("a")]
         except Exception:
             pass
-        
+
         time.sleep(1)
         # Fallback quote in case the internet is slow or API is down
-        return ["To appreciate the beauty of a snowflake, it is necessary to stand out in the cold.", "Aristotle"]
+        return [
+            "To appreciate the beauty of a snowflake, it is necessary to stand out in the cold.",
+            "Aristotle",
+        ]
 
 
 class MindDrifter:
@@ -952,7 +955,7 @@ class MindDrifter:
     def drift() -> str:
         insomnias: list[str] = [
             "It is by walking into the forest that you unfold the steps of eternity",
-            "It is the sound of the waves that brings the smell of the ocean", 
+            "It is the sound of the waves that brings the smell of the ocean",
             "It is the sand of the beach that tickles the voice of the seagulls",
             "It is the song of the starlings that makes the wind whisper to the ears of the hopeless",
             "It is by the will of time that we walk towards the sands of eternity",
@@ -1033,7 +1036,7 @@ class WeatherForecaster:
         ]
         ix = int((degrees + 11.25) / 22.5)
         return dirs[ix % 16]
-    
+
     def __get_wind_direction_long(self, winddir: str) -> str:
         dirs: dict(str, str) = {
             "N": "North",
@@ -1188,27 +1191,27 @@ class WeatherForecaster:
             return "HIGH WIND WARNING"
 
         return ""
-    
+
     def __is_daytime(self, lat: str, lon: str, dt: datetime = None) -> bool:
         """
-        Calculates if it is daytime at a specific coordinate and time 
+        Calculates if it is daytime at a specific coordinate and time
         without using external APIs.
 
         Code written with a Gemini formula.
         """
         if dt is None:
             dt = datetime.now(timezone.utc)
-        
+
         lat = float(lat)
         lon = float(lon)
 
-        zenith = 96.0 
+        zenith = 96.0
         day_of_year = dt.timetuple().tm_yday
 
         # Convert longitude to hour offset and calculate approximate sunrise/sunset
         # This is a simplified version of the General Solar Position Algorithm
         lng_hour = lon / 15.0
-        
+
         # Calculate sunrise/sunset times
         t_rise = day_of_year + ((6 - lng_hour) / 24)
         t_set = day_of_year + ((18 - lng_hour) / 24)
@@ -1218,14 +1221,26 @@ class WeatherForecaster:
         m_set = (0.9856 * t_set) - 3.289
 
         # Calculate True Longitude
-        l_rise = m_rise + (1.916 * math.sin(math.radians(m_rise))) + (0.020 * math.sin(math.radians(2 * m_rise))) + 282.634
-        l_set = m_set + (1.916 * math.sin(math.radians(m_set))) + (0.020 * math.sin(math.radians(2 * m_set))) + 282.634
-        
+        l_rise = (
+            m_rise
+            + (1.916 * math.sin(math.radians(m_rise)))
+            + (0.020 * math.sin(math.radians(2 * m_rise)))
+            + 282.634
+        )
+        l_set = (
+            m_set
+            + (1.916 * math.sin(math.radians(m_set)))
+            + (0.020 * math.sin(math.radians(2 * m_set)))
+            + 282.634
+        )
+
         l_rise = l_rise % 360
         l_set = l_set % 360
 
         # Calculate Right Ascension
-        ra_rise = math.degrees(math.atan(0.91764 * math.tan(math.radians(l_rise)))) % 360
+        ra_rise = (
+            math.degrees(math.atan(0.91764 * math.tan(math.radians(l_rise)))) % 360
+        )
         ra_set = math.degrees(math.atan(0.91764 * math.tan(math.radians(l_set)))) % 360
 
         # Adjust RA to be in the same quadrant as L
@@ -1246,12 +1261,16 @@ class WeatherForecaster:
         cos_dec = math.cos(math.asin(sin_dec))
 
         # Calculate Local Hour Angle
-        cos_h = (math.cos(math.radians(zenith)) - (sin_dec * math.sin(math.radians(lat)))) / (cos_dec * math.cos(math.radians(lat)))
+        cos_h = (
+            math.cos(math.radians(zenith)) - (sin_dec * math.sin(math.radians(lat)))
+        ) / (cos_dec * math.cos(math.radians(lat)))
 
         # If cos_h > 1, sun never rises (Polar Night)
         # If cos_h < -1, sun never sets (Midnight Sun)
-        if cos_h > 1: return False
-        if cos_h < -1: return True
+        if cos_h > 1:
+            return False
+        if cos_h < -1:
+            return True
 
         h_rise = (360 - math.degrees(math.acos(cos_h))) / 15
         h_set = math.degrees(math.acos(cos_h)) / 15
@@ -1383,12 +1402,20 @@ class WeatherForecaster:
                 day.precip = int(daily["precipitation_probability_max"][i])
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 weather_data.week.append(day)
-        
+
         weather_data.wind_type = self.__get_wind_type(weather_data.wind, wunit)
-        weather_data.precipitation_type = self.__get_precipitation_type(weather_data.weather_code)  # Rain, Snow, Storm, Precip
-        weather_data.humidity_level_min = self.__get_humidity_assessment(weather_data.hmin, weather_data.temperature)
-        weather_data.humidity_level_max = self.__get_humidity_assessment(weather_data.hmax, weather_data.temperature)
-        weather_data.wind_direction_long = self.__get_wind_direction_long(weather_data.wind_direction)
+        weather_data.precipitation_type = self.__get_precipitation_type(
+            weather_data.weather_code
+        )  # Rain, Snow, Storm, Precip
+        weather_data.humidity_level_min = self.__get_humidity_assessment(
+            weather_data.hmin, weather_data.temperature
+        )
+        weather_data.humidity_level_max = self.__get_humidity_assessment(
+            weather_data.hmax, weather_data.temperature
+        )
+        weather_data.wind_direction_long = self.__get_wind_direction_long(
+            weather_data.wind_direction
+        )
         weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
 
 
@@ -1645,7 +1672,7 @@ HOME CITY         |  {city}, {province}{country}""")
                 )
 
         print("\nTry: tuiweathergirl --help")
-    
+
 
 class BasicView(Views):
     r"""Just prints"""
@@ -1788,7 +1815,7 @@ class MotivationalView(Views):
         week: list[BriefDailyForecast] = self.data.week
 
         day: str = "day" if is_day else "night"
-        
+
         motivation: str = Motivator.get_motivation()
         mind_drift: str = MindDrifter.drift()
 
