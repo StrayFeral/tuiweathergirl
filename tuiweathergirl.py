@@ -119,6 +119,22 @@ class APIIssues:
         )
 
 
+class LogEntry:
+    def __init__(
+        self,
+        city: str,
+        country: str,
+        message: str,
+        datestr: str = "",
+        timestr: str = "",
+    ) -> None:
+        self.city = city
+        self.country: str = country
+        self.message: str = message
+        self.date: str = datestr
+        self.time: str = timestr
+
+
 class MajorEventsLogger:
     def __init__(self):
         self.keep_max_days: int = 7
@@ -1713,14 +1729,14 @@ class BasicView(Views):
 
         day: str = "day" if is_day else "night"
 
-        hr: str = "============================"
+        hr: str = "==============================="
 
         print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
 
-TODAY                  ({dow})
+TODAY                     ({dow})
 {hr}
 Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
-Location         | {city}, {province}{country}
+Home             | {city}, {province}{country}
 Sky              | {sky}
 Temperature      | {temperature} deg {tsuffix} (Today: {tmin} deg /{tmax} deg {tsuffix})
 Wind             | {wind_type}, {wind}{wunit}, {wind_direction_long}.
