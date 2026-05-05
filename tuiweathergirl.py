@@ -78,6 +78,7 @@ COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
 
 
+
 class InstanceGuard:
     @staticmethod
     def ensure_single_instance(port=47382):
@@ -117,6 +118,136 @@ class APIIssues:
             if http_code in APIIssues._API_PROBLEMS
             else ""
         )
+
+
+class Theme:
+    def __init__(self, **kwargs) -> None:
+        self.general: int = kwargs["general"]
+        self.border: int = kwargs["border"]
+        self.header: int = kwargs["header"]
+        self.home: int = kwargs["home"]
+        self.title: int = kwargs["title"]
+        self.warntitle: int = kwargs["warntitle"]
+        self.warnborder: int = kwargs["warnborder"]
+
+        self._last_used: int = None
+        self._last_win: curses.window = None
+    
+    def on(self, win: curses.window, attr: str | int) -> None:
+        cp: str | int = attr
+        if isinstance(attr, str):
+            if not hasattr(self, attr):
+                raise Exception(f"Theme object does not have attribute '{key}'.")
+            cp = getattr(self, attr, None)
+        win.attron(curses.color_pair(cp))
+        self._last_used = cp
+        self._last_window = win
+    
+    def off(self) -> None:
+        self._last_win.attroff(curses.color_pair(self._last_used))
+
+class MainTheme(Theme):
+    def __init__(self) -> None:
+        super.__init__({
+            "general": COL_WHITEBLACK | curses.A_DIM,
+            "border": COL_BLUEBLACK | curses.A_DIM,
+            "header": COL_WHITEBLACK | curses.A_DIM,
+            "home": COL_WHITEBLACK,
+            "title": COL_CYANBLACK,
+            "warntitle": COL_WHITEBLACK,
+            "warnborder": COL_REDBLACK,
+        })
+
+class ThemeBox:
+    def __init__(self) -> None:
+        self.box: dict[str, Theme] = {
+            "main": MainTheme
+        }
+    def get_theme(self, themename: str = "main") -> Theme:
+        if not themename in self.box:
+            raise Exception(f"Invalid theme name '{themename}'.")
+        return self.box[themename]
+
+
+class TUIBox:
+    def __init__(
+        self, 
+        theme: Theme, 
+        stdscr: curses.window, 
+        y: int, 
+        x: int, 
+        lines: int, 
+        cols: int, 
+        title: str | None
+    ):
+        self.theme: Theme = theme
+        self.scr: curses.window = stdscr
+        self.boxwin: curses.window = curses.newwin(lines, cols, y, x)
+        # self.win: curses.window = curses.newwin(lines-2, cols-2, y+1, x+1)
+        self.boxwin.derwin(lines-2, cols-2, y+1, x+1)
+        self.win.scrollok(True)
+        self.title: str = title
+        
+    
+    def draw_box(self) -> None:
+        self.theme.on(self.boxwin, "border")
+        self.boxwin.box()
+        self.theme.off()
+        if self.title and len(self.title) > 0:
+            self.theme.on(self.boxwin, "title")
+            self.boxwin.addstr(0, 2, f"[ {self.title} ]")
+            self.theme.off()
+        # self.boxwin.refresh()
+
+    def printxy(self, y:int, x:int, s: str, theme_key: str = "general"):
+        self.theme.on(self.win, theme_key)
+        self.win.addstr(y, x, s)
+        self.theme.off()
+    
+    def print(self, s: str, theme_key: str = "general"):
+        self.theme.on(self.win, theme_key)
+        self.win.addstr(s)
+        self.theme.off()
+    
+    def refresh(self) -> None:
+        self.win.noutrefresh()
+
+
+class TUICanvas:
+    def __init__(self, stdscr: curses.window) -> None:
+        self.scr: curses.window = stdscr
+        self.boxes: list[TUIBox] = []
+
+    def init_colors(self) -> None:
+        # Color definitions
+        curses.start_color()
+        curses.init_pair(
+            COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED
+        )  # Warnings
+        curses.init_pair(
+            COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK
+        )  # Sunny
+        curses.init_pair(
+            COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK
+        )  # Cloudy
+        curses.init_pair(COL_BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
+        curses.init_pair(COL_REDBLACK, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
+        curses.init_pair(COL_GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
+        curses.init_pair(COL_CYANBLACK, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
+
+        # Global settings
+        self.scr.erase()
+        self.scr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+    
+    def refresh(self) -> None:
+        """Pushes all changes to screen at once"""
+        for box in self.boxes:
+            box.refresh()
+        curses.doupdate()
+    
+    def clear(self) -> None:
+        self.win.erase()
 
 
 class LogEntry:
