@@ -78,7 +78,6 @@ COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
 
 
-
 class InstanceGuard:
     @staticmethod
     def ensure_single_instance(port=47382):
@@ -132,7 +131,7 @@ class Theme:
 
         self._last_used: int = None
         self._last_win: curses.window = None
-    
+
     def on(self, win: curses.window, attr: str | int) -> None:
         cp: str | int = attr
         if isinstance(attr, str):
@@ -142,27 +141,30 @@ class Theme:
         win.attron(curses.color_pair(cp))
         self._last_used = cp
         self._last_window = win
-    
+
     def off(self) -> None:
         self._last_win.attroff(curses.color_pair(self._last_used))
 
+
 class MainTheme(Theme):
     def __init__(self) -> None:
-        super.__init__({
-            "general": COL_WHITEBLACK | curses.A_DIM,
-            "border": COL_BLUEBLACK | curses.A_DIM,
-            "header": COL_WHITEBLACK | curses.A_DIM,
-            "home": COL_WHITEBLACK,
-            "title": COL_CYANBLACK,
-            "warntitle": COL_WHITEBLACK,
-            "warnborder": COL_REDBLACK,
-        })
+        super.__init__(
+            {
+                "general": COL_WHITEBLACK | curses.A_DIM,
+                "border": COL_BLUEBLACK | curses.A_DIM,
+                "header": COL_WHITEBLACK | curses.A_DIM,
+                "home": COL_WHITEBLACK,
+                "title": COL_CYANBLACK,
+                "warntitle": COL_WHITEBLACK,
+                "warnborder": COL_REDBLACK,
+            }
+        )
+
 
 class ThemePalette:
     def __init__(self) -> None:
-        self.box: dict[str, Theme] = {
-            "main": MainTheme
-        }
+        self.box: dict[str, Theme] = {"main": MainTheme}
+
     def get_theme(self, themename: str = "main") -> Theme:
         if not themename in self.box:
             raise Exception(f"Invalid theme name '{themename}'.")
@@ -179,24 +181,23 @@ class TUIBox:
         width: int = kwargs.get("width")
         title: str = kwargs.get("title", "")
 
-        inner_height = height-2
-        inner_width = width-2
+        inner_height = height - 2
+        inner_width = width - 2
         if inner_height < 1:
             raise Exception(f"Window '{title}' is too shallow.")
         if inner_width < 1:
             raise Exception(f"Window '{title}' is too narrow.")
-        if len(title)+4 > width:
+        if len(title) + 4 > width:
             raise Exception(f"The title for window '{title}' is too long.")
 
         self.theme: Theme = theme
         self.scr: curses.window = stdscr
         self.boxwin: curses.window = curses.newwin(height, width, y, x)
         # self.win: curses.window = curses.newwin(lines-2, cols-2, y+1, x+1)
-        self.boxwin.derwin(inner_height, inner_width, y+1, x+1)
+        self.boxwin.derwin(inner_height, inner_width, y + 1, x + 1)
         self.win.scrollok(True)
         self.title: str = title
-        
-    
+
     def draw_box(self) -> None:
         self.theme.on(self.boxwin, "border")
         self.boxwin.box()
@@ -207,19 +208,19 @@ class TUIBox:
             self.theme.off()
         # self.boxwin.refresh()
 
-    def printyx(self, y:int, x:int, s: str, theme_key: str = "general"):
+    def printyx(self, y: int, x: int, s: str, theme_key: str = "general"):
         self.theme.on(self.win, theme_key)
         self.win.addstr(y, x, s)
         self.theme.off()
-    
+
     def print(self, s: str, theme_key: str = "general"):
         self.theme.on(self.win, theme_key)
         self.win.addstr(s)
         self.theme.off()
-    
+
     def refresh(self) -> None:
         self.win.noutrefresh()
-    
+
     def clear(self) -> None:
         self.win.erase()
 
@@ -250,7 +251,7 @@ class TUICanvas:
         self.scr.erase()
         self.scr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
-    
+
     def refresh(self) -> None:
         """Pushes all changes to screen at once"""
         for box in self.boxes:
@@ -283,41 +284,45 @@ class Layout:
         self.maxy: int = kwargs.get("maxy")
         self.maxx: int = kwargs.get("maxx")
         self.columns: list[LayoutColumn] = []
-        
+
         # One of the columns has been centered
         self.__centered: bool = False
-    
+
     @property
     def __free_column_space(self) -> int:
         return self.maxx - (
-                (self.xmargin * 2) + 
-                sum([c.width for c in self.columns]) +
-                (len(self.columns) * self.xspacing)
-            )
+            (self.xmargin * 2)
+            + sum([c.width for c in self.columns])
+            + (len(self.columns) * self.xspacing)
+        )
 
     @property
     def __next_column_x(self) -> int:
         if len(self.columns) == 0:
             return 0
         return self.columns[-1].x + self.columns[-1].width + self.xspacing
-        
-    
+
     def add_column(self, width: int) -> None:
         if self.__centered:
-            raise Exception("Cannot add more columns. One column has been already centered.")
+            raise Exception(
+                "Cannot add more columns. One column has been already centered."
+            )
         if width > self.__free_column_space:
-            raise Exception(f"Cannot add the {len(self.columns)+1} column to layout: Wider than the remaining free width space of {self.__free_column_space} chars.")
-        
+            raise Exception(
+                f"Cannot add the {len(self.columns)+1} column to layout: Wider than the remaining free width space of {self.__free_column_space} chars."
+            )
+
         column: LayoutColumn = LayoutColumn(x=self.__next_column_x, width=width)
         self.columns.append(column)
-    
+
     def set_centered(self) -> None:
         if len(self.columns) > 1:
-            raise Exception("Method set_centered() could be used only if there is just one column. Currently there are more.")
+            raise Exception(
+                "Method set_centered() could be used only if there is just one column. Currently there are more."
+            )
         self.columns[0].x = self.maxx // 2 - self.columns[0].width // 2
         self.__centered = True
 
-    
 
 class LayoutManager:
     def __init__(self, **kwargs) -> None:
@@ -327,12 +332,12 @@ class LayoutManager:
         self.maxy: int = maxy
         self.maxx: int = maxx
         self.layout: Layout = Layout(
-            maxx = maxx,
-            maxy = maxy,
-            xspacing = kwargs.get("xspacing", 0),
-            yspacing = kwargs.get("yspacing", 0),
-            xmargin = kwargs.get("xmargin", 0),
-            ymargin = kwargs.get("ymargin", 0),
+            maxx=maxx,
+            maxy=maxy,
+            xspacing=kwargs.get("xspacing", 0),
+            yspacing=kwargs.get("yspacing", 0),
+            xmargin=kwargs.get("xmargin", 0),
+            ymargin=kwargs.get("ymargin", 0),
         )
         self.theme: Theme = kwargs.get("theme", ThemePalette().get_theme())
         self.boxes: list[list[TUIBox]] = []
@@ -350,35 +355,49 @@ class LayoutManager:
         height: int = kwargs.get("height", 3)
         width: int = kwargs.get("width", 1)
         overflow: bool = kwargs.getboolean("overflow", False)
-        y: int|None = kwargs.get("y", None)
-        x: int|None = kwargs.get("x", None)
+        y: int | None = kwargs.get("y", None)
+        x: int | None = kwargs.get("x", None)
 
         if len(self.layout.columns) == 0:
             raise Exception("No layout columns defined. New box cannot be added.")
         if column_num > len(self.layout.columns) - 1:
-            raise Exception(f"New box cannot be added as column '{column_num}' does not exist.")
-        
+            raise Exception(
+                f"New box cannot be added as column '{column_num}' does not exist."
+            )
+
         if len(self.boxes) < len(self.layout.columns):
             self.boxes.append([])
-        
+
         box_index: int = 0
         if len(self.boxes[column_num]) > 0:
             box_index = len(self.boxes[column_num]) - 1
-        
+
         if not x:
             x = self.layout.columns[column_num].x
-        
-        if not overflow and (width > self.layout.columns[column_num].width or x + width > self.maxx):
-            raise Exception(f"New Box[{column_num}][{box_index}] is wider than the column.")
+
+        if not overflow and (
+            width > self.layout.columns[column_num].width or x + width > self.maxx
+        ):
+            raise Exception(
+                f"New Box[{column_num}][{box_index}] is wider than the column."
+            )
         if overflow and (width > self.maxx or x + width > self.maxx):
-            raise Exception(f"New Box[{column_num}][{box_index}] is wider than the screen.")
-        
+            raise Exception(
+                f"New Box[{column_num}][{box_index}] is wider than the screen."
+            )
+
         # y: int = 0
         if not y and len(self.boxes[column_num]) > 0:
-            y = self.boxes[column_num][-1].y + self.boxes[column_num][-1].height + self.layout.ymargin
-        
+            y = (
+                self.boxes[column_num][-1].y
+                + self.boxes[column_num][-1].height
+                + self.layout.ymargin
+            )
+
         if y + height > self.maxy:
-            raise Exception(f"New Box[{column_num}][{box_index}] height is going below the screen.")
+            raise Exception(
+                f"New Box[{column_num}][{box_index}] height is going below the screen."
+            )
 
         box: TUIBox = TUIBox(
             theme=self.theme,
@@ -387,12 +406,12 @@ class LayoutManager:
             x=x,
             height=height,
             width=width,
-            title=title
+            title=title,
         )
         self.boxes[column_num].append(box)
 
         return box
-    
+
     def draw_boxes(self) -> None:
         for column in self.boxes:
             for box in column:
@@ -1440,23 +1459,23 @@ class WeatherForecaster:
                 return assessments[aqilevel]
 
         return "Hazardous"
-    
+
     def __get_humidity_risk(self, humidity: int) -> str:
-        """Returns a message only if humidity poses a risk for people with 
+        """Returns a message only if humidity poses a risk for people with
         medical conditions (resporatory)"""
 
         if humidity < 30:
             return f"Humidity {humidity}%: Risk for people with asthma or chronic respiratory conditions: Airway irritation."
-    
+
         if humidity < 40:
             return f"Humidity {humidity}%: Moderate risk for people with sensitive respiratory systems."
-        
+
         if humidity <= 60:
             return ""  # Safe
-        
+
         if humidity <= 70:
             return f"Humidity {humidity}%: Risk for people with asthma: Increased allergens and air density."
-        
+
         return f"Humidity {humidity}%: HIGH RISK for people with respiratory conditions: Severe bronchoconstriction and labored breathing!"
 
     def __get_humidity_assessment(self, humidity: int, temperature: int) -> str:
