@@ -173,7 +173,7 @@ class ThemePalette:
 
 class TUIBox:
     def __init__(self, **kwargs):
-        theme: Theme = kwargs.get("theme")
+        theme: Theme | None = kwargs.get("theme", None)
         stdscr: curses.window = kwargs.get("stdscr")
         y: int = kwargs.get("y")
         x: int = kwargs.get("x")
@@ -190,7 +190,7 @@ class TUIBox:
         if len(title) + 4 > width:
             raise Exception(f"The title for window '{title}' is too long.")
 
-        self.theme: Theme = theme
+        self.theme: Theme | None = theme
         self.scr: curses.window = stdscr
         self.boxwin: curses.window = curses.newwin(height, width, y, x)
         # self.win: curses.window = curses.newwin(lines-2, cols-2, y+1, x+1)
@@ -199,24 +199,35 @@ class TUIBox:
         self.title: str = title
 
     def draw_box(self) -> None:
-        self.theme.on(self.boxwin, "border")
-        self.boxwin.box()
-        self.theme.off()
-        if self.title and len(self.title) > 0:
-            self.theme.on(self.boxwin, "title")
-            self.boxwin.addstr(0, 2, f"[ {self.title} ]")
+        if self.theme:
+            self.theme.on(self.boxwin, "border")
+            self.boxwin.box()
             self.theme.off()
+            if self.title and len(self.title) > 0:
+                self.theme.on(self.boxwin, "title")
+                self.boxwin.addstr(0, 2, f"[ {self.title} ]")
+                self.theme.off()
+        else:
+            self.boxwin.box()
+            if self.title and len(self.title) > 0:
+                self.boxwin.addstr(0, 2, f"[ {self.title} ]")
         # self.boxwin.refresh()
 
     def printyx(self, y: int, x: int, s: str, theme_key: str = "general"):
-        self.theme.on(self.win, theme_key)
-        self.win.addstr(y, x, s)
-        self.theme.off()
+        if self.theme:
+            self.theme.on(self.win, theme_key)
+            self.win.addstr(y, x, s)
+            self.theme.off()
+        else:
+            self.win.addstr(y, x, s)
 
     def print(self, s: str, theme_key: str = "general"):
-        self.theme.on(self.win, theme_key)
-        self.win.addstr(s)
-        self.theme.off()
+        if self.theme:
+            self.theme.on(self.win, theme_key)
+            self.win.addstr(s)
+            self.theme.off()
+        else:
+            self.win.addstr(s)
 
     def refresh(self) -> None:
         self.win.noutrefresh()
@@ -416,6 +427,13 @@ class LayoutManager:
         for column in self.boxes:
             for box in column:
                 box.draw_box()
+    
+    def refresh_screen(self) -> None:
+        """Pushes all the changes to the screen"""
+        for column in self.boxes:
+            for box in column:
+                box.refresh()
+        curses.doupdate()  # Pushes all changes to screen at once
 
 
 class LogEntry:
