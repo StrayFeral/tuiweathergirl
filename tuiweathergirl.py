@@ -207,7 +207,7 @@ class TUIBox:
             self.theme.off()
         # self.boxwin.refresh()
 
-    def printxy(self, y:int, x:int, s: str, theme_key: str = "general"):
+    def printyx(self, y:int, x:int, s: str, theme_key: str = "general"):
         self.theme.on(self.win, theme_key)
         self.win.addstr(y, x, s)
         self.theme.off()
@@ -350,6 +350,8 @@ class LayoutManager:
         height: int = kwargs.get("height", 3)
         width: int = kwargs.get("width", 1)
         overflow: bool = kwargs.getboolean("overflow", False)
+        y: int|None = kwargs.get("y", None)
+        x: int|None = kwargs.get("x", None)
 
         if len(self.layout.columns) == 0:
             raise Exception("No layout columns defined. New box cannot be added.")
@@ -363,13 +365,16 @@ class LayoutManager:
         if len(self.boxes[column_num]) > 0:
             box_index = len(self.boxes[column_num]) - 1
         
-        if not overflow and width > self.layout.columns[column_num].width:
+        if not x:
+            x = self.layout.columns[column_num].x
+        
+        if not overflow and (width > self.layout.columns[column_num].width or x + width > self.maxx):
             raise Exception(f"New Box[{column_num}][{box_index}] is wider than the column.")
-        if overflow and width > self.maxx:
+        if overflow and (width > self.maxx or x + width > self.maxx):
             raise Exception(f"New Box[{column_num}][{box_index}] is wider than the screen.")
         
-        y: int = 0
-        if len(self.boxes[column_num]) > 0:
+        # y: int = 0
+        if not y and len(self.boxes[column_num]) > 0:
             y = self.boxes[column_num][-1].y + self.boxes[column_num][-1].height + self.layout.ymargin
         
         if y + height > self.maxy:
@@ -379,7 +384,7 @@ class LayoutManager:
             theme=self.theme,
             stdscr=self.stdscr,
             y=y,
-            x=self.layout.columns[column_num].x,
+            x=x,
             height=height,
             width=width,
             title=title
