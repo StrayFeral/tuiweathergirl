@@ -158,7 +158,7 @@ class MainTheme(Theme):
             "warnborder": COL_REDBLACK,
         })
 
-class ThemeBox:
+class ThemePalette:
     def __init__(self) -> None:
         self.box: dict[str, Theme] = {
             "main": MainTheme
@@ -170,21 +170,29 @@ class ThemeBox:
 
 
 class TUIBox:
-    def __init__(
-        self, 
-        theme: Theme, 
-        stdscr: curses.window, 
-        y: int, 
-        x: int, 
-        lines: int, 
-        cols: int, 
-        title: str | None
-    ):
+    def __init__(self, **kwargs):
+        theme: Theme = kwargs.get("theme")
+        stdscr: curses.window = kwargs.get("stdscr")
+        y: int = kwargs.get("y")
+        x: int = kwargs.get("x")
+        height: int = kwargs.get("height")
+        width: int = kwargs.get("width")
+        title: str = kwargs.get("title", "")
+
+        inner_height = height-2
+        inner_width = width-2
+        if inner_height < 1:
+            raise Exception(f"Window '{title}' is too shallow.")
+        if inner_width < 1:
+            raise Exception(f"Window '{title}' is too narrow.")
+        if len(title)+4 > width:
+            raise Exception(f"The title for window '{title}' is too long.")
+
         self.theme: Theme = theme
         self.scr: curses.window = stdscr
-        self.boxwin: curses.window = curses.newwin(lines, cols, y, x)
+        self.boxwin: curses.window = curses.newwin(height, width, y, x)
         # self.win: curses.window = curses.newwin(lines-2, cols-2, y+1, x+1)
-        self.boxwin.derwin(lines-2, cols-2, y+1, x+1)
+        self.boxwin.derwin(inner_height, inner_width, y+1, x+1)
         self.win.scrollok(True)
         self.title: str = title
         
@@ -211,6 +219,9 @@ class TUIBox:
     
     def refresh(self) -> None:
         self.win.noutrefresh()
+    
+    def clear(self) -> None:
+        self.win.erase()
 
 
 class TUICanvas:
@@ -245,9 +256,142 @@ class TUICanvas:
         for box in self.boxes:
             box.refresh()
         curses.doupdate()
+
+
+class LayoutColumn:
+    def __init__(self, **kwargs) -> None:
+        self.x: int = kwargs["x"]
+        self.width: int = kwargs["width"]
+
+
+class Layout:
+    """Defines a layout.
+
+    An entity made of columns, with horizontal (top and bottom) and vertical
+    (left and right) margins, horizontal and vertical spacings between the
+    columns and the boxes (windows).
+
+    The columns are defined from left to right. If there is only one column
+    it can be set centered.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        self.xspacing: int = kwargs.get("xspacing", 0)
+        self.yspacing: int = kwargs.get("yspacing", 0)
+        self.xmargin: int = kwargs.get("xmargin", 0)
+        self.ymargin: int = kwargs.get("ymargin", 0)
+        self.maxy: int = kwargs.get("maxy")
+        self.maxx: int = kwargs.get("maxx")
+        self.columns: list[LayoutColumn] = []
+        
+        # One of the columns has been centered
+        self.__centered: bool = False
     
-    def clear(self) -> None:
-        self.win.erase()
+    @property
+    def __free_column_space(self) -> int:
+        return self.maxx - (
+                (self.xmargin * 2) + 
+                sum([c.width for c in self.columns]) +
+                (len(self.columns) * self.xspacing)
+            )
+
+    @property
+    def __next_column_x(self) -> int:
+        if len(self.columns) == 0:
+            return 0
+        return self.columns[-1].x + self.columns[-1].width + self.xspacing
+        
+    
+    def add_column(self, width: int) -> None:
+        if self.__centered:
+            raise Exception("Cannot add more columns. One column has been already centered.")
+        if width > self.__free_column_space:
+            raise Exception(f"Cannot add the {len(self.columns)+1} column to layout: Wider than the remaining free width space of {self.__free_column_space} chars.")
+        
+        column: LayoutColumn = LayoutColumn(x=self.__next_column_x, width=width)
+        self.columns.append(column)
+    
+    def set_centered(self) -> None:
+        if len(self.columns) > 1:
+            raise Exception("Method set_centered() could be used only if there is just one column. Currently there are more.")
+        self.columns[0].x = self.maxx // 2 - self.columns[0].width // 2
+        self.__centered = True
+
+    
+
+class LayoutManager:
+    def __init__(self, **kwargs) -> None:
+        self.stdscr: curses.window = kwargs.get("stdscr")
+        self.canvas: TUICanvas = TUICanvas(stdscr)
+        maxy, maxx = self.stdscr.getmaxyx()
+        self.maxy: int = maxy
+        self.maxx: int = maxx
+        self.layout: Layout = Layout(
+            maxx = maxx,
+            maxy = maxy,
+            xspacing = kwargs.get("xspacing", 0),
+            yspacing = kwargs.get("yspacing", 0),
+            xmargin = kwargs.get("xmargin", 0),
+            ymargin = kwargs.get("ymargin", 0),
+        )
+        self.theme: Theme = kwargs.get("theme", ThemePalette().get_theme())
+        self.boxes: list[list[TUIBox]] = []
+
+        self.canvas.init_colors()
+
+    def add_column(self, width: int) -> None:
+        self.layout.add_column(width)
+
+    def add_box(self, **kwargs) -> TUIBox:
+        """Creates a new box, adds it to the internal list and returns it as well."""
+
+        column_num: int = kwargs.get("column_num", 0)
+        title: str = kwargs.get("title", "")
+        height: int = kwargs.get("height", 3)
+        width: int = kwargs.get("width", 1)
+        overflow: bool = kwargs.getboolean("overflow", False)
+
+        if len(self.layout.columns) == 0:
+            raise Exception("No layout columns defined. New box cannot be added.")
+        if column_num > len(self.layout.columns) - 1:
+            raise Exception(f"New box cannot be added as column '{column_num}' does not exist.")
+        
+        if len(self.boxes) < len(self.layout.columns):
+            self.boxes.append([])
+        
+        box_index: int = 0
+        if len(self.boxes[column_num]) > 0:
+            box_index = len(self.boxes[column_num]) - 1
+        
+        if not overflow and width > self.layout.columns[column_num].width:
+            raise Exception(f"New Box[{column_num}][{box_index}] is wider than the column.")
+        if overflow and width > self.maxx:
+            raise Exception(f"New Box[{column_num}][{box_index}] is wider than the screen.")
+        
+        y: int = 0
+        if len(self.boxes[column_num]) > 0:
+            y = self.boxes[column_num][-1].y + self.boxes[column_num][-1].height + self.layout.ymargin
+        
+        if y + height > self.maxy:
+            raise Exception(f"New Box[{column_num}][{box_index}] height is going below the screen.")
+
+        box: TUIBox = TUIBox(
+            theme=self.theme,
+            stdscr=self.stdscr,
+            y=y,
+            x=self.layout.columns[column_num].x,
+            height=height,
+            width=width,
+            title=title
+        )
+        self.boxes[column_num].append(box)
+
+        return box
+    
+    def draw_boxes(self) -> None:
+        for column in self.boxes:
+            for box in column:
+                box.draw_box()
 
 
 class LogEntry:
@@ -1109,10 +1253,10 @@ class MindDrifter:
             "It is the bloom of the ages that makes us drink the wine of wisdom",
             "It is the void of silence that makes us a whisper apart",
             "It is the fragrance of the innocence that makes the time whisper to the face of creation",
-            "It is by the the well of eternity that we embrace the fate of time",
-            "It is by the blood of the roses that one hears the echoes of untruth",
-            "It is by defying the restlessness that we deny the shackles of the mortality",
-            "It is the sound of eternity that defines the song of righteousness",
+            "It is by the the well of eternity that we embrace the fate of the time",
+            "It is by the blood of the roses that one hears the echoes of the untruth",
+            "It is by defying the restlessness that we deny the shackles of mortality",
+            "It is the sound of eternity that defines the song of the righteousness",
         ]
         return random.choice(insomnias)
 
@@ -1291,6 +1435,24 @@ class WeatherForecaster:
                 return assessments[aqilevel]
 
         return "Hazardous"
+    
+    def __get_humidity_risk(self, humidity: int) -> str:
+        """Returns a message only if humidity poses a risk for people with 
+        medical conditions (resporatory)"""
+
+        if humidity < 30:
+            return f"Humidity {humidity}%: Risk for people with asthma or chronic respiratory conditions: Airway irritation."
+    
+        if humidity < 40:
+            return f"Humidity {humidity}%: Moderate risk for people with sensitive respiratory systems."
+        
+        if humidity <= 60:
+            return ""  # Safe
+        
+        if humidity <= 70:
+            return f"Humidity {humidity}%: Risk for people with asthma: Increased allergens and air density."
+        
+        return f"Humidity {humidity}%: HIGH RISK for people with respiratory conditions: Severe bronchoconstriction and labored breathing!"
 
     def __get_humidity_assessment(self, humidity: int, temperature: int) -> str:
         r"""Returns a human-readable assessment based on the humidity and temperature."""
