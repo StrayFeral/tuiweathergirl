@@ -33,6 +33,7 @@ from babel.languages import get_official_languages
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "color"
+DEFAULT_THEME: str = "main"
 APPVERSION: str = "1.0"
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
@@ -41,6 +42,9 @@ EPILOGUE_HELP: str = """VIEWS:
     motivate and basic
         Best for barebone terminals.
         Printing to STDOUT then exit. You would enjoy the Motivate view a lot.
+    
+    dashboard
+        A colorful ncurses dashboard.
 
     nice
         Monochrome ncurses text interface.
@@ -163,12 +167,12 @@ class MainTheme(Theme):
 
 class ThemePalette:
     def __init__(self) -> None:
-        self.box: dict[str, Theme] = {"main": MainTheme}
+        self.palette: dict[str, Theme] = {"main": MainTheme}
 
     def get_theme(self, themename: str = "main") -> Theme:
-        if not themename in self.box:
+        if not themename in self.palette:
             raise Exception(f"Invalid theme name '{themename}'.")
-        return self.box[themename]
+        return self.palette[themename]
 
 
 class TUIBox:
@@ -340,8 +344,6 @@ class LayoutManager:
         self.stdscr: curses.window = kwargs.get("stdscr")
         self.canvas: TUICanvas = TUICanvas(stdscr)
         maxy, maxx = self.stdscr.getmaxyx()
-        self.maxy: int = maxy
-        self.maxx: int = maxx
         self.layout: Layout = Layout(
             maxx=maxx,
             maxy=maxy,
@@ -357,6 +359,13 @@ class LayoutManager:
 
     def add_column(self, width: int) -> None:
         self.layout.add_column(width)
+    
+    def split_screen(self) -> None:
+        maxx: int = self.layout.maxx - self.layout.xmargin * 2 - self.layout.xspacing
+        width: int = maxx // 2
+
+        self.add_column(width)
+        self.add_column(width)
 
     def add_box(self, **kwargs) -> TUIBox:
         """Creates a new box, adds it to the internal list and returns it as well.
@@ -364,8 +373,8 @@ class LayoutManager:
         Parameter Overflow controls if the box would overflow to another column.
         It contains the column number to which end it will overflow.
 
-        If column_num is not set, default is 0.
-        If x or width are not set, default is the set column x and width.
+        Default column_num is 0.
+        If x or width are not set, defaults are the set column x and width.
         If overflow is set, width will be set to snap accordingly.
         """
 
@@ -373,7 +382,7 @@ class LayoutManager:
 
         if len(self.layout.columns) == 0:
             raise Exception("No layout columns defined. New box cannot be added.")
-        if column_num > len(self.layout.columns) - 1:
+        if not (0 < column_num <= len(self.layout.columns) - 1):
             raise Exception(
                 f"New box cannot be added as column '{column_num}' does not exist."
             )
@@ -406,7 +415,7 @@ class LayoutManager:
                 columns_width += col.width
             width = columns_width + (overflow - column_num) * self.layout.xspacing
         
-        if x + width > self.maxx:
+        if x + width > self.layout.maxx:
             raise Exception(
                 f"New Box[{column_num}][{box_index}] is wider than the screen."
             )
@@ -419,7 +428,7 @@ class LayoutManager:
                 + self.layout.ymargin
             )
 
-        if y + height > self.maxy:
+        if y + height > self.layout.maxy:
             raise Exception(
                 f"New Box[{column_num}][{box_index}] height is going below the screen."
             )
@@ -719,6 +728,7 @@ class Configuration:
         self.celsius: bool = True
         self.date_format_length: str = "medium"
         self.view: str = DEFAULT_VIEW
+        self.theme: str = DEFAULT_THEME
 
         self.followcities: list[dict[str | int]] = []
 
@@ -774,6 +784,7 @@ Timezone: {self.timezone}"""
         )
         s += f"Date format length: {self.date_format_length}\n"
         s += f"Default view: {self.view}\n"
+        s += f"Default theme: {self.theme}\n"
         s += f"Filename: {self.filename}\n"
 
         s += "\nFOLLOWED CITIES:\n"
@@ -817,6 +828,7 @@ Timezone: {self.timezone}"""
             "celsius": str(self.celsius).lower(),
             # "date_format_length": self.date_format_length,
             "view": self.view,
+            "theme": self.theme,
         }
 
         for i, city in enumerate(self.followcities):
@@ -862,6 +874,7 @@ Timezone: {self.timezone}"""
         self.celsius = config.getboolean("PREFERENCES", "celsius")
         # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
+        self.theme = config["PREFERENCES"]["theme"]
 
         for i in range(10):
             index: str = f"FOLLOWCITY{i+1}"
@@ -2797,6 +2810,164 @@ class ColorView(ColorViews):
 
     def display(self) -> None:
         curses.wrapper(self.screen)
+    
+
+class DashboardView(ColorViews):
+    """A dashboard color view"""
+
+    def screen(self, stdscr: curses.window) -> None:
+        theme_palette: ThemePalette = ThemePalette()
+        theme: Theme = theme_palette.get_theme(self.config.theme)
+        # layout_manager: LayoutManager = LayoutManager(
+        #     stdscr=stdscr,
+        #     xspacing=1,
+        #     yspacing=1,
+        #     xmargin=0,
+        #     ymargin=0,
+        #     theme=theme
+        # )
+        layout_manager: LayoutManager = LayoutManager(
+            stdscr=stdscr,
+            theme=theme
+        )
+        layout_manager.split_screen()
+
+        # Global settings
+        stdscr.erase()
+        self.test_terminal_size(stdscr)
+        stdscr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+
+        forecaster: WeatherForecaster = WeatherForecaster(self.config)
+
+        # Data which won't change
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+
+        box2: TUIBox = layout_manager.add_box(
+            column_num=0,
+            title="new window",
+            width=10,
+            height=3
+        )
+
+        # ...........
+        layout_manager.draw_boxes()
+
+        # f"TUIWEATHERGIRL {APPVERSION}                      Evgueni Antonov (StrayF) 2026",
+
+        # ........
+
+        last_refresh: str = ""
+
+        # -------------------------------------------------- VIEW MAIN LOOP
+        elapsed: int = 0
+        while True:
+            elapsed += 1
+
+            # Data to display
+            timenow: str = self.presconf.update_time()
+            datenow: str = self.presconf.date
+            dow: str = self.presconf.dow
+            season: str = self.presconf.season
+            dstmark: str = "*" if self.config.dst else ""
+
+            if len(last_refresh) == 0:
+                last_refresh = f"Last refresh: {datenow} {timenow}"
+
+            # Technically we do not need this, but filling up the addstr()s
+            # later would be more messy without it
+            sky: str = self.data.sky
+            temperature: int = self.data.temperature
+            tmin: int = self.data.min
+            tmax: int = self.data.max
+            hmin: int = self.data.hmin
+            hmax: int = self.data.hmax
+            tsuffix: str = self.presconf.tsuffix
+            wunit: str = self.presconf.wunit
+            wind: int = self.data.wind
+            winddir: str = self.data.wind_direction
+            aqi: int = self.data.aqi
+            airquality: str = self.data.air_quality
+            precipitation: int = self.data.precipitation
+            is_day: bool = self.data.is_day
+            wind_type: str = self.data.wind_type
+            precipitation_type: str = self.data.precipitation_type
+            humidity_level_min: str = self.data.humidity_level_min
+            humidity_level_max: str = self.data.humidity_level_max
+            wind_direction_long: str = self.data.wind_direction_long
+            # ---
+            warnings: list[str] = self.data.warnings
+            week: list[BriefDailyForecast] = self.data.week
+
+            # Saving the cache
+            cache = CachedData()
+            cache.sky = sky
+            cache.temperature = temperature
+            cache.tmin = tmin
+            cache.tmax = tmax
+            cache.hmin = hmin
+            cache.hmax = hmax
+            cache.wind = wind
+            cache.wind_direction = winddir
+            cache.aqi = aqi
+            cache.precipitation = precipitation
+            cache.weather_code = self.data.weather_code
+            cache.is_day = is_day
+
+            cache.warning = "No warnings."
+            if len(warnings) > 0:
+                cache.warning = warnings[0]
+
+            cache.daynames = []
+            cache.mins = []
+            cache.maxs = []
+            cache.precipitations = []
+            for day in week:
+                cache.mins.append(day.min)
+                cache.maxs.append(day.max)
+                cache.precipitations.append(day.precip)
+                cache.daynames.append(day.dow)
+
+            cache.save()
+
+            # ----------------------------------------- Screen update
+
+            # .........
+
+            # 7 day forecast
+            for day_cnt, day in enumerate(week):
+                wy: int = 2 + (day_cnt % 4)
+                wx: int = 3 if day_cnt < 4 else 40
+
+                dmin: int = day.min
+                dmax: int = day.max
+                dprecip: int = day.precip
+                dow: str = day.dow
+
+                # .....
+
+            
+            # Data update
+            if elapsed % self.weather_refresh_interval == 0:
+                forecaster.get_data(self.data)
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
+
+            keypressed = stdscr.getch()
+            if keypressed == ord("q"):
+                break
+                
+            
+            # Pushing the changes
+            # ......
+
+
+            time.sleep(1)  # Prevent 100% CPU usage
+
+    
+    def display(self) -> None:
+        curses.wrapper(self.screen)
 
 
 class WeatherGirl:
@@ -2809,6 +2980,7 @@ class WeatherGirl:
             "setup": SetupView(config, data, present_config),
             "basic": BasicView(config, data, present_config),
             "motivate": MotivationalView(config, data, present_config),
+            "dashboard": DashboardView(config, data, present_config),
             "nice": NiceView(config, data, present_config),
             "color": ColorView(config, data, present_config),
         }
@@ -2835,9 +3007,15 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "basic", "motivate", "nice", "color"],
+            choices=["setup", "basic", "motivate", "dashboard", "nice", "color"],
             default="",
             help="Select the view",
+        )
+        cli_parser.add_argument(
+            "--theme",
+            choices=["main"],
+            default="",
+            help="Select the application color scheme",
         )
         action_group.add_argument(
             "--addcity",
