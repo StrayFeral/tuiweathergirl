@@ -359,15 +359,17 @@ class LayoutManager:
         self.layout.add_column(width)
 
     def add_box(self, **kwargs) -> TUIBox:
-        """Creates a new box, adds it to the internal list and returns it as well."""
+        """Creates a new box, adds it to the internal list and returns it as well.
+
+        Parameter Overflow controls if the box would overflow to another column.
+        It contains the column number to which end it will overflow.
+
+        If column_num is not set, default is 0.
+        If x or width are not set, default is the set column x and width.
+        If overflow is set, width will be set to snap accordingly.
+        """
 
         column_num: int = kwargs.get("column_num", 0)
-        title: str = kwargs.get("title", "")
-        height: int = kwargs.get("height", 3)
-        width: int = kwargs.get("width", 1)
-        overflow: bool = kwargs.getboolean("overflow", False)
-        y: int | None = kwargs.get("y", None)
-        x: int | None = kwargs.get("x", None)
 
         if len(self.layout.columns) == 0:
             raise Exception("No layout columns defined. New box cannot be added.")
@@ -375,6 +377,13 @@ class LayoutManager:
             raise Exception(
                 f"New box cannot be added as column '{column_num}' does not exist."
             )
+        
+        title: str = kwargs.get("title", "")
+        height: int = kwargs.get("height", 3)
+        width: int = kwargs.get("width", self.layout.columns[column_num].width)
+        overflow: int = kwargs.get("overflow", column_num)
+        y: int = kwargs.get("y", 0)
+        x: int = kwargs.get("x", self.layout.columns[column_num].x)
 
         if len(self.boxes) < len(self.layout.columns):
             self.boxes.append([])
@@ -383,16 +392,21 @@ class LayoutManager:
         if len(self.boxes[column_num]) > 0:
             box_index = len(self.boxes[column_num]) - 1
 
-        if not x:
-            x = self.layout.columns[column_num].x
-
-        if not overflow and (
-            width > self.layout.columns[column_num].width or x + width > self.maxx
-        ):
+        if overflow < column_num:
             raise Exception(
-                f"New Box[{column_num}][{box_index}] is wider than the column."
+                f"New Box[{column_num}][{box_index}] have an overflow set to a previous column."
             )
-        if overflow and (width > self.maxx or x + width > self.maxx):
+        if overflow > len(self.layout.columns) - 1:
+            raise Exception(
+                f"New Box[{column_num}][{box_index}] have an overflow set to a non-existing column."
+            )
+        if overflow != column_num:
+            columns_width: int = 0
+            for col in range(column_num, overflow+1):
+                columns_width += col.width
+            width = columns_width + (overflow - column_num) * self.layout.xspacing
+        
+        if x + width > self.maxx:
             raise Exception(
                 f"New Box[{column_num}][{box_index}] is wider than the screen."
             )
