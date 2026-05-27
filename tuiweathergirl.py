@@ -125,28 +125,40 @@ class APIIssues:
 
 class Theme:
     def __init__(self, **kwargs) -> None:
-        self.general: int = kwargs["general"]
-        self.border: int = kwargs["border"]
-        self.header: int = kwargs["header"]
-        self.home: int = kwargs["home"]
-        self.title: int = kwargs["title"]
-        self.warntitle: int = kwargs["warntitle"]
-        self.warnborder: int = kwargs["warnborder"]
+        self.general: list[int] = kwargs["general"]
+        self.border: list[int] = kwargs["border"]
+        self.header: list[int] = kwargs["header"]
+        self.home: list[int] = kwargs["home"]
+        self.title: list[int] = kwargs["title"]
+        self.warntitle: list[int] = kwargs["warntitle"]
+        self.warnborder: list[int] = kwargs["warnborder"]
 
         self._last_used: int = None
         self._last_window: curses.window = None
+        self._last_dim: bool = False
 
-    def on(self, win: curses.window, attr: str | int) -> None:
+    def on(self, win: curses.window, attr: str | int, **kwargs) -> None:
+        dim: bool = kwargs.get("dim", False)
         cp: str | int = attr
         if isinstance(attr, str):
             if not hasattr(self, attr):
-                raise Exception(f"Theme object does not have attribute '{attr}'.")
-            cp = getattr(self, attr, None)
-        win.attron(curses.color_pair(cp))
+                raise ValueError(f"Theme object does not have attribute '{attr}'.")
+            color = getattr(self, attr, None)
+            cp, dim = color
+        
+        if dim:
+            win.attron(curses.color_pair(cp) | curses.A_DIM)
+        else:
+            win.attron(curses.color_pair(cp))
+        
         self._last_used = cp
         self._last_window = win
+        self._last_dim = dim
 
     def off(self) -> None:
+        if self._last_dim:
+            self._last_window.attroff(curses.color_pair(self._last_used) | curses.A_DIM)
+            return
         self._last_window.attroff(curses.color_pair(self._last_used))
 
 
@@ -154,13 +166,13 @@ class MainTheme(Theme):
     def __init__(self) -> None:
         super().__init__(
             **{
-                "general": COL_WHITEBLACK | curses.A_DIM,
-                "border": COL_BLUEBLACK | curses.A_DIM,
-                "header": COL_WHITEBLACK | curses.A_DIM,
-                "home": COL_WHITEBLACK,
-                "title": COL_CYANBLACK,
-                "warntitle": COL_WHITEBLACK,
-                "warnborder": COL_REDBLACK,
+                "general": [COL_WHITEBLACK, True],
+                "border": [COL_BLUEBLACK, True],
+                "header": [COL_WHITEBLACK, True],
+                "home": [COL_WHITEBLACK, False],
+                "title": [COL_CYANBLACK, False],
+                "warntitle": [COL_WHITEBLACK, False],
+                "warnborder": [COL_REDBLACK, False],
             }
         )
 
@@ -171,119 +183,10 @@ class ThemePalette:
 
     def get_theme(self, themename: str = "main") -> Theme:
         if themename not in self.palette:
-            raise Exception(f"Invalid theme name '{themename}'.")
+            raise ValueError(f"Invalid theme name '{themename}'.")
         return self.palette[themename]
-
-
-class TUIBox:
-    def __init__(self, **kwargs):
-        theme: Theme | None = kwargs.get("theme", None)
-        stdscr: curses.window = kwargs.get("stdscr")
-        self.y: int = kwargs.get("y", 0)
-        self.x: int = kwargs.get("x", 0)
-        self.height: int = kwargs.get("height", 0)
-        self.width: int = kwargs.get("width", 0)
-        self.title: str = kwargs.get("title", "")
-        self.border: bool = kwargs.get("border", False)
-
-        # DEBUG INFO:
-        self.column_num: int = kwargs.get("column_num", 0)
-        self.column_len: int = kwargs.get("column_len", 0)
-
-        self.inner_height: int = self.height
-        self.inner_width: int = self.width
-
-        if self.border:
-            self.inner_height = self.height - 2
-            self.inner_width = self.width - 2
-
-        if self.inner_height < 1:
-            raise Exception(f"Window '{self.title}' is too shallow.")
-        if self.inner_width < 1:
-            raise Exception(f"Window '{self.title}' is too narrow.")
-        if len(self.title) + 2 > self.width:
-            raise Exception(f"The title for window '{self.title}' is too long.")
-
-        self.theme: Theme | None = theme
-        self.scr: curses.window = stdscr
-
-        self.win: curses.window | None = curses.newwin(self.height, self.width, self.y, self.x)
-        self.boxwin: curses.window | None = None
-        if self.border:
-            self.boxwin = self.win
-            self.win = self.boxwin.derwin(self.inner_height, self.inner_width, 1, 1)
-        self.win.scrollok(True)
     
-    def __repr__(self) -> str:
-        s: str = f"TUIBox {self.column_num}-{self.column_len+1} [{self.title}]; Coord: {self.x},{self.y}, Dimensions: {self.width},{self.height}"
-        if self.border:
-            s += "; Bordered"
-        return s
-
-    def draw_box(self) -> None:
-        if not self.border:
-            return
-        if self.theme:
-            self.theme.on(self.boxwin, "border")
-            self.boxwin.box()
-            self.theme.off()
-            if self.title and len(self.title) > 0:
-                self.theme.on(self.boxwin, "title")
-                self.boxwin.addstr(0, 2, f"[{self.title}]")
-                self.theme.off()
-        else:
-            self.boxwin.box()
-            if self.title and len(self.title) > 0:
-                self.boxwin.addstr(0, 2, f"[{self.title}]")
-        # self.boxwin.refresh()
-
-    def printyx(self, y: int, x: int, s: str, **kwargs):
-        theme_key: str = kwargs.get("theme", "general")
-        if self.theme:
-            self.theme.on(self.win, theme_key)
-            self.win.addstr(y, x, s)
-            self.theme.off()
-        else:
-            self.win.addstr(y, x, s)
-
-    def print(self, s: str, **kwargs):
-        theme_key: str = kwargs.get("theme", "general")
-        align: str = kwargs.get("align", "left")
-        y: int = kwargs.get("y", 0)
-
-        if align not in ["left", "right", "centered"]:
-            raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
-
-        if self.theme:
-            self.theme.on(self.win, theme_key)
-        
-        x: int = 0
-        if align == "left":
-            self.printyx(y, x, s, theme=theme_key)
-        if align == "right":
-            x = self.inner_width - len(s) - 1
-            self.printyx(y, x, s, theme=theme_key)
-        if align == "centered":
-            x = (self.inner_width - len(s) - 1) // 2
-            self.printyx(y, x, s, theme=theme_key)
-        
-        if self.theme:
-            self.theme.off()
-
-    def refresh(self) -> None:
-        if self.boxwin:
-            self.boxwin.noutrefresh()
-        self.win.noutrefresh()
-
-    def clear(self) -> None:
-        self.win.erase()
-
-
-class TUICanvas:
-    def __init__(self, stdscr: curses.window) -> None:
-        self.scr: curses.window = stdscr
-
-    def init_colors(self) -> None:
+    def init_colors(self, stdscr: curses.window) -> None:
         # Color definitions
         curses.start_color()
         curses.init_pair(
@@ -300,10 +203,133 @@ class TUICanvas:
         curses.init_pair(COL_GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
         curses.init_pair(COL_CYANBLACK, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
 
-        # Global settings
-        self.scr.erase()
-        self.scr.nodelay(True)
-        curses.curs_set(False)  # Hide cursor
+
+class TUIWindow:
+    def __init__(self, **kwargs):
+        theme: Theme | None = kwargs.get("theme", None)
+        stdscr: curses.window = kwargs.get("stdscr")
+        self.y: int = kwargs.get("y", 0)
+        self.x: int = kwargs.get("x", 0)
+        self.height: int = kwargs.get("height", 0)
+        self.width: int = kwargs.get("width", 0)
+        self.title: str = kwargs.get("title", "")
+        self.border: bool = kwargs.get("border", False)
+        self.cursor_x: int = 0
+        self.cursor_y: int = 0
+
+        # DEBUG INFO:
+        self.column_num: int = kwargs.get("column_num", 0)
+        self.column_len: int = kwargs.get("column_len", 0)
+
+        self.inner_height: int = self.height
+        self.inner_width: int = self.width
+
+        if self.border:
+            self.inner_height = self.height - 2
+            self.inner_width = self.width - 2
+
+        if self.inner_height < 1:
+            raise ValueError(f"Window '{self.title}' is too shallow.")
+        if self.inner_width < 1:
+            raise ValueError(f"Window '{self.title}' is too narrow.")
+        if len(self.title) + 2 > self.width:
+            raise ValueError(f"The title for window '{self.title}' is too long.")
+
+        self.theme: Theme | None = theme
+        self.scr: curses.window = stdscr
+
+        self.win: curses.window | None = curses.newwin(self.height, self.width, self.y, self.x)
+        self.borderwin: curses.window | None = None
+        if self.border:
+            self.borderwin = self.win
+            self.win = self.borderwin.derwin(self.inner_height, self.inner_width, 1, 1)
+        self.win.scrollok(True)
+    
+    def __repr__(self) -> str:
+        s: str = f"TUIWindow {self.column_num}-{self.column_len+1} [{self.title}]; Coord: {self.x},{self.y}, Dimensions: {self.width},{self.height}"
+        if self.border:
+            s += "; Bordered"
+        return s
+
+    def draw_border(self) -> None:
+        if not self.border:
+            return
+        if self.theme:
+            self.theme.on(self.borderwin, "border")
+            self.borderwin.box()
+            self.theme.off()
+            if self.title and len(self.title) > 0:
+                self.theme.on(self.borderwin, "title")
+                self.borderwin.addstr(0, 2, f"[{self.title}]")
+                self.theme.off()
+        else:
+            self.borderwin.box()
+            if self.title and len(self.title) > 0:
+                self.borderwin.addstr(0, 2, f"[{self.title}]")
+        # self.borderwin.refresh()
+
+    def printyx(self, y: int, x: int, s: str, **kwargs):
+        if x + len(s) >= self.inner_width:
+            raise Exception(f"String {s!r} is too long and goes over the window right border.")
+
+        theme_key: str = kwargs.get("theme", "general")
+        if self.theme:
+            self.theme.on(self.win, theme_key)
+            self.win.addstr(y, x, s)
+            self.theme.off()
+        else:
+            self.win.addstr(y, x, s)
+
+    def print(self, s: str, **kwargs):
+        theme_key: str = kwargs.get("theme", "general")
+        align: str = kwargs.get("align", "left")
+        y: int = kwargs.get("y", self.cursor_y)
+        x: int = kwargs.get("x", self.cursor_x)
+        newline: bool = kwargs.get("newline", False)
+
+        if align not in ["left", "right", "centered"]:
+            raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
+        
+        if "\n" in s or "\r" in s:
+            raise ValueError(f"String {s!r} contains newline or carriage return characters.")
+
+        if self.theme:
+            self.theme.on(self.win, theme_key)
+        
+        if align == "left":
+            self.printyx(y, x, s, theme=theme_key)
+        if align == "right":
+            x = self.inner_width - len(s) - 1
+            self.printyx(y, x, s, theme=theme_key)
+        if align == "centered":
+            x = (self.inner_width - len(s) - 1) // 2
+            self.printyx(y, x, s, theme=theme_key)
+        
+        if self.theme:
+            self.theme.off()
+        
+        # Calculating the new X
+        self.cursor_x += x + len(s)
+        if self.cursor_x >= self.inner_width - 1:
+            self.cursor_x = 0
+            self.cursor_y += 1
+        
+        # Calculating the new Y
+        if newline:
+            self.cursor_x = 0
+            self.cursor_y += 1
+        if self.cursor_y >= self.inner_height:
+            self.win.scroll(self.cursor_y - self.inner_height)
+            self.cursor_x = 0
+            self.cursor_y = self.inner_height - 1
+
+    def refresh(self) -> None:
+        if self.borderwin:
+            self.borderwin.noutrefresh()
+        self.win.noutrefresh()
+
+    def clear(self) -> None:
+        self.win.erase()
 
 
 class LayoutColumn:
@@ -317,7 +343,7 @@ class Layout:
 
     An entity made of columns, with horizontal (top and bottom) and vertical
     (left and right) margins, horizontal and vertical spacings between the
-    columns and the boxes (windows).
+    columns and the windows.
 
     The columns are defined from left to right. If there is only one column
     it can be set centered.
@@ -374,7 +400,6 @@ class Layout:
 class LayoutManager:
     def __init__(self, **kwargs) -> None:
         self.stdscr: curses.window = kwargs.get("stdscr")
-        self.canvas: TUICanvas = TUICanvas(self.stdscr)
         maxy, maxx = self.stdscr.getmaxyx()
         self.layout: Layout = Layout(
             maxx=kwargs.get("maxx", maxx),
@@ -385,9 +410,7 @@ class LayoutManager:
             ymargin=kwargs.get("ymargin", 0),
         )
         self.theme: Theme = kwargs.get("theme", ThemePalette().get_theme())
-        self.boxes: list[list[TUIBox]] = []
-
-        self.canvas.init_colors()
+        self.windows: list[list[TUIWindow]] = []
 
     def add_column(self, width: int) -> None:
         self.layout.add_column(width)
@@ -399,10 +422,10 @@ class LayoutManager:
         self.add_column(width)
         self.add_column(width)
 
-    def add_box(self, **kwargs) -> TUIBox:
-        """Creates a new box, adds it to the internal list and returns it as well.
+    def add_window(self, **kwargs) -> TUIWindow:
+        """Creates a new window, adds it to the internal list and returns it as well.
 
-        Parameter Overflow controls if the box would overflow to another column.
+        Parameter Overflow controls if the window would overflow to another column.
         It contains the column number to which end it will overflow.
 
         Default column_num is 0.
@@ -413,10 +436,10 @@ class LayoutManager:
         column_num: int = kwargs.get("column_num", 0)
 
         if len(self.layout.columns) == 0:
-            raise Exception("No layout columns defined. New box cannot be added.")
+            raise Exception("No layout columns defined. New window cannot be added.")
         if not (0 <= column_num < len(self.layout.columns)):
             raise Exception(
-                f"New box cannot be added as column '{column_num}' does not exist."
+                f"New window cannot be added as column '{column_num}' does not exist."
             )
         
         title: str = kwargs.get("title", "")
@@ -427,20 +450,20 @@ class LayoutManager:
         x: int = kwargs.get("x", self.layout.columns[column_num].x)
         border: bool = kwargs.get("border", False)
 
-        if len(self.boxes) < len(self.layout.columns):
-            self.boxes.append([])
+        if len(self.windows) < len(self.layout.columns):
+            self.windows.append([])
 
-        box_index: int = 0
-        if len(self.boxes[column_num]) > 0:
-            box_index = len(self.boxes[column_num]) - 1
+        window_index: int = 0
+        if len(self.windows[column_num]) > 0:
+            window_index = len(self.windows[column_num]) - 1
 
         if overflow < column_num:
             raise Exception(
-                f"New Box[{column_num}][{box_index}] have an overflow set to a previous column."
+                f"New Window[{column_num}][{window_index}] have an overflow set to a previous column."
             )
         if overflow > len(self.layout.columns) - 1:
             raise Exception(
-                f"New Box[{column_num}][{box_index}] have an overflow set to a non-existing column."
+                f"New Window[{column_num}][{window_index}] have an overflow set to a non-existing column."
             )
         if overflow != column_num:
             columns_width: int = 0
@@ -450,31 +473,24 @@ class LayoutManager:
         
         if x + width > self.layout.maxx:
             raise Exception(
-                f"New Box[{column_num}][{box_index}] is wider than the screen."
+                f"New Window[{column_num}][{window_index}] is wider than the screen."
             )
 
         # y: int = 0
         if y == 0:
-            # Detect overflow of boxes in previous columns
+            # Detect overflow of windows in previous columns
             col_index = 0
             for col_index in range(column_num + 1):
-                for box in self.boxes[col_index]:
-                    if box.x + box.width > x:
-                        y = (box.y + box.height + self.layout.ymargin)
-
-            # if len(self.boxes[column_num]) > 0:
-            #     y = (
-            #         self.boxes[column_num][-1].y
-            #         + self.boxes[column_num][-1].height
-            #         + self.layout.ymargin
-            #     )
+                for window in self.windows[col_index]:
+                    if window.x + window.width > x:
+                        y = (window.y + window.height + self.layout.ymargin)
 
         if y + height > self.layout.maxy:
             raise Exception(
-                f"New Box[{column_num}][{box_index}] height is going below the screen."
+                f"New Window[{column_num}][{window_index}] height is going below the screen. Has the terminal been resized?"
             )
 
-        box: TUIBox = TUIBox(
+        window: TUIWindow = TUIWindow(
             theme=self.theme,
             stdscr=self.stdscr,
             y=y,
@@ -484,28 +500,28 @@ class LayoutManager:
             title=title,
             border=border,
             column_num=column_num,
-            column_len=len(self.boxes[column_num]),
+            column_len=len(self.windows[column_num]),
         )
-        self.boxes[column_num].append(box)
+        self.windows[column_num].append(window)
 
-        return box
+        return window
 
-    def draw_boxes(self) -> None:
-        for column in self.boxes:
-            for box in column:
-                box.draw_box()
+    def draw_windows(self) -> None:
+        for column in self.windows:
+            for window in column:
+                window.draw_border()
     
     def refresh_screen(self) -> None:
         """Pushes all the changes to the screen"""
 
         self.stdscr.noutrefresh()
 
-        for column in self.boxes:
-            for box in column:
-                if box.boxwin:
-                    box.boxwin.touchwin()
-                box.win.touchwin()
-                box.refresh()
+        for column in self.windows:
+            for window in column:
+                if window.borderwin:
+                    window.borderwin.touchwin()
+                window.win.touchwin()
+                window.refresh()
         curses.doupdate()  # Pushes all changes to screen at once
 
 
@@ -1603,7 +1619,7 @@ class WeatherForecaster:
             return "Snow"
         if 95 <= weather_code <= 99:
             return "Storm"
-        return "Precipitation"
+        return "Precip"
 
     def __get_storm_warning(self, weather_code: int, wind: int) -> str:
         if 95 <= weather_code <= 99:
@@ -1932,6 +1948,8 @@ class Views:
         self.data: WeatherData = data
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
+        self.height: int | None = None
+        self.width: int | None = None
 
     def prog_bar(self, percent: int, maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
@@ -1948,12 +1966,20 @@ class Views:
         bar = (fill_char * count) + (empty_char * (maxchar - count))
         return bar
 
-    def test_terminal_size(self, stdscr: curses.window, min_lines: int, min_cols: int) -> None:
-        lines, cols = stdscr.getmaxyx()
-        if lines < min_lines or cols < min_cols:
+    def test_terminal_resized(self, stdscr: curses.window, min_height: int, min_width: int) -> bool:
+        """Test if terminal was resized. Also if terminal is the minimum size required."""
+        
+        height, width = stdscr.getmaxyx()
+        if height < min_height or width < min_width:
             raise Exception(
-                f"Current terminal size ({cols}x{lines}) is smaller than the required minimum terminal size ({min_cols}x{min_lines})."
+                f"Current terminal size ({width}x{height}) is smaller than the required minimum terminal size ({min_width}x{min_height})."
             )
+        if (width, height) != (self.width, self.height):
+            self.width = width
+            self.height = height
+            return True
+        
+        return False
 
     def screen(self, stdscr: curses.window) -> None:
         r"""The actual TUI screen to display"""
@@ -2037,14 +2063,14 @@ class ColorViews(Views):
             "Rime Fog": COL_WHITEBLACK,
             "Cloudy": COL_WHITEBLACK,
             # -------------------- rains
-            "Drizzle": COL_BLUEBLACK,
-            "Rain": COL_BLUEBLACK,
-            "Snow": COL_BLUEBLACK,
-            "Rain Showers": COL_BLUEBLACK,
-            "Thunderstorm": COL_BLUEBLACK,
+            "Drizzle": COL_CYANBLACK,
+            "Rain": COL_CYANBLACK,
+            "Snow": COL_WHITEBLACK,
+            "Rain Showers": COL_CYANBLACK,
+            "Thunderstorm": COL_REDBLACK,
         }
         if sky not in d:
-            raise Exception(f"Invalid sky value '{sky}'.")
+            raise ValueError(f"Invalid sky value '{sky}'.")
         return d[sky]
 
     def _get_aqistr_cp(self, aqistr: str) -> int:
@@ -2062,7 +2088,7 @@ class ColorViews(Views):
             "Hazardous": COL_REDBLACK,
         }
         if aqistr not in d:
-            raise Exception(f"Invalid AQI value '{aqistr}'.")
+            raise ValueError(f"Invalid AQI value '{aqistr}'.")
         return d[aqistr]
 
     def _get_progbar_cp(self, p: int) -> int:
@@ -2325,7 +2351,7 @@ class NiceView(Views):
 
         # Global settings
         stdscr.erase()
-        self.test_terminal_size(stdscr, MIN_LINES, MIN_COLS)
+        self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
         stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
 
@@ -2336,7 +2362,7 @@ class NiceView(Views):
 
         # Init
         view_width: int = 73
-        data_box_width: int = 36
+        data_window_width: int = 36
         datax: int = 16
         time24_x: int = 45
         if not self.config.time24:
@@ -2345,8 +2371,8 @@ class NiceView(Views):
         # Windows initialization
         title_win = curses.newwin(3, view_width, 0, 1)
         location_win = curses.newwin(1, view_width - 1, 3, 2)
-        status_win = curses.newwin(7, data_box_width, 4, 1)
-        air_win = curses.newwin(7, data_box_width, 4, 38)
+        status_win = curses.newwin(7, data_window_width, 4, 1)
+        air_win = curses.newwin(7, data_window_width, 4, 38)
         forecast_win = curses.newwin(8, view_width, 12, 1)
         warnings_win = curses.newwin(4, view_width, 21, 1)
         brief_win = curses.newwin(1, view_width, 25, 1)
@@ -2468,7 +2494,7 @@ class NiceView(Views):
             air_win.addstr(3, 3, "Wind   :")
             air_win.addstr(4, 3, "AQI    :")
             air_win.addstr(5, 3, "Precip :")
-            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+            air_win.addstr(3, datax, f"{winddir} {wind}{wunit}")
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
             air_win.addstr(
                 5, datax, f"[{self.prog_bar(precipitation)}] {precipitation}%"
@@ -2577,7 +2603,7 @@ class ColorView(ColorViews):
 
         # Global settings
         stdscr.erase()
-        self.test_terminal_size(stdscr, MIN_LINES, MIN_COLS)
+        self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
         stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
 
@@ -2588,7 +2614,7 @@ class ColorView(ColorViews):
 
         # Init
         view_width: int = 73
-        data_box_width: int = 36
+        data_window_width: int = 36
         datax: int = 16
         time24_x: int = 45
         if not self.config.time24:
@@ -2597,8 +2623,8 @@ class ColorView(ColorViews):
         # Windows initialization
         title_win = curses.newwin(3, view_width, 0, 1)
         location_win = curses.newwin(1, view_width - 1, 3, 2)
-        status_win = curses.newwin(7, data_box_width, 4, 1)
-        air_win = curses.newwin(7, data_box_width, 4, 38)
+        status_win = curses.newwin(7, data_window_width, 4, 1)
+        air_win = curses.newwin(7, data_window_width, 4, 38)
         forecast_win = curses.newwin(8, view_width, 12, 1)
         warnings_win = curses.newwin(4, view_width, 21, 1)
         brief_win = curses.newwin(1, view_width, 25, 1)
@@ -2738,7 +2764,7 @@ class ColorView(ColorViews):
             air_win.addstr(5, 3, "Precip :")
             air_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
             air_win.attron(curses.color_pair(COL_WHITEBLACK))
-            air_win.addstr(3, datax, f"{wind}{wunit} {winddir}")
+            air_win.addstr(3, datax, f"{winddir} {wind}{wunit}")
             air_win.attroff(curses.color_pair(COL_WHITEBLACK))
             air_win.attron(curses.color_pair(self._get_aqistr_cp(airquality)))
             air_win.addstr(4, datax, f"{aqi} ({airquality})")
@@ -2865,11 +2891,33 @@ class ColorView(ColorViews):
 class DashboardView(ColorViews):
     """A dashboard color view"""
 
+    def init_screen(self, stdscr: curses.window) -> None:
+        # Global settings
+        stdscr.erase()
+        stdscr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+    
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
+        theme_palette.init_colors(stdscr)
         theme: Theme = theme_palette.get_theme(self.config.theme)
+        self.init_screen(stdscr)
+        
+        # Initial test for the size and to save the initial width and height
+        self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
+
         forecaster: WeatherForecaster = WeatherForecaster(self.config)
         last_refresh: str = ""
+        
+        # Global layout settings for this view
+        minimum_window_height: int = 1
+        general_window_height: int = 4
+        main_layout_columns_height: int = 5
+        title_window_height: int = 3
+        forecast_window_height: int = 8
+        default_text_indent: int = 1
+        labels_x: int = default_text_indent
+        data_x: int = labels_x + 15
 
         # Data which won't change
         city: str = self.config.city
@@ -2877,24 +2925,18 @@ class DashboardView(ColorViews):
         country: str = self.config.country
 
         layout_manager: LayoutManager | None = None
-        title_box: TUIBox | None = None
-        location_box: TUIBox | None = None
-        currently_box: TUIBox | None = None
-        airquality_box: TUIBox | None = None
-        forecast_box: TUIBox | None = None
-        warnings_box: TUIBox | None = None
-        brief_box: TUIBox | None = None
-        lastrefresh_box: TUIBox | None = None
 
-        # Global settings
-        stdscr.erase()
-        self.test_terminal_size(stdscr, MIN_LINES, MIN_COLS)
-        stdscr.nodelay(True)
-        curses.curs_set(False)  # Hide cursor
+        title_window: TUIWindow | None = None
+        location_window: TUIWindow | None = None
+        currently_window: TUIWindow | None = None
+        airquality_window: TUIWindow | None = None
+        forecast_window: TUIWindow | None = None
+        warnings_window: TUIWindow | None = None
+        brief_window: TUIWindow | None = None
+        lastrefresh_window: TUIWindow | None = None
 
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
-        prevh, prevw = stdscr.getmaxyx()
         while True:
             # User input
             keypressed: int = stdscr.getch()
@@ -2903,93 +2945,92 @@ class DashboardView(ColorViews):
             if keypressed == ord("q"):
                 break
 
-            curh, curw = stdscr.getmaxyx()
-
             # Application just started or Terminal was resized
             # keypressed == curses.KEY_RESIZE
-            if not layout_manager or (curh, curw) != (prevh, prevw):
-                prevh = curh
-                prevw = curw
-
-                self.test_terminal_size(stdscr, MIN_LINES, MIN_COLS)
-
+            if not layout_manager or self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS):
                 layout_manager = LayoutManager(
                     stdscr=stdscr,
                     theme=theme
                 )
                 layout_manager.split_screen()
 
-                title_box = layout_manager.add_box(
+                title_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="About",
-                    height=3,
+                    height=title_window_height,
                     border=True,
                 )
-                location_box = layout_manager.add_box(
+                location_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="",
-                    height=1
+                    height=minimum_window_height
                 )
-                currently_box = layout_manager.add_box(
+                currently_window = layout_manager.add_window(
                     column_num=0,
                     title="Currently",
-                    height=7,
+                    height=main_layout_columns_height,
                     border=True,
                 )
-                airquality_box = layout_manager.add_box(
+                airquality_window = layout_manager.add_window(
                     column_num=1,
                     title="Air & Conditions",
-                    height=7,
+                    height=main_layout_columns_height,
                     border=True,
                 )
-                forecast_box = layout_manager.add_box(
+                forecast_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="7 Day Forecast",
-                    height=8,
+                    height=forecast_window_height,
                     border=True,
                 )
-                warnings_box = layout_manager.add_box(
+                warnings_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="Warnings",
-                    height=4,
+                    height=general_window_height,
                     border=True,
                 )
-                brief_box = layout_manager.add_box(
+                brief_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="Warnings",
-                    height=4
+                    height=general_window_height
                 )
-                lastrefresh_box = layout_manager.add_box(
+                lastrefresh_window = layout_manager.add_window(
                     column_num=0,
                     overflow=1,
                     title="Warnings",
-                    height=4
+                    height=general_window_height
                 )
 
-                layout_manager.draw_boxes()
+                layout_manager.draw_windows()
 
-
-                # f"TUIWEATHERGIRL {APPVERSION}                      Evgueni Antonov (StrayF) 2026",
-
-                # ........
-                # DEBUG:
-                title_box.print(f" TUIWEATHERGIRL {APPVERSION}")
-                title_box.print("Evgueni Antonov (StrayF) 2026", align="right")
-                location_box.print("nn bb aa")
-                currently_box.print("pp uu ww 132340985 9485")
-                airquality_box.print("lkhd iouewqrewq 0984350kl sjrf")
-                forecast_box.print("kjhf otu3t roiuwrfo 093485")
-                brief_box.print("elkjtgrewk eirturewo 03845 iokjsw")
-                lastrefresh_box.print("jkht oruet wr9et8")
-                warnings_box.print("line 1: jkhf 95t kljsdfrlks\n")
-                warnings_box.print("line 2: jkhf 95t kljsdfrlks\n")
-                warnings_box.print("line 3: jkhf 95t kljsdfrlks\n")
-                warnings_box.print("line 4: jkhf 95t kljsdfrlks\n")
+                # Screen labels
+                title_window.print(f" TUIWEATHERGIRL {APPVERSION}", theme="home")
+                title_window.print("Evgueni Antonov (StrayF) 2026", align="right", theme="home")
+                # ...
+                location_window.print(f" Home: {city}, {province}{country}")
+                # ...
+                currently_window.print("Sky    :", x=labels_x, y=0)
+                currently_window.print("Temp   :", x=labels_x, y=1)
+                currently_window.print("Range  :", x=labels_x, y=2)
+                # ...
+                airquality_window.print("Wind   :", x=labels_x, y=0)
+                airquality_window.print("AQI    :", x=labels_x, y=1)
+                airquality_window.print(f"{self.data.precipitation_type:<6} :", x=labels_x, y=2)
+                # ...
+                
+                
+                forecast_window.print("kjhf otu3t roiuwrfo 093485")
+                brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
+                lastrefresh_window.print("jkht oruet wr9et8")
+                warnings_window.print("line 1: jkhf 95t kljsdfrlks", newline=True)
+                warnings_window.print("line 2: jkhf 95t kljsdfrlks", newline=True)
+                warnings_window.print("line 3: jkhf 95t kljsdfrlks", newline=True)
+                warnings_window.print("line 4: jkhf 95t kljsdfrlks", newline=True)
 
 
             # Data to display
@@ -3059,8 +3100,33 @@ class DashboardView(ColorViews):
             cache.save()
 
             # ----------------------------------------- Screen update
+            location_window.print(f"Today: {datenow} {timenow}", align="right")
+            # ...
+            currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
+            currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
+            currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
+            currently_window.print("/", x=data_x+5, y=2)
+            currently_window.print(f"{tmax}°{tsuffix}", x=data_x+7, y=2, theme=self._get_temp_cp(tmax))
+            # ...
+            airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
+            airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
+            airquality_window.print("[", x=data_x, y=2, theme="border")
+            airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
+            airquality_window.print("]", x=data_x+10, y=2, theme="border")
+            airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
+            # ...
+            
 
-            # .........
+            # airquality_window.print("lkhd iouewqrewq 0984350kl sjrf")
+            # forecast_window.print("kjhf otu3t roiuwrfo 093485")
+            # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
+            # lastrefresh_window.print("jkht oruet wr9et8")
+            # warnings_window.print("line 1: jkhf 95t kljsdfrlks\n")
+            # warnings_window.print("line 2: jkhf 95t kljsdfrlks\n")
+            # warnings_window.print("line 3: jkhf 95t kljsdfrlks\n")
+            # warnings_window.print("line 4: jkhf 95t kljsdfrlks\n")
+
+
 
             # 7 day forecast
             for day_cnt, day in enumerate(week):
@@ -3112,7 +3178,7 @@ class WeatherGirl:
 
     def present(self, view: str = "") -> None:
         if len(view) > 0 and view not in self.views:
-            raise Exception(f"View not defined '{view}'. Run with --help for help.")
+            raise ValueError(f"View not defined '{view}'. Run with --help for help.")
         self.views[view or self.view].display()
 
 
@@ -3199,7 +3265,7 @@ class LocationManager:
                 "There are no currently added cities. You must first add a city with `--addcity`."
             )
         if 1 <= citynum > len(config.followcities):
-            raise Exception(
+            raise ValueError(
                 f"City must be a number between 1 and {len(config.followcities)}."
             )
 
@@ -3270,7 +3336,7 @@ class LocationManager:
                 "There are no currently added cities. You must first add a city with `--addcity`."
             )
         if 1 <= citynum > len(config.followcities):
-            raise Exception(
+            raise ValueError(
                 f"City must be a number between 1 and {len(config.followcities)}."
             )
 
@@ -3313,7 +3379,7 @@ if __name__ == "__main__":
         DEBUG_MODE = cli_arguments["debug"]
 
         if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
-            raise Exception("City and country must be provided together.")
+            raise ValueError("City and country must be provided together.")
 
         # No point to run everything if this is not set
         apikey: str = os.getenv(APIKEYENVVARNAME)
