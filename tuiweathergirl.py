@@ -186,7 +186,7 @@ class ThemePalette:
             raise ValueError(f"Invalid theme name '{themename}'.")
         return self.palette[themename]
     
-    def init_colors(self, stdscr: curses.window) -> None:
+    def init_colors(self) -> None:
         # Color definitions
         curses.start_color()
         curses.init_pair(
@@ -207,7 +207,6 @@ class ThemePalette:
 class TUIWindow:
     def __init__(self, **kwargs):
         theme: Theme | None = kwargs.get("theme", None)
-        stdscr: curses.window = kwargs.get("stdscr")
         self.y: int = kwargs.get("y", 0)
         self.x: int = kwargs.get("x", 0)
         self.height: int = kwargs.get("height", 0)
@@ -236,7 +235,6 @@ class TUIWindow:
             raise ValueError(f"The title for window '{self.title}' is too long.")
 
         self.theme: Theme | None = theme
-        self.scr: curses.window = stdscr
 
         self.win: curses.window | None = curses.newwin(self.height, self.width, self.y, self.x)
         self.borderwin: curses.window | None = None
@@ -492,7 +490,6 @@ class LayoutManager:
 
         window: TUIWindow = TUIWindow(
             theme=self.theme,
-            stdscr=self.stdscr,
             y=y,
             x=x,
             height=height,
@@ -2899,7 +2896,7 @@ class DashboardView(ColorViews):
     
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
-        theme_palette.init_colors(stdscr)
+        theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
         self.init_screen(stdscr)
         
