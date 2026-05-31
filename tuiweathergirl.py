@@ -519,7 +519,6 @@ class LayoutManager:
                     window.borderwin.touchwin()
                 window.win.touchwin()
                 window.refresh()
-        curses.doupdate()  # Pushes all changes to screen at once
 
 
 class LogEntry:
@@ -1986,6 +1985,10 @@ class Views:
         r"""Wrapper for screen(), unless simple printing"""
         pass
 
+    def update_screen(self) -> None:
+        r"""Pushes all screen updates at once, if applicable"""
+        pass
+
 
 class ColorViews(Views):
     r"""Definition of color views"""
@@ -2092,6 +2095,10 @@ class ColorViews(Views):
         if p < 40:
             return COL_BLUEBLACK
         return COL_CYANBLACK
+    
+    def update_screen(self) -> None:
+        r"""Pushes all changes to screen at once"""
+        curses.doupdate()
 
 
 class SetupView(Views):
@@ -3149,6 +3156,7 @@ class DashboardView(ColorViews):
             
             # Pushing the changes
             layout_manager.refresh_screen()
+            self.update_screen()
             time.sleep(1)  # Prevent 100% CPU usage
 
             
