@@ -1196,7 +1196,7 @@ class Locator:
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
                 "&lang=en"
             )
-            response: requests.Response = requests.get(url)
+            response: requests.Response = requests.get(url, timeout=5)
 
             if not response:
                 raise Exception(
@@ -1235,7 +1235,7 @@ class Locator:
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             )
-            response: requests.Response = requests.get(url, headers=headers)
+            response: requests.Response = requests.get(url, headers=headers, timeout=5)
 
             if not response.ok:
                 raise Exception(
@@ -1263,7 +1263,7 @@ class Locator:
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
-            response: requests.Response = requests.get(url)
+            response: requests.Response = requests.get(url, timeout=5)
             self.tzapi_calls += 1
 
             if not response.ok:
@@ -1354,7 +1354,7 @@ class Motivator:
         r"""Fetches a random inspirational quote from Quotable API."""
 
         try:
-            response = requests.get("https://zenquotes.io/api/random", timeout=2)
+            response = requests.get("https://zenquotes.io/api/random", timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -1789,8 +1789,8 @@ class WeatherForecaster:
 
         else:
             # Send the requests
-            weather_result: requests.Response = requests.get(url)
-            aq_result: requests.Response = requests.get(aq_url)
+            weather_result: requests.Response = requests.get(url, timeout=5)
+            aq_result: requests.Response = requests.get(aq_url, timeout=5)
 
             if not weather_result:
                 raise Exception(
@@ -2099,6 +2099,39 @@ class ColorViews(Views):
     def update_screen(self) -> None:
         r"""Pushes all changes to screen at once"""
         curses.doupdate()
+    
+    def test_exit_conditions(self, input: int) -> bool:
+        if input == ord("q"):
+            return True
+
+        # The terminal window was closed; exit immediately
+        if not os.isatty(sys.stdin.fileno()):
+            # sys.exit(0)
+            raise Exception("Not a TTY.")
+
+        if not hasattr(self, "consecutive_errors"):
+            self.consecutive_errors: int = 0
+            self.last_error_time: float = time.time()
+
+        if input == curses.ERR:
+            current_time: float = time.time()
+            elapsed: float = current_time - self.last_error_time
+            self.consecutive_errors += 1
+            
+            # If we got 20 errors in less than 1 second, it's a 100% CPU ghost loop
+            if self.consecutive_errors > 20 and elapsed < 1.0:
+                raise Exception(f"Ghost loop detected: 20 errors in {elapsed:.2f}s")
+            
+            # If it's been more than a second, it's likely just a timeout, 
+            # so we reset the timer and counter to start fresh.
+            if elapsed >= 1.0:
+                self.consecutive_errors = 0
+                self.last_error_time = current_time
+                
+            return False
+        else:
+            self.consecutive_errors = 0
+            return False
 
 
 class SetupView(Views):
@@ -2356,8 +2389,9 @@ class NiceView(Views):
         # Global settings
         stdscr.erase()
         self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
-        stdscr.nodelay(True)
+        # stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
+        stdscr.timeout(1000)  # Wait 1 second
 
         # Data which won't change
         city: str = self.config.city
@@ -2608,8 +2642,9 @@ class ColorView(ColorViews):
         # Global settings
         stdscr.erase()
         self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
-        stdscr.nodelay(True)
+        # stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
+        stdscr.timeout(1000)  # Wait 1 second
 
         # Data which won't change
         city: str = self.config.city
@@ -2898,8 +2933,9 @@ class DashboardView(ColorViews):
     def init_screen(self, stdscr: curses.window) -> None:
         # Global settings
         stdscr.erase()
-        stdscr.nodelay(True)
+        # stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
+        stdscr.timeout(1000)  # Wait 1 second
     
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
@@ -2946,7 +2982,7 @@ class DashboardView(ColorViews):
             keypressed: int = stdscr.getch()
 
             # Exit view and application
-            if keypressed == ord("q"):
+            if self.test_exit_conditions(keypressed):
                 break
 
             # Application just started or Terminal was resized
@@ -3013,22 +3049,23 @@ class DashboardView(ColorViews):
                 layout_manager.draw_windows()
 
                 # Screen labels
+                # About
                 title_window.print(f" TUIWEATHERGIRL {APPVERSION}", theme="home")
                 title_window.print("Evgueni Antonov (StrayF) 2026", align="right", theme="home")
-                # ...
+                # Home location
                 location_window.print(f" Home: {city}, {province}{country}")
-                # ...
+                # Current situation labels
                 currently_window.print("Sky    :", x=labels_x, y=0)
                 currently_window.print("Temp   :", x=labels_x, y=1)
                 currently_window.print("Range  :", x=labels_x, y=2)
-                # ...
+                # Wind, air quality and precipitation labels
                 airquality_window.print("Wind   :", x=labels_x, y=0)
                 airquality_window.print("AQI    :", x=labels_x, y=1)
                 airquality_window.print(f"{self.data.precipitation_type:<6} :", x=labels_x, y=2)
-                # ...
+                # 7 day forecast labels
                 
                 
-                forecast_window.print("kjhf otu3t roiuwrfo 093485")
+                # forecast_window.print("kjhf otu3t roiuwrfo 093485")
                 brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
                 lastrefresh_window.print("jkht oruet wr9et8")
                 warnings_window.print("line 1: jkhf 95t kljsdfrlks", newline=True)
@@ -3104,24 +3141,35 @@ class DashboardView(ColorViews):
             cache.save()
 
             # ----------------------------------------- Screen update
+            # Today's date and time
             location_window.print(f"Today: {datenow} {timenow}", align="right")
-            # ...
+            # Current sky, temperature and temperature range
             currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
             currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
             currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
             currently_window.print("/", x=data_x+5, y=2)
             currently_window.print(f"{tmax}°{tsuffix}", x=data_x+7, y=2, theme=self._get_temp_cp(tmax))
-            # ...
+            # Wind, air quality and precipitation
             airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
             airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
             airquality_window.print("[", x=data_x, y=2, theme="border")
             airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
             airquality_window.print("]", x=data_x+10, y=2, theme="border")
             airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
-            # ...
+            
+            # 7 day forecast
+            for day_cnt, day in enumerate(week):
+                wy: int = day_cnt % 4
+                wx: int = 1 if day_cnt < 4 else 38
+
+                dmin: int = day.min
+                dmax: int = day.max
+                dprecip: int = day.precip
+                dow: str = day.dow
+
+                forecast_window.print(f"{dow}:", x=wx, y=wy)
             
 
-            # airquality_window.print("lkhd iouewqrewq 0984350kl sjrf")
             # forecast_window.print("kjhf otu3t roiuwrfo 093485")
             # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
             # lastrefresh_window.print("jkht oruet wr9et8")
@@ -3157,7 +3205,7 @@ class DashboardView(ColorViews):
             # Pushing the changes
             layout_manager.refresh_screen()
             self.update_screen()
-            time.sleep(1)  # Prevent 100% CPU usage
+            # time.sleep(1)  # Prevent 100% CPU usage
 
             
 
