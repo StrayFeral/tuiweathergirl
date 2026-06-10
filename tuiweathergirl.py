@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 import traceback
+import textwrap
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
@@ -204,7 +205,159 @@ class ThemePalette:
         curses.init_pair(COL_CYANBLACK, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
 
 
-class TUIWindow:
+class TextFlowStyle:
+    r"""Class to define the flow of text for Paragraphs, TextLists, etc.
+    
+    It defines the side indents and above and below spacings."""
+
+    def __init__(self, **kwargs) -> None:
+        self.align: str = kwargs.get("align", "left")
+        self.left_indent: int = kwargs.get("leftindent", 0)
+        self.right_indent: int = kwargs.get("rightindent", 0)
+        self.above_spacing: int = kwargs.get("abovespacing", 0)
+        self.below_spacing: int = kwargs.get("belowspacing", 0)
+        self.blockquote_indent: int = kwargs.get("blockquote", 0)
+        self.bullet_space: int = kwargs.get("bulletspace", 1)
+
+        # Yeah, I know. But I do sometimes make this typo.
+        if "bellow" in kwargs:
+            raise ValueError("Syntax error. Passed argument 'beLLowspacing', instead of 'beLowspacing'.")
+    
+
+class MainTextStyle(TextFlowStyle):
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "align": "left",
+                "leftindent": 1,
+                "rightindent": 1,
+                "abovespacing": 0,
+                "belowspacing": 0,
+                "blockquote": 4,
+                "bulletspace": 1,
+            }
+        )
+
+
+class TextParagraph:
+    r"""Defines a paragraph of text.
+
+    Any passed argument overrides the TextFlowStyle definition."""
+
+    def __init__(self, text: str, **kwargs) -> None:
+        self._data: str = text
+        self.style: TextFlowStyle = kwargs.get("flowstyle", MainTextStyle())
+        self.left_indent: int = kwargs.get("leftindent", self.style.left_indent)
+        self.right_indent: int = kwargs.get("rightindent", self.style.right_indent)
+        self.above_spacing: int = kwargs.get("abovespacing", self.style.above_spacing)
+        self.below_spacing: int = kwargs.get("belowspacing", self.style.below_spacing)
+        self.first_line: int = kwargs.get("firstline", 0)  # Indent
+
+        self._wrapper = textwrap.TextWrapper(
+            expand_tabs=True,
+            replace_whitespace=True,
+            drop_whitespace=True,
+            break_long_words=False,
+            break_on_hyphens=False,
+            initial_indent=" " * self.first_line,
+            subsequent_indent=" " * self.left_indent
+        )
+    
+    def get_data(self, width: int = 0) -> list[str]:
+        """Wraps the paragraph text into a list of strings, where each string's
+        length is less than or equal to the desired width. Splits strictly by spaces.
+        """
+
+        if not self._data.strip():
+            return []
+        
+        if width <= 0:
+            return [self._data]
+
+        actual_width: int = width - self.right_indent
+        if actual_width <= 0:
+            raise ValueError(f"Available layout width ({actual_width}) is too small.")
+
+        self._wrapper.width = actual_width
+        lines: list[str] = self._wrapper.wrap(self._data)
+
+        for l in lines:
+            if len(l) > width:
+                raise ValueError(f"Cannot wrap paragraph. Shortest line is longer than the required width of {width} characters.")
+        
+        return lines
+
+
+class TextList:
+    r"""Defines a list of text.
+
+    Any passed argument overrides the TextFlowStyle definition."""
+
+    def __init__(self, text: list[str], **kwargs) -> None:
+        self._data: list[str] = text
+        self.style: TextFlowStyle = kwargs.get("flowstyle", MainTextStyle())
+        self.left_indent: int = kwargs.get("leftindent", self.style.left_indent)
+        self.right_indent: int = kwargs.get("rightindent", self.style.right_indent)
+        self.above_spacing: int = kwargs.get("abovespacing", self.style.above_spacing)
+        self.below_spacing: int = kwargs.get("belowspacing", self.style.below_spacing)
+        self.bullet: str = kwargs.get("bullet", "*")
+        self.number_separator: str = kwargs.get("numberseparator", ".")
+        self.ordered: bool = kwargs.get("ordered", False)
+        self.bullet_space: int = kwargs.get("belowspacing", self.bullet_space)
+
+        first_line_prepend: str = self.number_separator + " " * self.bullet_space
+        other_lines_prepend: str = " " * (len(first_line_prepend) + 2)  # Because of the number
+        if not self.ordered:
+            first_line_prepend = self.bullet + " " * self.bullet_space
+            other_lines_prepend = " " * len(first_line_prepend)
+
+        self._wrapper = textwrap.TextWrapper(
+            expand_tabs=True,
+            replace_whitespace=True,
+            drop_whitespace=True,
+            break_long_words=False,
+            break_on_hyphens=False,
+            initial_indent=first_line_prepend,
+            subsequent_indent=other_lines_prepend
+        )
+    
+    def get_data(self, width: int = 0) -> list[str]:
+        if not self._data:
+            return []
+        
+        # generate the wrapped lines for each list item
+        # if ordered: replace the bulletchar with a number+number_separator
+        # append all item_lines into lines and return lines
+        actual_width: int = width - self.right_indent
+        if actual_width <= 0:
+            raise ValueError(f"Available layout width ({actual_width}) is too small.")
+
+        self._wrapper.width = actual_width
+        i: int = 0
+        lines: list[str] = []
+        for item in self.data:
+            i += 1
+            item_lines: list[str] = self._wrapper.wrap(self._data)
+
+            # Prepending the number if the list is ordered.
+            # And no - my use cases involve only lists with up to 20 items,
+            # so I do not imagine anyone would want to print an ordered list
+            # of 500 elements
+            if len(item_lines) and self.ordered:
+                item_lines[0] = f"{i}{item_lines[0]}"
+            
+            for l in item_lines:
+                if len(l) > width:
+                    raise ValueError(f"Cannot wrap paragraph. Shortest line is longer than the required width of {width} characters.")
+                
+            lines.extend(item_lines)
+        
+        return lines
+
+        
+
+
+class Window:
     def __init__(self, **kwargs):
         theme: Theme | None = kwargs.get("theme", None)
         self.y: int = kwargs.get("y", 0)
@@ -244,7 +397,7 @@ class TUIWindow:
         self.win.scrollok(True)
     
     def __repr__(self) -> str:
-        s: str = f"TUIWindow {self.column_num}-{self.column_len+1} [{self.title}]; Coord: {self.x},{self.y}, Dimensions: {self.width},{self.height}"
+        s: str = f"Window {self.column_num}-{self.column_len+1} [{self.title}]; Coord: {self.x},{self.y}, Dimensions: {self.width},{self.height}"
         if self.border:
             s += "; Bordered"
         return s
@@ -278,7 +431,7 @@ class TUIWindow:
         else:
             self.win.addstr(y, x, s)
 
-    def print(self, s: str, **kwargs):
+    def print(self, s: str | list, **kwargs):
         theme_key: str = kwargs.get("theme", "general")
         align: str = kwargs.get("align", "left")
         y: int = kwargs.get("y", self.cursor_y)
@@ -294,12 +447,15 @@ class TUIWindow:
         if self.theme:
             self.theme.on(self.win, theme_key)
         
-        if align == "left":
+        if isinstance(s, list):
+            for line in s:
+                self.printyx(y, x, line, theme=theme_key)
+        elif align == "left":
             self.printyx(y, x, s, theme=theme_key)
-        if align == "right":
+        elif align == "right":
             x = self.inner_width - len(s) - 1
             self.printyx(y, x, s, theme=theme_key)
-        if align == "centered":
+        elif align == "centered":
             x = (self.inner_width - len(s) - 1) // 2
             self.printyx(y, x, s, theme=theme_key)
         
@@ -339,9 +495,9 @@ class LayoutColumn:
 class Layout:
     """Defines a layout.
 
-    An entity made of columns, with horizontal (top and bottom) and vertical
-    (left and right) margins, horizontal and vertical spacings between the
-    columns and the windows.
+    An entity made of columns, with top and bottom and left and right margins,
+    left and right and top and bottom spacings between the columns and
+    the windows.
 
     The columns are defined from left to right. If there is only one column
     it can be set centered.
@@ -408,7 +564,7 @@ class LayoutManager:
             ymargin=kwargs.get("ymargin", 0),
         )
         self.theme: Theme = kwargs.get("theme", ThemePalette().get_theme())
-        self.windows: list[list[TUIWindow]] = []
+        self.windows: list[list[Window]] = []
 
     def add_column(self, width: int) -> None:
         self.layout.add_column(width)
@@ -420,7 +576,7 @@ class LayoutManager:
         self.add_column(width)
         self.add_column(width)
 
-    def add_window(self, **kwargs) -> TUIWindow:
+    def add_window(self, **kwargs) -> Window:
         """Creates a new window, adds it to the internal list and returns it as well.
 
         Parameter Overflow controls if the window would overflow to another column.
@@ -488,7 +644,7 @@ class LayoutManager:
                 f"New Window[{column_num}][{window_index}] height is going below the screen. Has the terminal been resized?"
             )
 
-        window: TUIWindow = TUIWindow(
+        window: Window = Window(
             theme=self.theme,
             y=y,
             x=x,
@@ -2966,14 +3122,14 @@ class DashboardView(ColorViews):
 
         layout_manager: LayoutManager | None = None
 
-        title_window: TUIWindow | None = None
-        location_window: TUIWindow | None = None
-        currently_window: TUIWindow | None = None
-        airquality_window: TUIWindow | None = None
-        forecast_window: TUIWindow | None = None
-        warnings_window: TUIWindow | None = None
-        brief_window: TUIWindow | None = None
-        lastrefresh_window: TUIWindow | None = None
+        title_window: Window | None = None
+        location_window: Window | None = None
+        currently_window: Window | None = None
+        airquality_window: Window | None = None
+        forecast_window: Window | None = None
+        warnings_window: Window | None = None
+        brief_window: Window | None = None
+        lastrefresh_window: Window | None = None
 
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
