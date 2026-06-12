@@ -355,11 +355,26 @@ class TextList:
         return lines
 
 
-class BlockQuote:
-    pass
+class BlockQuote(TextParagraph):
+    def __init__(self, text: str, **kwargs) -> None:
+        self._data: str = text
+        self.style: TextFlowStyle = kwargs.get("flowstyle", MainTextStyle())
+        self.left_indent: int = kwargs.get("leftindent", self.style.left_indent)
+        self.right_indent: int = kwargs.get("rightindent", self.style.right_indent)
+        self.above_spacing: int = kwargs.get("abovespacing", self.style.above_spacing)
+        self.below_spacing: int = kwargs.get("belowspacing", self.style.below_spacing)
+        self.quotechar: str = kwargs.get("quotechar", "│")
 
-        
-
+        self._wrapper = textwrap.TextWrapper(
+            expand_tabs=True,
+            replace_whitespace=True,
+            drop_whitespace=True,
+            break_long_words=False,
+            break_on_hyphens=False,
+            initial_indent=f"{self.quotechar} ",
+            subsequent_indent=f"{self.quotechar} "
+        )
+    
 
 class Window:
     def __init__(self, **kwargs):
@@ -435,12 +450,13 @@ class Window:
         else:
             self.win.addstr(y, x, s)
 
-    def print(self, s: str | list, **kwargs):
+    def print(self, s: str | TextParagraph | TextList, **kwargs):
         theme_key: str = kwargs.get("theme", "general")
         align: str = kwargs.get("align", "left")
         y: int = kwargs.get("y", self.cursor_y)
         x: int = kwargs.get("x", self.cursor_x)
         newline: bool = kwargs.get("newline", False)
+        width: int = kwargs.get("width", self.width - x)
 
         if align not in ["left", "right", "centered"]:
             raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
@@ -451,17 +467,18 @@ class Window:
         if self.theme:
             self.theme.on(self.win, theme_key)
         
-        if isinstance(s, list):
-            for line in s:
-                self.printyx(y, x, line, theme=theme_key)
-        elif align == "left":
-            self.printyx(y, x, s, theme=theme_key)
-        elif align == "right":
+        if align == "right":
             x = self.inner_width - len(s) - 1
-            self.printyx(y, x, s, theme=theme_key)
         elif align == "centered":
             x = (self.inner_width - len(s) - 1) // 2
+        
+        if isinstance(s, str):
             self.printyx(y, x, s, theme=theme_key)
+        elif isinstance(s, TextList) or isinstance(s, TextParagraph):
+            yoffset = 0
+            for line in s.get_data(width):
+                self.printyx(y+yoffset, x, line, theme=theme_key)
+                yoffset += 1
         
         if self.theme:
             self.theme.off()
@@ -517,8 +534,8 @@ class Window:
             self.print(y=y, x=x, s=s)
         else:
             # Draw a vertical line
-            for n in range(length+1):
-                self.print(y=y, x=x, s=s)
+            for n in range(length):
+                self.print(y=y+n, x=x, s=s)
 
 
 class LayoutColumn:
