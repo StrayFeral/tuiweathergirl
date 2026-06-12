@@ -354,6 +354,10 @@ class TextList:
         
         return lines
 
+
+class BlockQuote:
+    pass
+
         
 
 
@@ -484,6 +488,37 @@ class Window:
 
     def clear(self) -> None:
         self.win.erase()
+    
+    def draw_line(self, **kwargs) -> None:
+        if not all(key in kwargs for key in ("x", "y", "direction", "length")):
+            raise ValueError("Method draw_line() requires: x, y, direction and length.")
+        y: int = kwargs.get("y")
+        x: int = kwargs.get("x")
+        direction: int = kwargs.get("direction")
+        length: int = kwargs.get("length")
+
+        if not direction in ["horizontal", "vertical", "h", "v"]:
+            raise ValueError("Direction must be either horizontal or vertical.")
+        
+        if direction in ["horizontal", "h"] and x + length > self.width - x:
+            raise ValueError(f"Cannot draw a horizontal line of {length} chars because only {self.width - x} chars are to the right of {x} in this window.")
+        if direction in ["vertical", "v"] and y + length > self.height - y:
+            raise ValueError(f"Cannot draw a vertical line of {length} chars because only {self.height - y} chars are down of {y} in this window.")
+
+        hr: str = "─"
+        vr: str = "│"
+
+        s: str = vr
+        if direction in ["horizontal", "h"]:
+            s = hr * length
+        
+        # Draw a horizontal line
+        if direction in ["horizontal", "h"]:
+            self.print(y=y, x=x, s=s)
+        else:
+            # Draw a vertical line
+            for n in range(length+1):
+                self.print(y=y, x=x, s=s)
 
 
 class LayoutColumn:
