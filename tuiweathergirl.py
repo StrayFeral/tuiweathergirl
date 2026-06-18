@@ -45,7 +45,7 @@ EPILOGUE_HELP: str = """VIEWS:
         Printing to STDOUT then exit. You would enjoy the Motivate view a lot.
     
     dashboard
-        A colorful ncurses dashboard.
+        A colorful ncurses dashboard. Requires terminal size at least 146x38.
 
     nice
         Monochrome ncurses text interface.
@@ -2235,7 +2235,7 @@ class Views:
         height, width = stdscr.getmaxyx()
         if height < min_height or width < min_width:
             raise Exception(
-                f"Current terminal size ({width}x{height}) is smaller than the required minimum terminal size ({min_width}x{min_height})."
+                f"Current terminal size ({width}x{height}) is smaller than the required minimum terminal size ({min_width}x{min_height}) for this view. You might try another view. Run with --help"
             )
         if (width, height) != (self.width, self.height):
             self.width = width
@@ -3222,9 +3222,12 @@ class DashboardView(ColorViews):
         theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
         self.init_screen(stdscr)
+
+        view_required_lines: int = 38
+        view_required_columns: int = 146
         
         # Initial test for the size and to save the initial width and height
-        self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
+        self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
 
         forecaster: WeatherForecaster = WeatherForecaster(self.config)
         last_refresh: str = ""
@@ -3257,6 +3260,8 @@ class DashboardView(ColorViews):
         brief_window: Window | None = None
         lastrefresh_window: Window | None = None
 
+        force_screen_update: bool = False
+
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
         while True:
@@ -3270,7 +3275,7 @@ class DashboardView(ColorViews):
             # ------------------------------------------------- DEFINE LAYOUT
             # Application just started or Terminal was resized
             # keypressed == curses.KEY_RESIZE
-            if not layout_manager or self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS):
+            if not layout_manager or self.test_terminal_resized(stdscr, view_required_lines, view_required_columns):
                 layout_manager = LayoutManager(
                     stdscr=stdscr,
                     theme=theme
@@ -3361,6 +3366,8 @@ class DashboardView(ColorViews):
                 warnings_window.print("line 3: jkhf 95t kljsdfrlks", newline=True)
                 warnings_window.print("line 4: jkhf 95t kljsdfrlks", newline=True)
 
+                force_screen_update = True
+
             # ------------------------------------------------- REFRESH DATA
             # Data to display
             timenow: str = self.presconf.update_time()
@@ -3430,68 +3437,60 @@ class DashboardView(ColorViews):
             cache.save()
 
             # ----------------------------------------- Screen update
-            # Today's date and time
-            location_window.print(f"Today: {datenow} {timenow}", align="right", theme="home")
-            # Current sky, temperature and temperature range
-            currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
-            currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
-            currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
-            currently_window.print("/", x=data_x+4, y=2)
-            currently_window.print(f"{tmax}°{tsuffix}", x=data_x+5, y=2, theme=self._get_temp_cp(tmax))
-            # Wind, air quality and precipitation
-            airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
-            airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
-            airquality_window.print(":", x=labels_x+6, y=2, theme="general")
-            airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
-            airquality_window.print("[", x=data_x, y=2, theme="border")
-            airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
-            airquality_window.print("]", x=data_x+10, y=2, theme="border")
-            airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
-            
-            # 7 day forecast
-            for day_cnt, day in enumerate(week):
-                wy: int = day_cnt % 4
-                wx: int = 1 if day_cnt < 4 else first_two_windows_width + 1
-                data_x2: int = wx + 5
-                precip_x: int = data_x2 + 10
+            if force_screen_update:
+                # Today's date and time
+                location_window.print(f"Today: {datenow} {timenow}", align="right", theme="home")
+                # Current sky, temperature and temperature range
+                currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
+                currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
+                currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
+                currently_window.print("/", x=data_x+4, y=2)
+                currently_window.print(f"{tmax}°{tsuffix}", x=data_x+5, y=2, theme=self._get_temp_cp(tmax))
+                # Wind, air quality and precipitation
+                airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
+                airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
+                airquality_window.print(":", x=labels_x+6, y=2, theme="general")
+                airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
+                airquality_window.print("[", x=data_x, y=2, theme="border")
+                airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
+                airquality_window.print("]", x=data_x+10, y=2, theme="border")
+                airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
+                
+                # 7 day forecast
+                for day_cnt, day in enumerate(week):
+                    wy: int = day_cnt % 4
+                    wx: int = 1 if day_cnt < 4 else first_two_windows_width + 1
+                    data_x2: int = wx + 5
+                    precip_x: int = data_x2 + 10
 
-                dmin: int = day.min
-                dmax: int = day.max
-                dprecip: int = day.precip
-                dow: str = day.dow
+                    dmin: int = day.min
+                    dmax: int = day.max
+                    dprecip: int = day.precip
+                    dow: str = day.dow
 
-                forecast_window.print(f"{dow}:", x=wx, y=wy)
-                forecast_window.print(f"{dmin}°{tsuffix}", x=data_x2, y=wy, theme=self._get_temp_cp(dmin))
-                forecast_window.print("/", x=data_x2+4, y=2)
-                forecast_window.print(f"{dmax}°{tsuffix}", x=data_x2+5, y=2, theme=self._get_temp_cp(dmax))
+                    forecast_window.print(f"{dow}:", x=wx, y=wy)
+                    forecast_window.print(f"{dmin}°{tsuffix}", x=data_x2, y=wy, theme=self._get_temp_cp(dmin))
+                    forecast_window.print("/", x=data_x2+4, y=2)
+                    forecast_window.print(f"{dmax}°{tsuffix}", x=data_x2+5, y=2, theme=self._get_temp_cp(dmax))
 
-                forecast_window.print("[", x=precip_x, y=wy, theme="border")
-                forecast_window.print(self.prog_bar(dprecip), x=precip_x+1, y=wy, theme=self._get_progbar_cp(dprecip))
-                forecast_window.print("]", x=precip_x+10, y=wy, theme="border")
-                forecast_window.print(f"{dprecip}%  ", x=precip_x+12, y=wy, theme=self._get_progbar_cp(dprecip))
-            
-            
-            # forecast_window.print("kjhf otu3t roiuwrfo 093485")
-            # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
-            # lastrefresh_window.print("jkht oruet wr9et8")
-            # warnings_window.print("line 1: jkhf 95t kljsdfrlks\n")
-            # warnings_window.print("line 2: jkhf 95t kljsdfrlks\n")
-            # warnings_window.print("line 3: jkhf 95t kljsdfrlks\n")
-            # warnings_window.print("line 4: jkhf 95t kljsdfrlks\n")
+                    forecast_window.print("[", x=precip_x, y=wy, theme="border")
+                    forecast_window.print(self.prog_bar(dprecip), x=precip_x+1, y=wy, theme=self._get_progbar_cp(dprecip))
+                    forecast_window.print("]", x=precip_x+10, y=wy, theme="border")
+                    forecast_window.print(f"{dprecip}%  ", x=precip_x+12, y=wy, theme=self._get_progbar_cp(dprecip))
+                
+                
+                # forecast_window.print("kjhf otu3t roiuwrfo 093485")
+                # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
+                # lastrefresh_window.print("jkht oruet wr9et8")
+                # warnings_window.print("line 1: jkhf 95t kljsdfrlks\n")
+                # warnings_window.print("line 2: jkhf 95t kljsdfrlks\n")
+                # warnings_window.print("line 3: jkhf 95t kljsdfrlks\n")
+                # warnings_window.print("line 4: jkhf 95t kljsdfrlks\n")
 
 
+                #     # .....
 
-            # # 7 day forecast
-            # for day_cnt, day in enumerate(week):
-            #     wy: int = 2 + (day_cnt % 4)
-            #     wx: int = 3 if day_cnt < 4 else 40
-
-            #     dmin: int = day.min
-            #     dmax: int = day.max
-            #     dprecip: int = day.precip
-            #     dow: str = day.dow
-
-            #     # .....
+                force_screen_update = False
 
 
             current_time: datetime = datetime.now()
@@ -3502,6 +3501,7 @@ class DashboardView(ColorViews):
                 forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
+                force_data_redraw = True
 
             
             # Pushing the changes
@@ -3774,7 +3774,9 @@ if __name__ == "__main__":
         weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
         weather_girl.present(cli_arguments.get("view"))
 
-        print(f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Cast Spells!")
+        print(f"TUIWEATHERGIRL {APPVERSION} -Your daily terminal weathergirl- by Evgueni Antonov (StrayF) 2026.")
+        print("For help: tuiweathergirl --help")
+        print("Cast Spells!")
 
     except Exception as e:
         print(
