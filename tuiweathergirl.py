@@ -68,7 +68,7 @@ Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.
 """
 APIKEYENVVARNAME: str = "TIMEZONEAPIKEY"
 MIN_COLS: int = 79
-MIN_LINES: int = 24
+MIN_LINES: int = 22
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
@@ -138,9 +138,13 @@ class Theme:
         self._last_window: curses.window = None
         self._last_dim: bool = False
 
-    def on(self, win: curses.window, attr: str | int, **kwargs) -> None:
+    def on(self, win: curses.window, attr: str | int | None, **kwargs) -> None:
+        if attr == None:
+            attr = "general"
+
         dim: bool = kwargs.get("dim", False)
-        cp: str | int = attr
+        cp: str | int | None = attr
+        
         if isinstance(attr, str):
             if not hasattr(self, attr):
                 raise ValueError(f"Theme object does not have attribute '{attr}'.")
@@ -424,12 +428,19 @@ class Window:
     def draw_border(self) -> None:
         if not self.border:
             return
+
+        border_theme: str = "border"
+        title_theme: str = "title"
+        if self.title.lower() == "warning" or self.title.lower() == "warnings":
+            border_theme: str = "warnborder"
+            title_theme: str = "warntitle"
+
         if self.theme:
-            self.theme.on(self.borderwin, "border")
+            self.theme.on(self.borderwin, border_theme)
             self.borderwin.box()
             self.theme.off()
             if self.title and len(self.title) > 0:
-                self.theme.on(self.borderwin, "title")
+                self.theme.on(self.borderwin, title_theme)
                 self.borderwin.addstr(0, 2, f"[{self.title}]")
                 self.theme.off()
         else:
@@ -440,7 +451,7 @@ class Window:
 
     def printyx(self, y: int, x: int, s: str, **kwargs):
         if x + len(s) >= self.inner_width:
-            raise Exception(f"String {s!r} is too long and goes over the window right border.")
+            raise Exception(f"String {s!r} is too long and goes over the window right border: x={x}, len={len(s)}, inner_width={self.inner_width}.")
 
         theme_key: str = kwargs.get("theme", "general")
         if self.theme:
@@ -513,6 +524,7 @@ class Window:
         x: int = kwargs.get("x")
         direction: int = kwargs.get("direction")
         length: int = kwargs.get("length")
+        theme: str = kwargs.get("theme", "border")
 
         if not direction in ["horizontal", "vertical", "h", "v"]:
             raise ValueError("Direction must be either horizontal or vertical.")
@@ -535,7 +547,7 @@ class Window:
         else:
             # Draw a vertical line
             for n in range(length):
-                self.print(y=y+n, x=x, s=s)
+                self.print(y=y+n, x=x, s=s, theme=theme)
 
 
 class LayoutColumn:
@@ -618,15 +630,61 @@ class LayoutManager:
         self.theme: Theme = kwargs.get("theme", ThemePalette().get_theme())
         self.windows: list[list[Window]] = []
 
-    def add_column(self, width: int) -> None:
+    def add_column(self, width: int | None = None) -> None:
+        """Adds a new column to the layout.
+
+        If width is None, it will assume the whole remaining width."""
+
+        if width == None:
+            width = self.layout.maxx - self.layout.xmargin * 2
+            if len(self.layout.columns) > 0:
+                width = self.layout.maxx - (self.layout.columns[-1].x + self.layout.columns[-1].width + self.layout.xspacing + self.layout.xmargin)
+
         self.layout.add_column(width)
     
-    def split_screen(self) -> None:
-        maxx: int = self.layout.maxx - self.layout.xmargin * 2 - self.layout.xspacing
+    def set_two_columns(self) -> None:
+        r"""Splits the screen in two columns with the same width"""
+
+        maxx: int = self.layout.maxx - self.layout.xmargin * 2  # - self.layout.xspacing
         width: int = maxx // 2
 
         self.add_column(width)
         self.add_column(width)
+    
+    def set_three_columns(self) -> None:
+        r"""Splits the screen in three columns with the same width"""
+
+        maxx: int = self.layout.maxx - self.layout.xmargin * 2  # - self.layout.xspacing
+        width: int = maxx // 3
+        width_last: int = width
+
+        # Just in case check:
+        # The third column would be decreased if the total width exceeds maxx.
+        # Seriously - no idea if such thing would ever happen, but as I said:
+        # I am doing this right here just in case.
+        width_last -= maxx - (width*2 + width_last)
+
+        self.add_column(width)
+        self.add_column(width)
+        self.add_column(width_last)
+    
+    def set_four_columns(self) -> None:
+        r"""Splits the screen in four columns with the same width"""
+
+        maxx: int = self.layout.maxx - self.layout.xmargin * 2  # - self.layout.xspacing
+        width: int = maxx // 4
+        width_last: int = width
+
+        # Just in case check:
+        # The third column would be decreased if the total width exceeds maxx.
+        # Seriously - no idea if such thing would ever happen, but as I said:
+        # I am doing this right here just in case.
+        width_last -= maxx - (width*3 + width_last)
+
+        self.add_column(width)
+        self.add_column(width)
+        self.add_column(width)
+        self.add_column(width_last)
 
     def add_window(self, **kwargs) -> Window:
         """Creates a new window, adds it to the internal list and returns it as well.
@@ -665,11 +723,11 @@ class LayoutManager:
 
         if overlap < column_num:
             raise Exception(
-                f"New Window[{column_num}][{window_index}] have an overlap set to a previous column."
+                f"New Window[{column_num}][{window_index}]['{title}'] have an overlap set to a previous column."
             )
         if overlap > len(self.layout.columns) - 1:
             raise Exception(
-                f"New Window[{column_num}][{window_index}] have an overlap set to a non-existing column."
+                f"New Window[{column_num}][{window_index}]['{title}'] have an overlap set to a non-existing column."
             )
         if overlap != column_num:
             columns_width: int = 0
@@ -678,8 +736,9 @@ class LayoutManager:
             width = columns_width + (overlap - column_num) * self.layout.xspacing
         
         if x + width > self.layout.maxx:
+
             raise Exception(
-                f"New Window[{column_num}][{window_index}] is wider than the screen."
+                f"New Window[{column_num}][{window_index}]['{title}'] is wider than the screen."
             )
 
         # y: int = 0
@@ -693,7 +752,7 @@ class LayoutManager:
 
         if y + height > self.layout.maxy:
             raise Exception(
-                f"New Window[{column_num}][{window_index}] height is going below the screen. Has the terminal been resized?"
+                f"New Window[{column_num}][{window_index}]['{title}'] height is going below the screen. Has the terminal been resized?"
             )
 
         window: Window = Window(
@@ -2280,6 +2339,19 @@ class ColorViews(Views):
         if sky not in d:
             raise ValueError(f"Invalid sky value '{sky}'.")
         return d[sky]
+    
+    def _get_precipitation_type_cp(self, precip_type: str) -> str:
+        r"""Get the appropriate precipitation type color pair"""
+
+        d: dict[str, int] = {
+            "Rain": COL_CYANBLACK,
+            "Snow": COL_WHITEBLACK,
+            "Storm": COL_YELOWRED
+        }
+        if precip_type in d:
+            return d[precip_type]
+
+        return None  # COL_WHITEBLACK
 
     def _get_aqistr_cp(self, aqistr: str) -> int:
         r"""Get the appropriate aqi color pair"""
@@ -3158,14 +3230,16 @@ class DashboardView(ColorViews):
         last_refresh: str = ""
         
         # Global layout settings for this view
+        first_two_windows_width: int = 38
         minimum_window_height: int = 1
         general_window_height: int = 4
+        warnings_window_height: int = 6
         main_layout_columns_height: int = 5
         title_window_height: int = 3
-        forecast_window_height: int = 8
+        forecast_window_height: int = 6
         default_text_indent: int = 1
         labels_x: int = default_text_indent
-        data_x: int = labels_x + 15
+        data_x: int = labels_x + 8
 
         # Data which won't change
         city: str = self.config.city
@@ -3193,6 +3267,7 @@ class DashboardView(ColorViews):
             if self.test_exit_conditions(keypressed):
                 break
 
+            # ------------------------------------------------- DEFINE LAYOUT
             # Application just started or Terminal was resized
             # keypressed == curses.KEY_RESIZE
             if not layout_manager or self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS):
@@ -3200,18 +3275,22 @@ class DashboardView(ColorViews):
                     stdscr=stdscr,
                     theme=theme
                 )
-                layout_manager.split_screen()
+                # layout_manager.set_three_columns()
+                layout_manager.add_column(first_two_windows_width)
+                layout_manager.add_column(first_two_windows_width)
+                # This one will assume the remaining width
+                layout_manager.add_column()
 
                 title_window = layout_manager.add_window(
                     column_num=0,
-                    overlap=1,
+                    overlap=2,
                     title="About",
                     height=title_window_height,
                     border=True,
                 )
                 location_window = layout_manager.add_window(
                     column_num=0,
-                    overlap=1,
+                    overlap=2,
                     title="",
                     height=minimum_window_height
                 )
@@ -3236,22 +3315,22 @@ class DashboardView(ColorViews):
                 )
                 warnings_window = layout_manager.add_window(
                     column_num=0,
-                    overlap=1,
+                    overlap=2,
                     title="Warnings",
-                    height=general_window_height,
+                    height=warnings_window_height,
                     border=True,
                 )
                 brief_window = layout_manager.add_window(
                     column_num=0,
-                    overlap=1,
+                    overlap=2,
                     title="Warnings",
-                    height=general_window_height
+                    height=minimum_window_height
                 )
                 lastrefresh_window = layout_manager.add_window(
                     column_num=0,
-                    overlap=1,
+                    overlap=2,
                     title="Warnings",
-                    height=general_window_height
+                    height=minimum_window_height
                 )
 
                 layout_manager.draw_windows()
@@ -3263,25 +3342,26 @@ class DashboardView(ColorViews):
                 # Home location
                 location_window.print(f" Home: {city}, {province}{country}", theme="home")
                 # Current situation labels
-                currently_window.print("Sky    :", x=labels_x, y=0)
-                currently_window.print("Temp   :", x=labels_x, y=1)
-                currently_window.print("Range  :", x=labels_x, y=2)
+                currently_window.print("Sky   :", x=labels_x, y=0)
+                currently_window.print("Temp  :", x=labels_x, y=1)
+                currently_window.print("Range :", x=labels_x, y=2)
                 # Wind, air quality and precipitation labels
-                airquality_window.print("Wind   :", x=labels_x, y=0)
-                airquality_window.print("AQI    :", x=labels_x, y=1)
-                airquality_window.print(f"{self.data.precipitation_type:<6} :", x=labels_x, y=2)
+                airquality_window.print("Wind  :", x=labels_x, y=0)
+                airquality_window.print("AQI   :", x=labels_x, y=1)
+                airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
+                airquality_window.print(":", x=labels_x+6, y=2, theme="general")
                 # 7 day forecast labels
+                forecast_window.draw_line(x=first_two_windows_width-2, y=0, direction="vertical", length=4, theme="border")
+                # Misc
+                brief_window.print(f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit", x=1)
                 
                 
-                # forecast_window.print("kjhf otu3t roiuwrfo 093485")
-                brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
-                lastrefresh_window.print("jkht oruet wr9et8")
                 warnings_window.print("line 1: jkhf 95t kljsdfrlks", newline=True)
                 warnings_window.print("line 2: jkhf 95t kljsdfrlks", newline=True)
                 warnings_window.print("line 3: jkhf 95t kljsdfrlks", newline=True)
                 warnings_window.print("line 4: jkhf 95t kljsdfrlks", newline=True)
 
-
+            # ------------------------------------------------- REFRESH DATA
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
@@ -3291,6 +3371,7 @@ class DashboardView(ColorViews):
 
             if len(last_refresh) == 0:
                 last_refresh = f"Last refresh: {datenow} {timenow}"
+                lastrefresh_window.print(last_refresh, x=1, y=0)
 
             # Technically we do not need this, but filling up the addstr()s
             # later would be more messy without it
@@ -3355,10 +3436,12 @@ class DashboardView(ColorViews):
             currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
             currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
             currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
-            currently_window.print("/", x=data_x+5, y=2)
-            currently_window.print(f"{tmax}°{tsuffix}", x=data_x+7, y=2, theme=self._get_temp_cp(tmax))
+            currently_window.print("/", x=data_x+4, y=2)
+            currently_window.print(f"{tmax}°{tsuffix}", x=data_x+5, y=2, theme=self._get_temp_cp(tmax))
             # Wind, air quality and precipitation
             airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
+            airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
+            airquality_window.print(":", x=labels_x+6, y=2, theme="general")
             airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
             airquality_window.print("[", x=data_x, y=2, theme="border")
             airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
@@ -3368,7 +3451,9 @@ class DashboardView(ColorViews):
             # 7 day forecast
             for day_cnt, day in enumerate(week):
                 wy: int = day_cnt % 4
-                wx: int = 1 if day_cnt < 4 else 38
+                wx: int = 1 if day_cnt < 4 else first_two_windows_width + 1
+                data_x2: int = wx + 5
+                precip_x: int = data_x2 + 10
 
                 dmin: int = day.min
                 dmax: int = day.max
@@ -3376,8 +3461,16 @@ class DashboardView(ColorViews):
                 dow: str = day.dow
 
                 forecast_window.print(f"{dow}:", x=wx, y=wy)
-            
+                forecast_window.print(f"{dmin}°{tsuffix}", x=data_x2, y=wy, theme=self._get_temp_cp(dmin))
+                forecast_window.print("/", x=data_x2+4, y=2)
+                forecast_window.print(f"{dmax}°{tsuffix}", x=data_x2+5, y=2, theme=self._get_temp_cp(dmax))
 
+                forecast_window.print("[", x=precip_x, y=wy, theme="border")
+                forecast_window.print(self.prog_bar(dprecip), x=precip_x+1, y=wy, theme=self._get_progbar_cp(dprecip))
+                forecast_window.print("]", x=precip_x+10, y=wy, theme="border")
+                forecast_window.print(f"{dprecip}%  ", x=precip_x+12, y=wy, theme=self._get_progbar_cp(dprecip))
+            
+            
             # forecast_window.print("kjhf otu3t roiuwrfo 093485")
             # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
             # lastrefresh_window.print("jkht oruet wr9et8")
@@ -3388,17 +3481,17 @@ class DashboardView(ColorViews):
 
 
 
-            # 7 day forecast
-            for day_cnt, day in enumerate(week):
-                wy: int = 2 + (day_cnt % 4)
-                wx: int = 3 if day_cnt < 4 else 40
+            # # 7 day forecast
+            # for day_cnt, day in enumerate(week):
+            #     wy: int = 2 + (day_cnt % 4)
+            #     wx: int = 3 if day_cnt < 4 else 40
 
-                dmin: int = day.min
-                dmax: int = day.max
-                dprecip: int = day.precip
-                dow: str = day.dow
+            #     dmin: int = day.min
+            #     dmax: int = day.max
+            #     dprecip: int = day.precip
+            #     dow: str = day.dow
 
-                # .....
+            #     # .....
 
 
             current_time: datetime = datetime.now()
@@ -3408,6 +3501,7 @@ class DashboardView(ColorViews):
             if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
                 forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
+                lastrefresh_window.print(last_refresh, x=1, y=0)
 
             
             # Pushing the changes
@@ -3679,6 +3773,8 @@ if __name__ == "__main__":
 
         weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
         weather_girl.present(cli_arguments.get("view"))
+
+        print(f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Cast Spells!")
 
     except Exception as e:
         print(
