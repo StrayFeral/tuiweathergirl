@@ -631,12 +631,12 @@ class LayoutManager:
     def add_window(self, **kwargs) -> Window:
         """Creates a new window, adds it to the internal list and returns it as well.
 
-        Parameter Overflow controls if the window would overflow to another column.
+        Parameter Overlap controls if the window would overlap another column.
         It contains the column number to which end it will overflow.
 
         Default column_num is 0.
         If x or width are not set, defaults are the set column x and width.
-        If overflow is set, width will be set to snap accordingly.
+        If overlap is set, width will be set to snap accordingly.
         """
 
         column_num: int = kwargs.get("column_num", 0)
@@ -651,7 +651,7 @@ class LayoutManager:
         title: str = kwargs.get("title", "")
         height: int = kwargs.get("height", 3)
         width: int = kwargs.get("width", self.layout.columns[column_num].width)
-        overflow: int = kwargs.get("overflow", column_num)
+        overlap: int = kwargs.get("overlap", column_num)
         y: int = kwargs.get("y", 0)
         x: int = kwargs.get("x", self.layout.columns[column_num].x)
         border: bool = kwargs.get("border", False)
@@ -663,19 +663,19 @@ class LayoutManager:
         if len(self.windows[column_num]) > 0:
             window_index = len(self.windows[column_num]) - 1
 
-        if overflow < column_num:
+        if overlap < column_num:
             raise Exception(
-                f"New Window[{column_num}][{window_index}] have an overflow set to a previous column."
+                f"New Window[{column_num}][{window_index}] have an overlap set to a previous column."
             )
-        if overflow > len(self.layout.columns) - 1:
+        if overlap > len(self.layout.columns) - 1:
             raise Exception(
-                f"New Window[{column_num}][{window_index}] have an overflow set to a non-existing column."
+                f"New Window[{column_num}][{window_index}] have an overlap set to a non-existing column."
             )
-        if overflow != column_num:
+        if overlap != column_num:
             columns_width: int = 0
-            for col in range(column_num, overflow+1):
+            for col in range(column_num, overlap+1):
                 columns_width += self.layout.columns[col].width
-            width = columns_width + (overflow - column_num) * self.layout.xspacing
+            width = columns_width + (overlap - column_num) * self.layout.xspacing
         
         if x + width > self.layout.maxx:
             raise Exception(
@@ -684,7 +684,7 @@ class LayoutManager:
 
         # y: int = 0
         if y == 0:
-            # Detect overflow of windows in previous columns
+            # Detect overlap of windows of previous columns
             col_index = 0
             for col_index in range(column_num + 1):
                 for window in self.windows[col_index]:
@@ -3204,14 +3204,14 @@ class DashboardView(ColorViews):
 
                 title_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="About",
                     height=title_window_height,
                     border=True,
                 )
                 location_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="",
                     height=minimum_window_height
                 )
@@ -3229,27 +3229,27 @@ class DashboardView(ColorViews):
                 )
                 forecast_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="7 Day Forecast",
                     height=forecast_window_height,
                     border=True,
                 )
                 warnings_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="Warnings",
                     height=general_window_height,
                     border=True,
                 )
                 brief_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="Warnings",
                     height=general_window_height
                 )
                 lastrefresh_window = layout_manager.add_window(
                     column_num=0,
-                    overflow=1,
+                    overlap=1,
                     title="Warnings",
                     height=general_window_height
                 )
@@ -3258,10 +3258,10 @@ class DashboardView(ColorViews):
 
                 # Screen labels
                 # About
-                title_window.print(f" TUIWEATHERGIRL {APPVERSION}", theme="home")
-                title_window.print("Evgueni Antonov (StrayF) 2026", align="right", theme="home")
+                title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
+                title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
                 # Home location
-                location_window.print(f" Home: {city}, {province}{country}")
+                location_window.print(f" Home: {city}, {province}{country}", theme="home")
                 # Current situation labels
                 currently_window.print("Sky    :", x=labels_x, y=0)
                 currently_window.print("Temp   :", x=labels_x, y=1)
@@ -3350,7 +3350,7 @@ class DashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time
-            location_window.print(f"Today: {datenow} {timenow}", align="right")
+            location_window.print(f"Today: {datenow} {timenow}", align="right", theme="home")
             # Current sky, temperature and temperature range
             currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
             currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
