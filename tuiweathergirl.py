@@ -1998,28 +1998,72 @@ class WeatherForecaster:
             return utc_rise <= current_utc_hour <= utc_set
         else:
             return current_utc_hour >= utc_rise or current_utc_hour <= utc_set
+    
+    def _get_main_location_weather_data(self, lat: str, lon: str, timezone: str, tunit: str, wunit: str) -> requests.Response:
+        r"""Gets various weather data for the main location"""
+
+        #  &timezone=auto # current
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lon}"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
+            f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max"
+            f"&timezone={timezone.replace('/', '%2F')}"
+            f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
+            f"&forecast_days=8"
+        )
+        result: requests.Response = requests.get(url, timeout=5)
+
+        if not result:
+            raise Exception(
+                f"Cannot obtain weather data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+            )
+
+        return result.json()
+    
+
+    def _get_brief_weather_data(self, lat: str, lon: str, timezone: str, tunit: str, wunit: str) -> requests.Response:
+        r"""Gets only current temperatures for a given location"""
+
+        #  &timezone=auto # current
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lon}"
+            f"&current=temperature_2m,is_day"
+            f"&timezone={timezone.replace('/', '%2F')}"
+            f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
+        )
+        result: requests.Response = requests.get(url, timeout=5)
+
+        if not result:
+            raise Exception(
+                f"Cannot obtain weather data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+            )
+
+        return result.json()
+    
+
+    def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
+        r"""Gets only AQI data for the given location"""
+        
+        # Air Quality API (Separate endpoint but same coordinates)
+        url = (
+            f"https://air-quality-api.open-meteo.com/v1/air-quality?"
+            f"latitude={lat}&longitude={lon}&current=us_aqi"
+        )
+        result: requests.Response = requests.get(url, timeout=5)
+
+        if not result:
+            raise Exception(
+                f"Cannot obtain air quality data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+            )
+
+        return result.json()
 
     def get_data(self, weather_data: WeatherData) -> None:
         # Build the API URL with your config preferences
         tunit = "celsius" if self.config.celsius else "fahrenheit"
         wunit = "kmh" if self.config.metric else "mph"
-
-        #  &timezone=auto # current
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={self.config.lat}&longitude={self.config.lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
-            f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max"
-            f"&timezone={self.config.timezone.replace('/', '%2F')}"
-            f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
-            f"&forecast_days=8"
-        )
-
-        # Air Quality API (Separate endpoint but same coordinates)
-        aq_url = (
-            f"https://air-quality-api.open-meteo.com/v1/air-quality?"
-            f"latitude={self.config.lat}&longitude={self.config.lon}&current=us_aqi"
-        )
 
         # Format Date and Time
         now = datetime.now(ZoneInfo(self.config.timezone))
@@ -2056,20 +2100,13 @@ class WeatherForecaster:
 
         else:
             # Send the requests
-            weather_result: requests.Response = requests.get(url, timeout=5)
-            aq_result: requests.Response = requests.get(aq_url, timeout=5)
+            #weather_result: requests.Response = requests.get(url, timeout=5)
+            #aq_result: requests.Response = requests.get(aq_url, timeout=5)
+            weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
+            aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
 
-            if not weather_result:
-                raise Exception(
-                    f"Cannot obtain weather data. Error {weather_result.status_code}: {APIIssues.get_api_problem(weather_result.status_code)}"
-                )
-            if not aq_result:
-                raise Exception(
-                    f"Cannot obtain air quality data. Error {aq_result.status_code}: {APIIssues.get_api_problem(aq_result.status_code)}"
-                )
-
-            weather_result = weather_result.json()
-            aq_result = aq_result.json()
+            #weather_result = weather_result.json()
+            #aq_result = aq_result.json()
 
             # Extract Data
             current: dict[str] = weather_result["current"]
