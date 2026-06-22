@@ -1695,6 +1695,7 @@ class WeatherData:
 
         self.warnings: list[str] = []
         self.week: list[BriefDailyForecast] = []
+        self.cities_data: list[list[str | int]] = []
 
 
 class WeatherForecaster:
@@ -2045,7 +2046,7 @@ class WeatherForecaster:
 
     def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
         r"""Gets only AQI data for the given location"""
-        
+
         # Air Quality API (Separate endpoint but same coordinates)
         url = (
             f"https://air-quality-api.open-meteo.com/v1/air-quality?"
@@ -2105,6 +2106,10 @@ class WeatherForecaster:
             weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
             aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
 
+            #self.cities_data
+            # for blah in bleh:
+            #     self.cities_data.append(self._get_brief_weather_data())
+
             #weather_result = weather_result.json()
             #aq_result = aq_result.json()
 
@@ -2133,10 +2138,10 @@ class WeatherForecaster:
             weather_data.warnings = []
             weather_data.week = []
 
-            if weather_data.weather_code >= 95:
-                weather_data.warnings.append(
-                    "WARNING: SEVERE THUNDERSTORMS DETECTED IN YOUR AREA"
-                )
+            # if weather_data.weather_code >= 95:
+            #     weather_data.warnings.append(
+            #         "WARNING: SEVERE THUNDERSTORMS DETECTED IN YOUR AREA"
+            #     )
 
             # 7 day forecast
             for i in range(1, 8):
