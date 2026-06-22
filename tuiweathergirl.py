@@ -2424,9 +2424,7 @@ class SetupView(Views):
         country: str = self.config.country
         followed_cities: list[dict[str | int]] = self.config.followcities
 
-        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
-
-==================================================[ SETUP ]
+        print(f"""==================================================[ SETUP ]
 HOME CITY         |  {city}, {province}{country}""")
 
         print("ADDITIONAL CITIES |  ", end="")
@@ -2442,7 +2440,7 @@ HOME CITY         |  {city}, {province}{country}""")
                     )
                 )
 
-        print("\nTry: tuiweathergirl --help")
+        print("")
 
 
 class BasicView(Views):
