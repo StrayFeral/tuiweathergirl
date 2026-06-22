@@ -3470,8 +3470,8 @@ class DashboardView(ColorViews):
 
                     forecast_window.print(f"{dow}:", x=wx, y=wy)
                     forecast_window.print(f"{dmin}°{tsuffix}", x=data_x2, y=wy, theme=self._get_temp_cp(dmin))
-                    forecast_window.print("/", x=data_x2+4, y=2)
-                    forecast_window.print(f"{dmax}°{tsuffix}", x=data_x2+5, y=2, theme=self._get_temp_cp(dmax))
+                    forecast_window.print("/", x=data_x2+4, y=wy)
+                    forecast_window.print(f"{dmax}°{tsuffix}", x=data_x2+5, y=wy, theme=self._get_temp_cp(dmax))
 
                     forecast_window.print("[", x=precip_x, y=wy, theme="border")
                     forecast_window.print(self.prog_bar(dprecip), x=precip_x+1, y=wy, theme=self._get_progbar_cp(dprecip))
