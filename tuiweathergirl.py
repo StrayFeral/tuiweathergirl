@@ -955,10 +955,10 @@ class CachedData:
 
         self.is_day = config.getboolean("TODAY", "is_day")
         self.sky = config["TODAY"]["sky"]
-        self.temperature = int(config["TODAY"]["temperature"])
-        self.tmin = int(config["TODAY"]["tmin"])
-        self.tmax = int(config["TODAY"]["tmax"])
-        self.wind = int(config["TODAY"]["wind"])
+        self.temperature = round(float(config["TODAY"]["temperature"]))
+        self.tmin = round(float(config["TODAY"]["tmin"]))
+        self.tmax = round(float(config["TODAY"]["tmax"]))
+        self.wind = round(float(config["TODAY"]["wind"]))
         self.wind_direction = config["TODAY"]["wind_direction"]
         self.aqi = int(config["TODAY"]["aqi"])
         self.precipitation = int(config["TODAY"]["precipitation"])
@@ -977,9 +977,9 @@ class CachedData:
             if index in config:
                 city: dict[str | bool | int] = {
                     "is_day": config.getboolean(index, "is_day"),
-                    "temperature": int(config[index]["temperature"]),
-                    # "tmin": int(config[index]["tmin"]),
-                    # "tmax": int(config[index]["tmax"]),
+                    "temperature": round(float(config[index]["temperature"])),
+                    # "tmin": round(config[index]["tmin"]),
+                    # "tmax": round(config[index]["tmax"]),
                 }
                 self.followcities.append(city)
 
@@ -2103,7 +2103,7 @@ class WeatherForecaster:
             #aq_result: requests.Response = requests.get(aq_url, timeout=5)
             weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
             aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
-            followcities_result: dict | list = self._get_brief_weather_data(",".join(self.config.followcities["lat"]), ",".join(self.config.followcities["lon"]), ",".join(self.config.followcities["timezone"]), tunit)
+            followcities_result: dict | list = self._get_brief_weather_data(",".join([e["lat"] for e in self.config.followcities]), ",".join([e["lon"] for e in self.config.followcities]), ",".join([e["timezone"] for e in self.config.followcities]), tunit)
             
 
             #weather_result = weather_result.json()
@@ -2117,11 +2117,11 @@ class WeatherForecaster:
             # Fill the object with data
             # weather_data.is_day = True if current["is_day"] == "1" else False
             weather_data.sky = self.__get_weather_description(current["weather_code"])
-            weather_data.temperature = int(current["temperature_2m"])
-            weather_data.min = int(daily["temperature_2m_min"][0])
-            weather_data.max = int(daily["temperature_2m_max"][0])
-            weather_data.hmin = int(daily["relative_humidity_2m_min"][0])
-            weather_data.hmax = int(daily["relative_humidity_2m_max"][0])
+            weather_data.temperature = round(float(current["temperature_2m"]))
+            weather_data.min = round(float(daily["temperature_2m_min"][0]))
+            weather_data.max = round(float(daily["temperature_2m_max"][0]))
+            weather_data.hmin = round(float(daily["relative_humidity_2m_min"][0]))
+            weather_data.hmax = round(float(daily["relative_humidity_2m_max"][0]))
             weather_data.aqi = int(aqi)
             weather_data.air_quality = self.__get_air_quality_assessment(aqi)
             weather_data.precipitation = daily["precipitation_probability_max"][0]
@@ -2139,7 +2139,7 @@ class WeatherForecaster:
             weather_data.followcities = []
             if isinstance(followcities_result, dict):
                 city_data: dict = {
-                    "temperature": followcities_result["current"]["temperature_2m"],
+                    "temperature": round(float(followcities_result["current"]["temperature_2m"])),
                     "is_day": followcities_result["current"]["is_day"],
                     "city": self.config.followcities[-1]["city"],
                     "country_code2": self.config.followcities[-1]["country_code2"],
@@ -2150,7 +2150,7 @@ class WeatherForecaster:
                 # followcities_result = followcities_result
                 for combodata in zip(self.config.followcities, followcities_result):
                     city_data: dict = {
-                        "temperature": combodata[1]["current"]["temperature_2m"],
+                        "temperature": round(float(combodata[1]["current"]["temperature_2m"])),
                         "is_day": combodata[1]["current"]["is_day"],
                         "city": combodata[0]["city"],
                         "country_code2": combodata[0]["country_code2"],
@@ -2166,9 +2166,9 @@ class WeatherForecaster:
             # 7 day forecast
             for i in range(1, 8):
                 day = BriefDailyForecast()
-                day.min = int(daily["temperature_2m_min"][i])
-                day.max = int(daily["temperature_2m_max"][i])
-                day.precip = int(daily["precipitation_probability_max"][i])
+                day.min = round(float(daily["temperature_2m_min"][i]))
+                day.max = round(float(daily["temperature_2m_max"][i]))
+                day.precip = round(float(daily["precipitation_probability_max"][i]))
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 weather_data.week.append(day)
 
@@ -2541,7 +2541,7 @@ class BasicView(Views):
         # ---
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list: self.data.followcities
+        follow_cities: list = self.data.followcities
 
         day: str = "day" if is_day else "night"
 
@@ -2646,7 +2646,7 @@ class MotivationalView(Views):
         # ---
         warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list: self.data.followcities
+        follow_cities: list = self.data.followcities
 
         day: str = "day" if is_day else "night"
 
@@ -2832,7 +2832,7 @@ class ColorView(ColorViews):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
-            follow_cities: list: self.data.followcities
+            follow_cities: list = self.data.followcities
 
             # Saving the cache
             cache = CachedData()
@@ -3235,7 +3235,7 @@ class DashboardView(ColorViews):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
-            follow_cities: list: self.data.followcities
+            follow_cities: list = self.data.followcities
 
             # Saving the cache
             cache = CachedData()
