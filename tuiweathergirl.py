@@ -911,6 +911,7 @@ class CachedData:
         self.warning: str = "NOTLOADED"
         self.hmin: int = 0
         self.hmax: int = 0
+        self.hcur: int = 0
 
         self.daynames: list[str] = []
         self.mins: list[str] = []
@@ -973,6 +974,7 @@ class CachedData:
         self.warning = config["TODAY"]["warning"]
         self.hmin = int(config["TODAY"]["hmin"])
         self.hmax = int(config["TODAY"]["hmax"])
+        self.hcur = int(config["TODAY"]["hcur"])
 
         self.daynames = config.get("FORECAST", "daynames").split(",")
         self.mins = config.get("FORECAST", "mins").split(",")
@@ -1018,6 +1020,7 @@ class CachedData:
             "warning": self.warning,
             "hmin": self.hmin,
             "hmax": self.hmax,
+            "hcur": self.hcur,
         }
 
         config["FORECAST"] = {
@@ -1697,10 +1700,12 @@ class WeatherData:
         self.is_day: bool = True
         self.hmin: int = 0
         self.hmax: int = 0
+        self.hcur: int = 0
         self.wind_type: str = ""
         self.precipitation_type: str = ""
         self.humidity_level_min: str = ""
         self.humidity_level_max: str = ""
+        self.humidity: str = ""
         self.wind_direction_long: str = ""
 
         self.warnings: list[str] = []
@@ -2090,6 +2095,7 @@ class WeatherForecaster:
             weather_data.max = cache.tmax
             weather_data.hmin = cache.hmin
             weather_data.hmax = cache.hmax
+            weather_data.hcur = cache.hcur
             weather_data.aqi = cache.aqi
             weather_data.air_quality = self.__get_air_quality_assessment(cache.aqi)
             weather_data.precipitation = cache.precipitation
@@ -2135,6 +2141,7 @@ class WeatherForecaster:
             weather_data.max = round(float(daily["temperature_2m_max"][0]))
             weather_data.hmin = round(float(daily["relative_humidity_2m_min"][0]))
             weather_data.hmax = round(float(daily["relative_humidity_2m_max"][0]))
+            weather_data.hcur = round(float(current["relative_humidity_2m"]))
             weather_data.aqi = int(aqi)
             weather_data.air_quality = self.__get_air_quality_assessment(aqi)
             weather_data.precipitation = daily["precipitation_probability_max"][0]
@@ -2194,6 +2201,9 @@ class WeatherForecaster:
         )
         weather_data.humidity_level_max = self.__get_humidity_assessment(
             weather_data.hmax, weather_data.temperature
+        )
+        weather_data.humidity = self.__get_humidity_assessment(
+            weather_data.hcur, weather_data.temperature
         )
         weather_data.wind_direction_long = self.__get_wind_direction_long(
             weather_data.wind_direction
@@ -2335,7 +2345,7 @@ class Views:
 class ColorViews(Views):
     r"""Definition of color views"""
 
-    def _get_humidity_cp(self, humidity: int, temperature) -> int:
+    def _get_humidity_cp(self, humidity: int, temperature: int) -> int:
         r"""Get the humidity color pair"""
 
         if humidity >= 70 and temperature > 30:
@@ -2538,6 +2548,7 @@ class BasicView(Views):
         tmax: int = self.data.max
         hmin: int = self.data.hmin
         hmax: int = self.data.hmax
+        hcur: int = self.data.hcur
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
         wind: int = self.data.wind
@@ -2550,6 +2561,7 @@ class BasicView(Views):
         precipitation_type: str = self.data.precipitation_type
         humidity_level_min: str = self.data.humidity_level_min
         humidity_level_max: str = self.data.humidity_level_max
+        humidity: str = self.data.humidity
         wind_direction_long: str = self.data.wind_direction_long
         # ---
         warnings: list[str] = self.data.warnings
@@ -2598,6 +2610,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         cache.tmax = tmax
         cache.hmin = hmin
         cache.hmax = hmax
+        cache.hcur = hcur
         cache.wind = wind
         cache.wind_direction = winddir
         cache.aqi = aqi
@@ -2643,6 +2656,7 @@ class MotivationalView(Views):
         tmax: int = self.data.max
         hmin: int = self.data.hmin
         hmax: int = self.data.hmax
+        hcur: int = self.data.hcur
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
         wind: int = self.data.wind
@@ -2655,6 +2669,7 @@ class MotivationalView(Views):
         precipitation_type: str = self.data.precipitation_type
         humidity_level_min: str = self.data.humidity_level_min
         humidity_level_max: str = self.data.humidity_level_max
+        humidity: str = self.data.humidity
         wind_direction_long: str = self.data.wind_direction_long
         # ---
         warnings: list[str] = self.data.warnings
@@ -2712,6 +2727,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
         cache.tmax = tmax
         cache.hmin = hmin
         cache.hmax = hmax
+        cache.hcur = hcur
         cache.wind = wind
         cache.wind_direction = winddir
         cache.aqi = aqi
@@ -2829,6 +2845,7 @@ class ColorView(ColorViews):
             tmax: int = self.data.max
             hmin: int = self.data.hmin
             hmax: int = self.data.hmax
+            hcur: int = self.data.hcur
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -2841,6 +2858,7 @@ class ColorView(ColorViews):
             precipitation_type: str = self.data.precipitation_type
             humidity_level_min: str = self.data.humidity_level_min
             humidity_level_max: str = self.data.humidity_level_max
+            humidity: str =  self.data.humidity
             wind_direction_long: str = self.data.wind_direction_long
             # ---
             warnings: list[str] = self.data.warnings
@@ -2855,6 +2873,7 @@ class ColorView(ColorViews):
             cache.tmax = tmax
             cache.hmin = hmin
             cache.hmax = hmax
+            cache.hcur = hcur
             cache.wind = wind
             cache.wind_direction = winddir
             cache.aqi = aqi
@@ -3081,10 +3100,10 @@ class DashboardView(ColorViews):
         minimum_window_height: int = 1
         general_window_height: int = 4
         warnings_window_height: int = 6
-        main_layout_columns_height: int = 5
+        main_layout_columns_height: int = 6
         title_window_height: int = 3
         forecast_window_height: int = 6
-        followcities_window_height: int = 11
+        followcities_window_height: int = 12
         default_text_indent: int = 1
         labels_x: int = default_text_indent
         data_x: int = labels_x + 8
@@ -3201,11 +3220,13 @@ class DashboardView(ColorViews):
                 currently_window.print("Sky   :", x=labels_x, y=0)
                 currently_window.print("Temp  :", x=labels_x, y=1)
                 currently_window.print("Range :", x=labels_x, y=2)
+                currently_window.print("Humid.:", x=labels_x, y=3)
                 # Wind, air quality and precipitation labels
                 airquality_window.print("Wind  :", x=labels_x, y=0)
                 airquality_window.print("AQI   :", x=labels_x, y=1)
                 airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
                 airquality_window.print(":", x=labels_x+6, y=2, theme="general")
+                airquality_window.print("Humid.:", x=labels_x, y=3)
                 # 7 day forecast labels
                 forecast_window.draw_line(x=first_two_windows_width-2, y=0, direction="vertical", length=4, theme="border")
                 # Misc
@@ -3240,6 +3261,7 @@ class DashboardView(ColorViews):
             tmax: int = self.data.max
             hmin: int = self.data.hmin
             hmax: int = self.data.hmax
+            hcur: int = self.data.hcur
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -3249,9 +3271,10 @@ class DashboardView(ColorViews):
             precipitation: int = self.data.precipitation
             is_day: bool = self.data.is_day
             wind_type: str = self.data.wind_type
-            precipitation_type: str = self.data.precipitation_type
+            # precipitation_type: str = self.data.precipitation_type
             humidity_level_min: str = self.data.humidity_level_min
             humidity_level_max: str = self.data.humidity_level_max
+            humidity: str = self.data.humidity
             wind_direction_long: str = self.data.wind_direction_long
             # ---
             warnings: list[str] = self.data.warnings
@@ -3266,6 +3289,7 @@ class DashboardView(ColorViews):
             cache.tmax = tmax
             cache.hmin = hmin
             cache.hmax = hmax
+            cache.hcur = hcur
             cache.wind = wind
             cache.wind_direction = winddir
             cache.aqi = aqi
@@ -3306,6 +3330,7 @@ class DashboardView(ColorViews):
                 currently_window.print(f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin))
                 currently_window.print("/", x=data_x+4, y=2)
                 currently_window.print(f"{tmax}°{tsuffix}", x=data_x+5, y=2, theme=self._get_temp_cp(tmax))
+                currently_window.print(f"{self.data.hcur}% ({humidity})", x=data_x, y=3, theme=self._get_humidity_cp(int(self.data.hcur), int(temperature)))
                 # Wind, air quality and precipitation
                 airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
                 airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
@@ -3315,7 +3340,10 @@ class DashboardView(ColorViews):
                 airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
                 airquality_window.print("]", x=data_x+10, y=2, theme="border")
                 airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
-                
+                airquality_window.print(f"{self.data.hmin}% ({humidity_level_min:.7})", x=data_x, y=3, theme=self._get_humidity_cp(int(self.data.hmin), int(temperature)))
+                airquality_window.print("/", x=data_x+13, y=3)
+                airquality_window.print(f"{self.data.hmax}% ({humidity_level_max:.7})", x=data_x+14, y=3, theme=self._get_humidity_cp(int(self.data.hmax), int(temperature)))
+
                 # 7 day forecast
                 for day_cnt, day in enumerate(week):
                     wy: int = day_cnt % 4
