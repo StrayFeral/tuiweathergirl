@@ -985,7 +985,7 @@ class CachedData:
 
         self.loaded = True
 
-    def save(self):
+    def save(self) -> None:
         """Saves the cache."""
 
         if self.too_soon:
@@ -1032,6 +1032,12 @@ class CachedData:
 
         with open(self.cachefilename, "w", encoding="utf-8") as f:
             config.write(f)
+    
+    def delete(self) -> None:
+        """Deletes the cache."""
+
+        cachefile: Path = Path(self.cachefilename)
+        cachefile.unlink(missing_ok=True)
 
 
 class Configuration:
@@ -3071,6 +3077,7 @@ class DashboardView(ColorViews):
         main_layout_columns_height: int = 5
         title_window_height: int = 3
         forecast_window_height: int = 6
+        followcities_window_height: int = 11
         default_text_indent: int = 1
         labels_x: int = default_text_indent
         data_x: int = labels_x + 8
@@ -3147,6 +3154,12 @@ class DashboardView(ColorViews):
                     overlap=1,
                     title="7 Day Forecast",
                     height=forecast_window_height,
+                    border=True,
+                )
+                followcities_window = layout_manager.add_window(
+                    column_num=2,
+                    title="Followed cities",
+                    height=followcities_window_height,
                     border=True,
                 )
                 warnings_window = layout_manager.add_window(
@@ -3312,6 +3325,28 @@ class DashboardView(ColorViews):
                     forecast_window.print(f"{dprecip}%  ", x=precip_x+12, y=wy, theme=self._get_progbar_cp(dprecip))
                 
                 
+                for city_cnt, city_data in enumerate(follow_cities):
+                    wy: int = city_cnt % 9
+                    wx: int = 1  # if city_cnt < 9 else 15
+                    data_x1: int = wx + 37
+                    data_x2: int = data_x1 + 5
+
+                    day: str = "night"
+                    if city_data["is_day"]:
+                        day = "day"
+                    temp: int = city_data["temperature"]
+                    city: str = self.config.followcities[city_cnt]["city"]
+                    province: str = self.config.followcities[city_cnt]["province"]
+                    country: str = self.config.followcities[city_cnt]["country"]
+
+                    if province.isdigit():
+                        province = ""
+                    elif len(province) > 0:
+                        province = f",{province}"
+
+                    followcities_window.print(f"{city_cnt+1}) {city}{province},{country}", x=wx, y=wy)
+                    followcities_window.print(f"{temp}°{tsuffix}", x=data_x1, y=wy, theme=self._get_temp_cp(temp))
+                    followcities_window.print(f"({day})", x=data_x2, y=wy, theme=self._get_daynight_cp(city_data["is_day"]))
                 # forecast_window.print("kjhf otu3t roiuwrfo 093485")
                 # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
                 # lastrefresh_window.print("jkht oruet wr9et8")
@@ -3565,6 +3600,8 @@ if __name__ == "__main__":
 
         DEBUG_MODE = cli_arguments["debug"]
 
+        view_name: str = cli_arguments.get("view")
+
         if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
             raise ValueError("City and country must be provided together.")
 
@@ -3591,20 +3628,29 @@ if __name__ == "__main__":
 
         # Location management
         if cli_arguments.get("newcity"):
+            view_name = "setup"
             location_manager.add_city(
                 cli_arguments["newcity"], cli_arguments["country"], config
             )
+            cache = CachedData()
+            cache.delete()
         if cli_arguments.get("removecity"):
+            view_name = "setup"
             location_manager.remove_city(cli_arguments["removecity"], config)
+            cache = CachedData()
+            cache.delete()
         if cli_arguments.get("homecity"):
+            view_name = "setup"
             location_manager.set_home(cli_arguments["homecity"], config)
+            cache = CachedData()
+            cache.delete()
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
         weather_data: WeatherData = WeatherData()
         forecaster.get_data(weather_data)
 
         weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
-        weather_girl.present(cli_arguments.get("view"))
+        weather_girl.present(view_name)
 
         print(f"TUIWEATHERGIRL {APPVERSION} -Your daily terminal weathergirl- by Evgueni Antonov (StrayF) 2026.")
         print("For help: tuiweathergirl --help")
