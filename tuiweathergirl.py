@@ -1231,8 +1231,8 @@ Timezone: {self.timezone}"""
                 and country.upper() == city_entry["country"].upper()
             ):
                 raise Exception(f"City '{city}/{country}' is already followed.")
-        if len(self.followcities) > 9:
-            raise Exception("Cannot follow city. Max cities limit is 10.")
+        if len(self.followcities) > 8:
+            raise Exception("Cannot follow city. Max cities limit is 9.")
 
         city_entry: dict[str | int] = {
             "country": country,
@@ -3326,7 +3326,7 @@ class DashboardView(ColorViews):
                 
                 
                 for city_cnt, city_data in enumerate(follow_cities):
-                    wy: int = city_cnt % 9
+                    wy: int = city_cnt  # % 9
                     wx: int = 1  # if city_cnt < 9 else 15
                     data_x1: int = wx + 37
                     data_x2: int = data_x1 + 5
