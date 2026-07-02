@@ -69,6 +69,7 @@ MIN_LINES: int = 22
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
+MAX_CITIES: int = 10  # This includes the home city
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -1231,8 +1232,8 @@ Timezone: {self.timezone}"""
                 and country.upper() == city_entry["country"].upper()
             ):
                 raise Exception(f"City '{city}/{country}' is already followed.")
-        if len(self.followcities) > 8:
-            raise Exception("Cannot follow city. Max cities limit is 9.")
+        if len(self.followcities) > MAX_CITIES-2:
+            raise Exception(f"Cannot follow city. Max cities limit is {MAX_CITIES-1}.")
 
         city_entry: dict[str | int] = {
             "country": country,
