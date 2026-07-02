@@ -465,7 +465,7 @@ class Window:
         y: int = kwargs.get("y", self.cursor_y)
         x: int = kwargs.get("x", self.cursor_x)
         newline: bool = kwargs.get("newline", False)
-        width: int = kwargs.get("width", self.width - x)
+        width: int = kwargs.get("width", self.width - abs(x))
 
         if align not in ["left", "right", "centered"]:
             raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
@@ -477,9 +477,15 @@ class Window:
             self.theme.on(self.win, theme_key)
         
         if align == "right":
-            x = self.inner_width - len(s) - 1
+            if x < 0:
+                x = self.inner_width - len(s) - 1 + x
+            else:
+                x = self.inner_width - len(s) - 1
         elif align == "centered":
-            x = (self.inner_width - len(s) - 1) // 2
+            if x < 0:
+                x = ((self.inner_width - len(s) - 1) // 2) + x
+            else:
+                x = ((self.inner_width - len(s) - 1) // 2)
         
         if isinstance(s, str):
             self.printyx(y, x, s, theme=theme_key)
@@ -3222,7 +3228,8 @@ class DashboardView(ColorViews):
             dstmark: str = "*" if self.config.dst else ""
 
             if len(last_refresh) == 0:
-                last_refresh = f"Last refresh: {datenow} {timenow}"
+                # last_refresh = f"Last refresh: {datenow} {timenow}"
+                last_refresh = f"Last refresh: **cached**"
                 lastrefresh_window.print(last_refresh, x=1, y=0)
 
             # Technically we do not need this, but filling up the addstr()s
@@ -3283,10 +3290,16 @@ class DashboardView(ColorViews):
 
             cache.save()
 
+            home_day: str = "night"
+            if is_day:
+                home_day = "day"
+
             # ----------------------------------------- Screen update
+            # Today's date and time - we need this to refresh more often
+            location_window.print(f"Today: {datenow} {timenow}", x=-len(home_day)-3, align="right", theme="home")
+            location_window.print(f"({home_day})", align="right", theme=self._get_daynight_cp(is_day))
+
             if force_screen_update:
-                # Today's date and time
-                location_window.print(f"Today: {datenow} {timenow}", align="right", theme="home")
                 # Current sky, temperature and temperature range
                 currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
                 currently_window.print(f"{temperature}°{tsuffix}", x=data_x, y=1, theme=self._get_temp_cp(temperature))
@@ -3325,11 +3338,11 @@ class DashboardView(ColorViews):
                     forecast_window.print("]", x=precip_x+10, y=wy, theme="border")
                     forecast_window.print(f"{dprecip}%  ", x=precip_x+12, y=wy, theme=self._get_progbar_cp(dprecip))
                 
-                
+                # The followed cities
                 for city_cnt, city_data in enumerate(follow_cities):
                     wy: int = city_cnt  # % 9
                     wx: int = 1  # if city_cnt < 9 else 15
-                    data_x1: int = wx + 37
+                    data_x1: int = wx + 39
                     data_x2: int = data_x1 + 5
 
                     day: str = "night"
@@ -3343,9 +3356,9 @@ class DashboardView(ColorViews):
                     if province.isdigit():
                         province = ""
                     elif len(province) > 0:
-                        province = f",{province}"
+                        province = f", {province}"
 
-                    followcities_window.print(f"{city_cnt+1}) {city}{province},{country}", x=wx, y=wy)
+                    followcities_window.print(f"{city_cnt+1}. {city}{province}, {country}", x=wx, y=wy)
                     followcities_window.print(f"{temp}°{tsuffix}", x=data_x1, y=wy, theme=self._get_temp_cp(temp))
                     followcities_window.print(f"({day})", x=data_x2, y=wy, theme=self._get_daynight_cp(city_data["is_day"]))
                 # forecast_window.print("kjhf otu3t roiuwrfo 093485")
