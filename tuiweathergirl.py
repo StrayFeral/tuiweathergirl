@@ -3369,7 +3369,7 @@ class DashboardView(ColorViews):
                 forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
-                force_data_redraw = True
+                force_screen_update = True
 
             
             # Pushing the changes
