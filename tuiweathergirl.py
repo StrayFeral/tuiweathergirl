@@ -792,31 +792,55 @@ class LayoutManager:
                 window.refresh()
 
 
-class LogEntry:
-    def __init__(
-        self,
-        city: str,
-        country: str,
-        message: str,
-        datestr: str = "",
-        timestr: str = "",
-    ) -> None:
-        self.city = city
-        self.country: str = country
-        self.message: str = message
-        self.date: str = datestr
-        self.time: str = timestr
+class WarningsManager:
+    """Manages the warnings. The logger is responsible to read the log file, 
+    filter out the old events and show the new ones only.
 
-
-class MajorEventsLogger:
+    Log format (CSV):
+    date, time, homeremote, location, label, message
+    """
     def __init__(self):
-        self.keep_max_days: int = 7
-        self.filename: str = "~/.tuiweathergirl_event_log"
+        self.keep_max_days: int = 2
+        self._messages: list[list[str]] = []
+        self._filename: str = "~/.tuiweathergirl_warnings_log"
 
         if os.name == "nt":
-            self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_event.log"
+            self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+    
+    def _is_old(self, message_date: str) -> bool:
+        cutoff = datetime.now() - timedelta(days=self.keep_max_days)
+        mdate = datetime.strptime(message_date, "%Y-%m-%d")
+        if mdate >= cutoff:
+            return False
+        return True
+    
+    def _cleanup(self) -> None:
+        self._messages = [
+            sublist for sublist in self._messages
+            if not self._is_old(sublist[0])
+        ]
+    
+    def _load(self) -> None:
+        pass
 
-    def __cleanup(self) -> None:
+    def _save(self) -> None:
+        pass
+
+    def get_warnings(self, number_of_last_messages: int) -> list[list[str]]:
+        if len(self._messages) == 0:
+            self._load()
+            self._cleanup()
+            self._save()
+        pass
+
+    def append(self, homeremote: str, location: str, label: str, message: str) -> None:
+        """Append and save all messages"""
+        message_list: list[str] = []
+        self._cleanup()
+        self._messages.append(message_list)
+        self._save()
+
+    def __xxxxxxxxxcleanup(self) -> None:
         """Removes entries older than keep_max_days."""
 
         full_path = Path(self.filename).expanduser()
@@ -840,7 +864,7 @@ class MajorEventsLogger:
             writer = csv.writer(f)
             writer.writerows(remaining_rows)
 
-    def append(self, s: str) -> None:
+    def ___xxxxxappend(self, location: str, label: str, message: str) -> None:
         full_path = Path(self.filename).expanduser()
         # Format: yyyy-mm-dd, HH:MM:SS
         now = datetime.now()
@@ -855,7 +879,7 @@ class MajorEventsLogger:
         # Optional: Housekeeping to keep file small
         self.__cleanup()
 
-    def read(self, i: int = 4) -> list[list[str]]:
+    def __xxxxxread(self, i: int = 4) -> list[list[str]]:
         full_path = Path(self.filename).expanduser()
         if not full_path.exists():
             return []
@@ -2086,7 +2110,8 @@ class WeatherForecaster:
 
         cache = CachedData()
 
-        if cache.loaded:
+        # Freshly loaded cache
+        if cache.loaded and cache.too_soon:
             # Fill the object with data
             # weather_data.is_day = cache.is_day
             weather_data.sky = cache.sky
@@ -2118,15 +2143,9 @@ class WeatherForecaster:
 
         else:
             # Send the requests
-            #weather_result: requests.Response = requests.get(url, timeout=5)
-            #aq_result: requests.Response = requests.get(aq_url, timeout=5)
             weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
             aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
             followcities_result: dict | list = self._get_brief_weather_data(",".join([e["lat"] for e in self.config.followcities]), ",".join([e["lon"] for e in self.config.followcities]), ",".join([e["timezone"] for e in self.config.followcities]), tunit)
-            
-
-            #weather_result = weather_result.json()
-            #aq_result = aq_result.json()
 
             # Extract Data
             current: dict[str] = weather_result["current"]
