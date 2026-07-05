@@ -799,13 +799,23 @@ class WarningsManager:
     Log format (CSV):
     date, time, homeremote, location, label, message
     """
+
+    RECLEN: int = 6  # The number of fields in the CSV
+
     def __init__(self):
         self.keep_max_days: int = 2
         self._messages: list[list[str]] = []
         self._filename: str = "~/.tuiweathergirl_warnings_log"
+        self.home_location: str = ""
 
         if os.name == "nt":
             self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+    
+    @property
+    def no_warnings(self) -> bool:
+        if len(self._messages) == 0:
+            return True
+        return False
     
     def _is_old(self, message_date: str) -> bool:
         cutoff = datetime.now() - timedelta(days=self.keep_max_days)
@@ -815,98 +825,60 @@ class WarningsManager:
         return True
     
     def _cleanup(self) -> None:
+        # sublist[0] contains the message date
         self._messages = [
             sublist for sublist in self._messages
             if not self._is_old(sublist[0])
         ]
     
     def _load(self) -> None:
-        pass
+        full_path = Path(self._filename).expanduser()
+        if not full_path.exists():
+            return []
+        
+        with open(full_path, "r", newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            self._messages = [row for row in list(reader) if len(row) == self.RECLEN]
 
     def _save(self) -> None:
-        pass
+        full_path = Path(self._filename).expanduser()
+        with open(full_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerows(self._messages)
 
-    def get_warnings(self, number_of_last_messages: int) -> list[list[str]]:
+    def get_warnings(self, number_of_messages: int) -> list[list[str]]:
         if len(self._messages) == 0:
             self._load()
             self._cleanup()
             self._save()
-        pass
+            
+            # This will append a status message saying there are no
+            # warnings at the moment
+            if self.no_warnings and len(self.home_location) > 0:
+                self.append("***")
 
-    def append(self, homeremote: str, location: str, label: str, message: str) -> None:
+        return self._messages[-number_of_messages:]
+
+    def append(self, homeremote: str, location: str = "", label: str = "general", message: str = "No warnings at the moment. All quiet.") -> None:
         """Append and save all messages"""
-        message_list: list[str] = []
-        self._cleanup()
-        self._messages.append(message_list)
-        self._save()
 
-    def __xxxxxxxxxcleanup(self) -> None:
-        """Removes entries older than keep_max_days."""
+        if len(location) == 0:
+            location = self.home_location
 
-        full_path = Path(self.filename).expanduser()
-        if not full_path.exists():
-            return
-
-        cutoff = datetime.now() - timedelta(days=self.keep_max_days)
-        remaining_rows = []
-
-        with open(full_path, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                try:
-                    log_date = datetime.strptime(row[0], "%Y-%m-%d")
-                    if log_date >= cutoff:
-                        remaining_rows.append(row)
-                except (ValueError, IndexError):
-                    continue
-
-        with open(full_path, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(remaining_rows)
-
-    def ___xxxxxappend(self, location: str, label: str, message: str) -> None:
-        full_path = Path(self.filename).expanduser()
-        # Format: yyyy-mm-dd, HH:MM:SS
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
 
-        # Append mode ensures we don't overwrite
-        with open(full_path, "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([date_str, time_str, s[:50]])
+        message: list[str] = [date_str, time_str, homeremote, location, label.upper(), message]
 
-        # Optional: Housekeeping to keep file small
-        self.__cleanup()
-
-    def __xxxxxread(self, i: int = 4) -> list[list[str]]:
-        full_path = Path(self.filename).expanduser()
-        if not full_path.exists():
-            return []
-
-        # Calculate the threshold: 00:00:00 of the previous day
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        yesterday_start = today - timedelta(days=1)
-
-        valid_entries = []
-
-        with open(full_path, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if len(row) < 3:
-                    continue
-
-                # Parse the date and time from the log
-                log_dt = datetime.strptime(f"{row[0]} {row[1]}", "%Y-%m-%d %H:%M:%S")
-
-                if log_dt >= yesterday_start:
-                    # Combine date/time as one timestamp string for the return format
-                    timestamp = f"{row[0]} {row[1]}"
-                    valid_entries.append([timestamp, row[2]])
-
-        # Sort newest first and slice the last 'i' elements
-        valid_entries.reverse()
-        return valid_entries[:i]
+        self._cleanup()
+        self._messages.append(message)
+        self._save()
+    
+    def apply_format(self, message_list) -> str:
+        dates, times, homeremote, location, label, message = message_list
+        message_str: str = f"[{dates}][{times}][{location:.15}][{label}] {message:.90}"
+        return message_str
 
 
 class CachedData:
@@ -2313,6 +2285,7 @@ class Views:
     ) -> None:
         self.config: Configuration = config
         self.data: WeatherData = data
+        self.warnings: WarningsManager = WarningsManager()
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
         self.height: int | None = None
@@ -2363,6 +2336,24 @@ class Views:
 
 class ColorViews(Views):
     r"""Definition of color views"""
+
+    def _get_homeremote_cp(self, homeremote: str) -> int:
+        r"""Gets the color pair for home/remote warning message"""
+
+        # Idea is to trigger different color on "home" and "remote"
+        # the rest are just meh
+        if homeremote.lower() not in ["home", "remote", "emergency", "", "***", "meh"]:
+            raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
+        
+        cps: dict[str, int] = {
+            "home": COL_WHITEBLACK,
+            "remote": COL_YELOWBLACK,
+            "emergency": COL_YELOWRED,
+        }
+        if homeremote in cps:
+            return cps[homeremote]
+        
+        return COL_BLUEBLACK
 
     def _get_humidity_cp(self, humidity: int, temperature: int) -> int:
         r"""Get the humidity color pair"""
@@ -3132,6 +3123,14 @@ class DashboardView(ColorViews):
         province: str = self.presconf.province
         country: str = self.config.country
 
+        province1: str = province
+        if province1.isdigit():
+            province1 = ""
+        elif len(province1) > 0:
+            province1 = f", {province1}"
+        
+        self.warnings.home_location = f"{city}-{self.config.country_code2}"
+
         layout_manager: LayoutManager | None = None
 
         title_window: Window | None = None
@@ -3234,29 +3233,30 @@ class DashboardView(ColorViews):
                 title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
                 title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
                 # Home location
-                location_window.print(f" Home: {city}, {province}{country}", theme="home")
+                # location_window.print(f" Home: {city}, {province}{country}", theme="home")
+                location_window.print(f" Home: {city}{province1}, {country}", theme="home")
                 # Current situation labels
                 currently_window.print("Sky   :", x=labels_x, y=0)
                 currently_window.print("Temp  :", x=labels_x, y=1)
                 currently_window.print("Range :", x=labels_x, y=2)
-                currently_window.print("Humid.:", x=labels_x, y=3)
+                currently_window.print("Humidt:", x=labels_x, y=3)
                 # Wind, air quality and precipitation labels
                 airquality_window.print("Wind  :", x=labels_x, y=0)
                 airquality_window.print("AQI   :", x=labels_x, y=1)
                 airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
                 airquality_window.print(":", x=labels_x+6, y=2, theme="general")
-                airquality_window.print("Humid.:", x=labels_x, y=3)
+                airquality_window.print("Humidt:", x=labels_x, y=3)
                 # 7 day forecast labels
                 forecast_window.draw_line(x=first_two_windows_width-2, y=0, direction="vertical", length=4, theme="border")
                 # Misc
                 brief_window.print(f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit", x=1)
+                # Warnings
+                # warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
+                # if len(self.warnings.no_warnings):
+                #     self.warnings.append("home", f"{city}, {country}", "***", "No warnings at the moment.")
+                # for warning in warnings:
+                #     warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
                 
-                
-                warnings_window.print("line 1: jkhf 95t kljsdfrlks", newline=True)
-                warnings_window.print("line 2: jkhf 95t kljsdfrlks", newline=True)
-                warnings_window.print("line 3: jkhf 95t kljsdfrlks", newline=True)
-                warnings_window.print("line 4: jkhf 95t kljsdfrlks", newline=True)
-
                 force_screen_update = True
 
             # ------------------------------------------------- REFRESH DATA
@@ -3269,7 +3269,7 @@ class DashboardView(ColorViews):
 
             if len(last_refresh) == 0:
                 # last_refresh = f"Last refresh: {datenow} {timenow}"
-                last_refresh = f"Last refresh: **cached**"
+                last_refresh = f"Last refresh: **none**"
                 lastrefresh_window.print(last_refresh, x=1, y=0)
 
             # Technically we do not need this, but filling up the addstr()s
@@ -3359,9 +3359,10 @@ class DashboardView(ColorViews):
                 airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
                 airquality_window.print("]", x=data_x+10, y=2, theme="border")
                 airquality_window.print(f"{precipitation}%  ", x=data_x+12, y=2, theme=self._get_progbar_cp(precipitation))
-                airquality_window.print(f"{self.data.hmin}% ({humidity_level_min:.7})", x=data_x, y=3, theme=self._get_humidity_cp(int(self.data.hmin), int(temperature)))
-                airquality_window.print("/", x=data_x+13, y=3)
-                airquality_window.print(f"{self.data.hmax}% ({humidity_level_max:.7})", x=data_x+14, y=3, theme=self._get_humidity_cp(int(self.data.hmax), int(temperature)))
+                humidity_str: str = f"{self.data.hmin}%({humidity_level_min:.7})"
+                airquality_window.print(humidity_str, x=data_x, y=3, theme=self._get_humidity_cp(int(self.data.hmin), int(temperature)))
+                airquality_window.print("/", x=data_x+len(humidity_str), y=3)
+                airquality_window.print(f"{self.data.hmax}%({humidity_level_max:.7})", x=data_x+len(humidity_str)+1, y=3, theme=self._get_humidity_cp(int(self.data.hmax), int(temperature)))
 
                 # 7 day forecast
                 for day_cnt, day in enumerate(week):
@@ -3396,28 +3397,23 @@ class DashboardView(ColorViews):
                     if city_data["is_day"]:
                         day = "day"
                     temp: int = city_data["temperature"]
-                    city: str = self.config.followcities[city_cnt]["city"]
-                    province: str = self.config.followcities[city_cnt]["province"]
-                    country: str = self.config.followcities[city_cnt]["country"]
+                    city2: str = self.config.followcities[city_cnt]["city"]
+                    province2: str = self.config.followcities[city_cnt]["province"]
+                    country2: str = self.config.followcities[city_cnt]["country"]
 
-                    if province.isdigit():
-                        province = ""
-                    elif len(province) > 0:
-                        province = f", {province}"
+                    if province2.isdigit():
+                        province2 = ""
+                    elif len(province2) > 0:
+                        province2 = f", {province2}"
 
-                    followcities_window.print(f"{city_cnt+1}. {city}{province}, {country}", x=wx, y=wy)
+                    followcities_window.print(f"{city_cnt+1}. {city2}{province2}, {country2}", x=wx, y=wy)
                     followcities_window.print(f"{temp}°{tsuffix}", x=data_x1, y=wy, theme=self._get_temp_cp(temp))
                     followcities_window.print(f"({day})", x=data_x2, y=wy, theme=self._get_daynight_cp(city_data["is_day"]))
-                # forecast_window.print("kjhf otu3t roiuwrfo 093485")
-                # brief_window.print("elkjtgrewk eirturewo 03845 iokjsw")
-                # lastrefresh_window.print("jkht oruet wr9et8")
-                # warnings_window.print("line 1: jkhf 95t kljsdfrlks\n")
-                # warnings_window.print("line 2: jkhf 95t kljsdfrlks\n")
-                # warnings_window.print("line 3: jkhf 95t kljsdfrlks\n")
-                # warnings_window.print("line 4: jkhf 95t kljsdfrlks\n")
 
-
-                #     # .....
+                # Warnings
+                warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
+                for warning in warnings:
+                    warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
 
                 force_screen_update = False
 
