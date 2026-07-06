@@ -2606,8 +2606,7 @@ class BasicView(Views):
 
         hr: str = "==============================="
 
-        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
-
+        print(f"""
 TODAY                     ({dow})
 {hr}
 Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
@@ -2634,7 +2633,8 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         for warning in warnings:
             print(f"\n{warning}")
 
-        print("\nTry: tuiweathergirl --help")
+        # print("\nTry: tuiweathergirl --help")
+        print("\n")
 
         # Saving the cache
         cache = CachedData()
@@ -2719,8 +2719,7 @@ class MotivationalView(Views):
         hr2: str = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         hr3: str = "~~,~~`~~,~~`~~,~~`~~,~~`~~,~~"
 
-        print(f"""TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026
-
+        print(f"""
 By unfolding the dusty ancient scrolls, we uncover these secrets of the future:
 
 {hr3}
@@ -2751,7 +2750,8 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
         for warning in warnings:
             print(f"\n{warning}")
 
-        print("\nTry: tuiweathergirl --help")
+        # print("\nTry: tuiweathergirl --help")
+        print("\n")
 
         # Saving the cache
         cache = CachedData()
