@@ -64,6 +64,9 @@ HOW DOES TUIWEATHERGIRL WORKS:
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.com/
 """
+USERAGENT: str = (
+    f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
+)
 APIKEYENVVARNAME: str = "TIMEZONEAPIKEY"
 MIN_COLS: int = 79
 MIN_LINES: int = 22
@@ -471,7 +474,7 @@ class Window:
         if align not in ["left", "right", "centered"]:
             raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
         
-        if "\n" in s or "\r" in s:
+        if isinstance(s, str) and ("\n" in s or "\r" in s):
             raise ValueError(f"String {s!r} contains newline or carriage return characters.")
 
         if self.theme:
@@ -488,19 +491,33 @@ class Window:
             else:
                 x = ((self.inner_width - len(s) - 1) // 2)
         
+        if y >= self.inner_height:
+            y = self.inner_height - 1
+        
         if isinstance(s, str):
             self.printyx(y, x, s, theme=theme_key)
         elif isinstance(s, TextList) or isinstance(s, TextParagraph):
-            yoffset = 0
-            for line in s.get_data(width):
-                self.printyx(y+yoffset, x, line, theme=theme_key)
-                yoffset += 1
+            last_x: int = 0
+            for line in s.get_data(width - 2):
+
+                if "\n" in line or "\r" in line:
+                    raise ValueError(f"String {s!r} contains newline or carriage return characters.")
+                self.printyx(y, x, line.strip(), theme=theme_key)
+                last_x = x + len(line)
+
+                y += 1
+                if y >= self.inner_height:
+                    y = self.inner_height - 1
+            
+            self.cursor_x = last_x
         
         if self.theme:
             self.theme.off()
         
         # Calculating the new X
-        self.cursor_x += x + len(s)
+        if isinstance(s, str):
+            self.cursor_x += x + len(s)
+
         if self.cursor_x >= self.inner_width - 1:
             self.cursor_x = 0
             self.cursor_y += 1
@@ -882,6 +899,64 @@ class WarningsManager:
         dates, times, homeremote, location, label, message = message_list
         message_str: str = f"[{dates}][{times}][{location:.15}][{label}] {message:.90}"
         return message_str
+
+
+class Bulgarian:
+    def get_history_fact(self) -> str:
+        """Checks Wikipedia for major Bulgarian historical events occurring 
+        today or yesterday.
+        """
+
+        now: datetime = datetime.now()
+        yesterday: datetime = now - timedelta(days=1)
+        
+        # Specific keywords to filter for Bulgarian national history
+        keywords: list[str] = [
+            "Bulgaria", "Levski", "Botev", "Shipka", "Plovdiv", "Sofia", 
+            "Turnovo", "Tarnovo", "Bulgarian Empire", "Cyrillic"
+        ]
+        
+        # Wikimedia requires a unique User-Agent identifying your app/contact info
+        #headers = {
+        #    "User-Agent": "TUIWeatherGirl/1.0 (contact: your-email@example.com) Python-Requests"
+        #}
+        headers: dict[str, str] = {
+            "User-Agent": USERAGENT,
+            "Accept-Language": "en",
+        }
+        
+        # We check today first, then yesterday
+        for date_obj, label in [(now, "today"), (yesterday, "yesterday")]:
+            # Wikipedia On This Day API expects month/day WITHOUT leading zeros (e.g. '3' instead of '03')
+            month: str = str(int(date_obj.strftime('%m')))
+            day: str = str(int(date_obj.strftime('%d')))
+            
+            # url: str = "https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/3/3"
+            url: str = f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{month}/{day}"
+            
+            response: requests.Response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code != 200:
+                continue
+                
+            data = response.json()
+            # We look through selected major events, general events, and deaths (for Tsars/Heroes)
+            collections = data.get('selected', []) + data.get('events', []) + data.get('deaths', [])
+            
+            for event in collections:
+                text: str = event.get('text', '')
+                year: str = event.get('year', 'Unknown')
+                
+                if int(year) < 681:  # Bulgaria was found in 681AD
+                    continue
+                
+                # Check if the event matches our Bulgarian history keywords
+                if any(kw.lower() in text.lower() for kw in keywords):
+                    # Clean the text slightly (removing Wikipedia's parentheticals)
+                    clean_text = text.split(' (')[0].strip()
+                        
+                    return f"{year}: {clean_text}"
+
+        return ""
 
 
 class CachedData:
@@ -1452,10 +1527,6 @@ class Locator:
         "AN": ["AQ"],
     }
 
-    _USERAGENT: str = (
-        f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
-    )
-
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
 
@@ -1508,7 +1579,7 @@ class Locator:
                 country = country.upper()
 
             headers: dict[str, str] = {
-                "User-Agent": self._USERAGENT,
+                "User-Agent": USERAGENT,
                 "Accept-Language": "en",
             }
             url: str = (
@@ -3138,6 +3209,7 @@ class DashboardView(ColorViews):
         title_window_height: int = 3
         forecast_window_height: int = 6
         followcities_window_height: int = 12
+        history_window_height: int = 2
         default_text_indent: int = 1
         labels_x: int = default_text_indent
         data_x: int = labels_x + 8
@@ -3202,7 +3274,7 @@ class DashboardView(ColorViews):
                 location_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
-                    title="",
+                    title="Location",
                     height=minimum_window_height
                 )
                 currently_window = layout_manager.add_window(
@@ -3240,14 +3312,21 @@ class DashboardView(ColorViews):
                 brief_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
-                    title="Warnings",
+                    title="Brief",
                     height=minimum_window_height
                 )
                 lastrefresh_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
-                    title="Warnings",
+                    title="Last Refresh",
                     height=minimum_window_height
+                )
+                history_window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=2,
+                    title="On This Day",
+                    height=general_window_height,  # history_window_height,
+                    border=True
                 )
 
                 layout_manager.draw_windows()
@@ -3317,6 +3396,8 @@ class DashboardView(ColorViews):
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
             follow_cities: list = self.data.followcities
+            # History facts
+            history_fact: str = ""
 
             # Saving the cache
             cache = CachedData()
@@ -3443,6 +3524,12 @@ class DashboardView(ColorViews):
 
                 for warning in warnings:
                     warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
+                
+                bulgarian: Bulgarian = Bulgarian()
+                history_fact = bulgarian.get_history_fact()
+                fact_paragraph: TextParagraph = TextParagraph(history_fact)
+                history_window.clear()
+                history_window.print(fact_paragraph, x=0, y=0)
 
                 force_screen_update = False
 
