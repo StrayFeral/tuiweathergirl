@@ -24,6 +24,7 @@ from pprint import pprint as pp
 from zoneinfo import ZoneInfo
 
 import requests
+import concurrent.futures
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
@@ -811,12 +812,6 @@ class WarningsManager:
         if os.name == "nt":
             self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
     
-    @property
-    def no_warnings(self) -> bool:
-        if len(self._messages) == 0:
-            return True
-        return False
-    
     def _is_old(self, message_date: str) -> bool:
         cutoff = datetime.now() - timedelta(days=self.keep_max_days)
         mdate = datetime.strptime(message_date, "%Y-%m-%d")
@@ -830,6 +825,11 @@ class WarningsManager:
             sublist for sublist in self._messages
             if not self._is_old(sublist[0])
         ]
+
+        # If the only message is a "No warnings" message - delete it
+        # (we will insert new one with updated time)
+        if len(self._messages) == 1 and self._messages[0][2] in ["", "***", "meh"]:
+            self._messages = []
     
     def _load(self) -> None:
         full_path = Path(self._filename).expanduser()
@@ -851,16 +851,19 @@ class WarningsManager:
             self._load()
             self._cleanup()
             self._save()
-            
+
             # This will append a status message saying there are no
             # warnings at the moment
-            if self.no_warnings and len(self.home_location) > 0:
+            if len(self._messages) == 0 and len(self.home_location) > 0:
                 self.append("***")
 
         return self._messages[-number_of_messages:]
 
     def append(self, homeremote: str, location: str = "", label: str = "general", message: str = "No warnings at the moment. All quiet.") -> None:
         """Append and save all messages"""
+
+        if homeremote.lower() not in ["home", "remote", "emergency", "", "***", "meh"]:
+            raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
         if len(location) == 0:
             location = self.home_location
@@ -1846,24 +1849,6 @@ class WeatherForecaster:
 
         return "Hazardous"
 
-    def __get_humidity_risk(self, humidity: int) -> str:
-        """Returns a message only if humidity poses a risk for people with
-        medical conditions (resporatory)"""
-
-        if humidity < 30:
-            return f"Humidity {humidity}%: Risk for people with asthma or chronic respiratory conditions: Airway irritation."
-
-        if humidity < 40:
-            return f"Humidity {humidity}%: Moderate risk for people with sensitive respiratory systems."
-
-        if humidity <= 60:
-            return ""  # Safe
-
-        if humidity <= 70:
-            return f"Humidity {humidity}%: Risk for people with asthma: Increased allergens and air density."
-
-        return f"Humidity {humidity}%: HIGH RISK for people with respiratory conditions: Severe bronchoconstriction and labored breathing!"
-
     def __get_humidity_assessment(self, humidity: int, temperature: int) -> str:
         r"""Returns a human-readable assessment based on the humidity and temperature."""
 
@@ -1895,21 +1880,6 @@ class WeatherForecaster:
         if 95 <= weather_code <= 99:
             return "Storm"
         return "Precip"
-
-    def __get_storm_warning(self, weather_code: int, wind: int) -> str:
-        if 95 <= weather_code <= 99:
-            if weather_code in [96, 99]:
-                return "HAIL STORM WARNING"
-            return "THUNDERSTORM WARNING"
-
-        if 38 <= weather_code <= 39:
-            return "BLIZZARD WARNING"
-
-        # Wind Storms
-        if wind > 60:
-            return "HIGH WIND WARNING"
-
-        return ""
 
     def __is_daytime(self, lat: str, lon: str, dt: datetime = None) -> bool:
         """
@@ -2071,6 +2041,39 @@ class WeatherForecaster:
             )
 
         return result.json()
+    
+    def get_storm_warning(self, weather_code: int, wind: int) -> str:
+        if 95 <= weather_code <= 99:
+            if weather_code in [96, 99]:
+                return "HAIL STORM WARNING"
+            return "THUNDERSTORM WARNING"
+
+        if 38 <= weather_code <= 39:
+            return "BLIZZARD WARNING"
+
+        # Wind Storms
+        if wind > 60:
+            return "HIGH WIND WARNING"
+
+        return ""
+    
+    def get_humidity_risk(self, humidity: int) -> str:
+        """Returns a message only if humidity poses a risk for people with
+        medical conditions (respiratory)"""
+
+        if humidity < 30:
+            return f"Humidity {humidity}%: Risk for people with asthma or chronic respiratory conditions: Airway irritation."
+
+        if humidity < 40:
+            return f"Humidity {humidity}%: Moderate risk for people with sensitive respiratory systems."
+
+        if humidity <= 60:
+            return ""  # Safe
+
+        if humidity <= 70:
+            return f"Humidity {humidity}%: Risk for people with asthma: Increased allergens and air density."
+
+        return f"Humidity {humidity}%: HIGH RISK for people with respiratory conditions: Severe bronchoconstriction and labored breathing!"
 
     def get_data(self, weather_data: WeatherData) -> None:
         # Build the API URL with your config preferences
@@ -2115,9 +2118,30 @@ class WeatherForecaster:
 
         else:
             # Send the requests
-            weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
-            aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
-            followcities_result: dict | list = self._get_brief_weather_data(",".join([e["lat"] for e in self.config.followcities]), ",".join([e["lon"] for e in self.config.followcities]), ",".join([e["timezone"] for e in self.config.followcities]), tunit)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                future_weather = executor.submit(
+                    self._get_main_location_weather_data, 
+                    self.config.lat, self.config.lon, self.config.timezone, tunit, wunit
+                )
+                future_aq = executor.submit(
+                    self._get_aqi_data, 
+                    self.config.lat, self.config.lon
+                )
+                future_followcities = executor.submit(
+                    self._get_brief_weather_data,
+                    ",".join([e["lat"] for e in self.config.followcities]),
+                    ",".join([e["lon"] for e in self.config.followcities]),
+                    ",".join([e["timezone"] for e in self.config.followcities]),
+                    tunit
+                )
+                weather_result: dict = future_weather.result()
+                aq_result: dict = future_aq.result()
+                followcities_result: dict | list = future_followcities.result()
+
+            # # Send the requests
+            # weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
+            # aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
+            # followcities_result: dict | list = self._get_brief_weather_data(",".join([e["lat"] for e in self.config.followcities]), ",".join([e["lon"] for e in self.config.followcities]), ",".join([e["timezone"] for e in self.config.followcities]), tunit)
 
             # Extract Data
             current: dict[str] = weather_result["current"]
@@ -3250,12 +3274,6 @@ class DashboardView(ColorViews):
                 forecast_window.draw_line(x=first_two_windows_width-2, y=0, direction="vertical", length=4, theme="border")
                 # Misc
                 brief_window.print(f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit", x=1)
-                # Warnings
-                # warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
-                # if len(self.warnings.no_warnings):
-                #     self.warnings.append("home", f"{city}, {country}", "***", "No warnings at the moment.")
-                # for warning in warnings:
-                #     warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
                 
                 force_screen_update = True
 
@@ -3410,8 +3428,19 @@ class DashboardView(ColorViews):
                     followcities_window.print(f"{temp}°{tsuffix}", x=data_x1, y=wy, theme=self._get_temp_cp(temp))
                     followcities_window.print(f"({day})", x=data_x2, y=wy, theme=self._get_daynight_cp(city_data["is_day"]))
 
-                # Warnings
+                # WARNINGS
+                warnings_window.clear()
                 warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
+
+                # Risk assessment
+                humidity_risk: str = forecaster.get_humidity_risk(hcur)
+                storm_warning: str = forecaster.get_storm_warning(self.data.weather_code, wind)
+
+                if humidity_risk:
+                    self.warnings.append("home", "", "HUMIDITY", humidity_risk)
+                if storm_warning:
+                    self.warnings.append("home", "", "STORM", storm_warning)
+
                 for warning in warnings:
                     warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
 
