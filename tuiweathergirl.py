@@ -235,8 +235,8 @@ class MainTextStyle(TextFlowStyle):
         super().__init__(
             **{
                 "align": "left",
-                "leftindent": 1,
-                "rightindent": 1,
+                "leftindent": 0,
+                "rightindent": 0,
                 "abovespacing": 0,
                 "belowspacing": 0,
                 "blockquote": 4,
@@ -259,7 +259,7 @@ class TextParagraph:
         self.below_spacing: int = kwargs.get("belowspacing", self.style.below_spacing)
         self.first_line: int = kwargs.get("firstline", 0)  # Indent
 
-        self._wrapper = textwrap.TextWrapper(
+        self._wrapper: textwrap.TextWrapper = textwrap.TextWrapper(
             expand_tabs=True,
             replace_whitespace=True,
             drop_whitespace=True,
@@ -502,7 +502,7 @@ class Window:
 
                 if "\n" in line or "\r" in line:
                     raise ValueError(f"String {s!r} contains newline or carriage return characters.")
-                self.printyx(y, x, line.strip(), theme=theme_key)
+                self.printyx(y, x, line, theme=theme_key)
                 last_x = x + len(line)
 
                 y += 1
