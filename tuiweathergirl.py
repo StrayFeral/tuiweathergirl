@@ -17,7 +17,7 @@ import tempfile
 import time
 import traceback
 import textwrap
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
@@ -845,7 +845,7 @@ class WarningsManager:
 
         # If the only message is a "No warnings" message - delete it
         # (we will insert new one with updated time)
-        if len(self._messages) == 1 and self._messages[0][2] in ["", "***", "meh"]:
+        if len(self._messages) == 1 and self._messages[0][2] in ["", "***", "meh"] and "All quiet" in self._messages[0][-1]:
             self._messages = []
     
     def _load(self) -> None:
@@ -889,16 +889,111 @@ class WarningsManager:
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
 
-        message: list[str] = [date_str, time_str, homeremote, location, label.upper(), message]
+        message_entry: list[str] = [date_str, time_str, homeremote, location, label.upper(), message]
 
-        self._cleanup()
-        self._messages.append(message)
-        self._save()
+        # Appending, if not a duplicate or if no previous messages
+        if len(self._messages) == 0 or (len(self._messages) > 0 and (message_entry[-1].lower() != self._messages[-1][-1].lower() or message_entry[0].lower() != self._messages[-1][0].lower())):
+            self._cleanup()
+            self._messages.append(message_entry)
+            self._save()
     
     def apply_format(self, message_list) -> str:
         dates, times, homeremote, location, label, message = message_list
-        message_str: str = f"[{dates}][{times}][{location:.15}][{label}] {message:.90}"
+        message_str: str = f"[{dates}][{times}][{location:.15}][{label}]{message:.90}"
         return message_str
+
+
+class Astronomer:
+    """Celestial data"""
+
+    def utc2local(self, utc_time_str: str, timezone_name: str) -> str:
+        """Time converter"""
+        hours, minutes = map(int, utc_time_str.split(':'))
+        
+        utc_dt: datetime.datetime = datetime.now(timezone.utc).replace(
+            hour=hours, 
+            minute=minutes, 
+            second=0, 
+            microsecond=0
+        )
+    
+        local_tz = ZoneInfo(timezone_name)
+        local_dt = utc_dt.astimezone(local_tz)
+        return local_dt.strftime('%H:%M')
+
+    def get_sun_times(self, lat: float, lon: float, timezone_name: str) -> dict[str, str]:
+        """Fetches sunrise and sunset for today in UTC."""
+        
+        url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
+
+        data = requests.get(url, timeout=5).json()
+        if data['status'] == 'OK':
+            # Format: 2026-05-04T04:12:34+00:00
+            sunrise: str = data['results']['sunrise'][11:16]
+            sunset: str = data['results']['sunset'][11:16]
+            sunrise = self.utc2local(sunrise, timezone_name)
+            sunset = self.utc2local(sunset, timezone_name)
+            return {"sunrise": sunrise, "sunset": sunset}
+        
+        return {}
+    
+    def get_zodiac_sign(self) -> str:
+        """Returns the current Western astrological sign based on today's date."""
+        
+        now: datetime = datetime.now()
+        m, d = now.month, now.day
+        
+        if (m == 12 and d >= 22) or (m == 1 and d <= 19): return "Capricorn"
+        if (m == 1 and d >= 20) or (m == 2 and d <= 18): return "Aquarius"
+        if (m == 2 and d >= 19) or (m == 3 and d <= 20): return "Pisces"
+        if (m == 3 and d >= 21) or (m == 4 and d <= 19): return "Aries"
+        if (m == 4 and d >= 20) or (m == 5 and d <= 20): return "Taurus"
+        if (m == 5 and d >= 21) or (m == 6 and d <= 20): return "Gemini"
+        if (m == 6 and d >= 21) or (m == 7 and d <= 22): return "Cancer"
+        if (m == 7 and d >= 23) or (m == 8 and d <= 22): return "Leo"
+        if (m == 8 and d >= 23) or (m == 9 and d <= 22): return "Virgo"
+        if (m == 9 and d >= 23) or (m == 10 and d <= 22): return "Libra"
+        if (m == 10 and d >= 23) or (m == 11 and d <= 21): return "Scorpio"
+        if (m == 11 and d >= 22) or (m == 12 and d <= 21): return "Sagittarius"
+        
+        return ""
+    
+    def get_chinese_zodiac(self) -> str:
+        """Returns the current Chinese Animal Year."""
+
+        animals = ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"]
+        now: datetime = datetime.now()
+        m, d, y = now.month, now.day, now.year
+
+        animal: int = (y - 1900) % 12
+
+        # Previous animal
+        # Of course Chinese New Year fluctuates, but I have no intention to
+        # calculate it properly. Roughly is enough for this app.
+        if m == 1 and d < 20:
+            animal -= 1
+        
+        return animals[animal]
+    
+    def get_moon_phase(self) -> str:
+        """Returns a simple string description of the current moon phase."""
+
+        # Simplified calculation based on the known New Moon of Jan 6, 2000
+        now = datetime.now()
+        diff = now - datetime(2000, 1, 6, 18, 14)
+        days = diff.total_seconds() / 86400
+        lunation = days % 29.530588853
+        
+        if lunation < 1.84: return "New Moon"
+        if lunation < 5.53: return "Waxing Crescent"
+        if lunation < 9.22: return "First Quarter"
+        if lunation < 12.91: return "Waxing Gibbous"
+        if lunation < 16.60: return "Full Moon"
+        if lunation < 20.29: return "Waning Gibbous"
+        if lunation < 23.98: return "Last Quarter"
+        if lunation < 27.67: return "Waning Crescent"
+
+        return "New Moon"
 
 
 class Bulgarian:
@@ -2133,18 +2228,18 @@ class WeatherForecaster:
         medical conditions (respiratory)"""
 
         if humidity < 30:
-            return f"Humidity {humidity}%: Risk for people with asthma or chronic respiratory conditions: Airway irritation."
+            return f"[{humidity}%][RISK] People with asthma or chronic resp. condt.: Airway irritation."
 
         if humidity < 40:
-            return f"Humidity {humidity}%: Moderate risk for people with sensitive respiratory systems."
+            return f"[{humidity}%][MOD.RISK] People with sensitive resp. systems: Mild airway irritation."
 
         if humidity <= 60:
             return ""  # Safe
 
         if humidity <= 70:
-            return f"Humidity {humidity}%: Risk for people with asthma: Increased allergens and air density."
+            return f"[{humidity}%][RISK] People with asthma: Increased allergens, difficult breathing."
 
-        return f"Humidity {humidity}%: HIGH RISK for people with respiratory conditions: Severe bronchoconstriction and labored breathing!"
+        return f"[{humidity}%][HIGH RISK] People with resp. condt.: Labored breathing!"
 
     def get_data(self, weather_data: WeatherData) -> None:
         # Build the API URL with your config preferences
@@ -2173,9 +2268,9 @@ class WeatherForecaster:
             weather_data.weather_code = cache.weather_code
             weather_data.wind = cache.wind
             weather_data.wind_direction = cache.wind_direction
-            weather_data.warnings = []
+            # weather_data.warnings = []
             weather_data.week = []
-            weather_data.warnings.append(cache.warning)
+            # weather_data.warnings.append(cache.warning)
             weather_data.followcities = cache.followcities
 
             # 7 day forecast
@@ -2237,7 +2332,7 @@ class WeatherForecaster:
                 current["wind_direction_10m"]
             )
 
-            weather_data.warnings = []
+            # weather_data.warnings = []
             weather_data.week = []
             
             # followcities_result[i]["current"]["temperature_2m"]
@@ -2724,9 +2819,9 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         cache.is_day = is_day
         cache.followcities = follow_cities
 
-        cache.warning = "No warnings."
-        if len(warnings) > 0:
-            cache.warning = warnings[0]
+        # cache.warning = "No warnings."
+        # if len(warnings) > 0:
+        #     cache.warning = warnings[0]
 
         cache.daynames = []
         cache.mins = []
@@ -2841,9 +2936,9 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
         cache.is_day = is_day
         cache.followcities = follow_cities
 
-        cache.warning = "No warnings."
-        if len(warnings) > 0:
-            cache.warning = warnings[0]
+        # cache.warning = "No warnings."
+        # if len(warnings) > 0:
+        #     cache.warning = warnings[0]
 
         cache.daynames = []
         cache.mins = []
@@ -2987,9 +3082,9 @@ class ColorView(ColorViews):
             cache.is_day = is_day
             cache.followcities = follow_cities
 
-            cache.warning = "No warnings."
-            if len(warnings) > 0:
-                cache.warning = warnings[0]
+            # cache.warning = "No warnings."
+            # if len(warnings) > 0:
+            #     cache.warning = warnings[0]
 
             cache.daynames = []
             cache.mins = []
@@ -3094,7 +3189,7 @@ class ColorView(ColorViews):
                 warnings_win.attroff(curses.color_pair(COL_YELOWBLACK))
             else:
                 warnings_win.attron(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
-                warnings_win.addstr(1, 2, "No warnings.")
+                # warnings_win.addstr(1, 2, "No warnings.")
                 warnings_win.attroff(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
 
             brief_win.erase()
@@ -3185,6 +3280,45 @@ class DashboardView(ColorViews):
         curses.curs_set(False)  # Hide cursor
         stdscr.timeout(1000)  # Wait 1 second
     
+    def get_data(self) -> None:
+        if not hasattr(self, "history_fact") or self.history_fact["date"] != date.today():
+            bulgarian: Bulgarian = Bulgarian()
+            astronomer: Astronomer = Astronomer()
+            
+            self.celestial: dict[str, str | dict] = {}
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                future_fact = executor.submit(bulgarian.get_history_fact)
+                future_sun_times = executor.submit(
+                    astronomer.get_sun_times, 
+                    self.config.lat, self.config.lon, self.config.timezone
+                )
+            
+            history_fact: str = future_fact.result()
+            self.celestial["sun"]: dict[str, str] = future_sun_times.result()
+
+            self.celestial["zodiac"]: str = astronomer.get_zodiac_sign()
+            self.celestial["chinese"]: str = astronomer.get_chinese_zodiac()
+            self.celestial["moon"]: str = astronomer.get_moon_phase()
+
+            if history_fact == "":  # More motivation. Because why not?
+                history_fact = "On this day you are more amazing than ever!"
+            fact_paragraph: TextParagraph = TextParagraph(history_fact)
+
+            self.history_fact: dict[str, date | TextParagraph] = {
+                "date": date.today(),
+                "text": fact_paragraph,
+            }
+
+            # Risk assessment
+            humidity_risk: str = self.forecaster.get_humidity_risk(self.data.hcur)
+            storm_warning: str = self.forecaster.get_storm_warning(self.data.weather_code, self.data.wind)
+
+            if humidity_risk:
+                self.warnings.append("home", "", "HUMIDITY", humidity_risk)
+            if storm_warning:
+                self.warnings.append("home", "", "STORM", storm_warning)
+    
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
         theme_palette.init_colors()
@@ -3197,7 +3331,7 @@ class DashboardView(ColorViews):
         # Initial test for the size and to save the initial width and height
         self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
 
-        forecaster: WeatherForecaster = WeatherForecaster(self.config)
+        self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
         last_refresh: str = ""
         
         # Global layout settings for this view
@@ -3309,6 +3443,20 @@ class DashboardView(ColorViews):
                     height=warnings_window_height,
                     border=True,
                 )
+                history_window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=2,
+                    title="On This Day",
+                    height=general_window_height,  # history_window_height,
+                    border=True
+                )
+                celestial_window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=2,
+                    title="Celestial",
+                    height=3,
+                    border=True
+                )
                 brief_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
@@ -3320,13 +3468,6 @@ class DashboardView(ColorViews):
                     overlap=2,
                     title="Last Refresh",
                     height=minimum_window_height
-                )
-                history_window = layout_manager.add_window(
-                    column_num=0,
-                    overlap=2,
-                    title="On This Day",
-                    height=general_window_height,  # history_window_height,
-                    border=True
                 )
 
                 layout_manager.draw_windows()
@@ -3353,6 +3494,9 @@ class DashboardView(ColorViews):
                 forecast_window.draw_line(x=first_two_windows_width-2, y=0, direction="vertical", length=4, theme="border")
                 # Misc
                 brief_window.print(f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit", x=1)
+
+                # Get initial additional data
+                self.get_data()
                 
                 force_screen_update = True
 
@@ -3396,8 +3540,6 @@ class DashboardView(ColorViews):
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
             follow_cities: list = self.data.followcities
-            # History facts
-            history_fact: str = ""
 
             # Saving the cache
             cache = CachedData()
@@ -3416,9 +3558,9 @@ class DashboardView(ColorViews):
             cache.is_day = is_day
             cache.followcities = follow_cities
 
-            cache.warning = "No warnings."
-            if len(warnings) > 0:
-                cache.warning = warnings[0]
+            # cache.warning = "No warnings."
+            # if len(warnings) > 0:
+            #     cache.warning = warnings[0]
 
             cache.daynames = []
             cache.mins = []
@@ -3438,7 +3580,7 @@ class DashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
-            location_window.print(f"Today: {datenow} {timenow}", x=-len(home_day)-3, align="right", theme="home")
+            location_window.print(f"Today: {datenow} {timenow}{dstmark}", x=-len(home_day)-3, align="right", theme="home")
             location_window.print(f"({home_day})", align="right", theme=self._get_daynight_cp(is_day))
 
             if force_screen_update:
@@ -3489,7 +3631,7 @@ class DashboardView(ColorViews):
                 for city_cnt, city_data in enumerate(follow_cities):
                     wy: int = city_cnt  # % 9
                     wx: int = 1  # if city_cnt < 9 else 15
-                    data_x1: int = wx + 39
+                    data_x1: int = wx + 42
                     data_x2: int = data_x1 + 5
 
                     day: str = "night"
@@ -3513,23 +3655,18 @@ class DashboardView(ColorViews):
                 warnings_window.clear()
                 warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
 
-                # Risk assessment
-                humidity_risk: str = forecaster.get_humidity_risk(hcur)
-                storm_warning: str = forecaster.get_storm_warning(self.data.weather_code, wind)
-
-                if humidity_risk:
-                    self.warnings.append("home", "", "HUMIDITY", humidity_risk)
-                if storm_warning:
-                    self.warnings.append("home", "", "STORM", storm_warning)
-
                 for warning in warnings:
-                    warnings_window.print(self.warnings.apply_format(warning), newline=True, theme=self._get_homeremote_cp(warning[2]))
+                    warnings_window.print(self.warnings.apply_format(warning), x=0, newline=True, theme=self._get_homeremote_cp(warning[2]))
                 
-                bulgarian: Bulgarian = Bulgarian()
-                history_fact = bulgarian.get_history_fact()
-                fact_paragraph: TextParagraph = TextParagraph(history_fact)
-                history_window.clear()
-                history_window.print(fact_paragraph, x=0, y=0)
+                if hasattr(self, "history_fact"):
+                    history_window.clear()
+                    history_window.print(self.history_fact["text"], x=0, y=0)
+
+                if hasattr(self, "celestial"):
+                    celestial_window.clear()
+                    spc: str = f"{" " * 7}|{" " * 7}"
+                    s: str = f"Sunrise: {self.celestial["sun"]["sunrise"]}{spc}Sunset: {self.celestial["sun"]["sunset"]}{spc}Zodiac: {self.celestial["zodiac"]}{spc}Chinese: {self.celestial["chinese"]}{spc}Moon: {self.celestial["moon"]}"
+                    celestial_window.print(s, align="centered", y=0)
 
                 force_screen_update = False
 
@@ -3539,7 +3676,8 @@ class DashboardView(ColorViews):
             
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
-                forecaster.get_data(self.data)
+                self.forecaster.get_data(self.data)
+                self.get_data()
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
