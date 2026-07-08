@@ -457,6 +457,8 @@ class Window:
             raise Exception(f"String {s!r} is too long and goes over the window right border: x={x}, len={len(s)}, inner_width={self.inner_width}.")
 
         theme_key: str = kwargs.get("theme", "general")
+        if theme_key == "":
+            theme_key = "general"  # Safeguard
         if self.theme:
             self.theme.on(self.win, theme_key)
             self.win.addstr(y, x, s)
@@ -478,9 +480,6 @@ class Window:
         if isinstance(s, str) and ("\n" in s or "\r" in s):
             raise ValueError(f"String {s!r} contains newline or carriage return characters.")
 
-        if self.theme:
-            self.theme.on(self.win, theme_key)
-        
         if align == "right":
             if x < 0:
                 x = self.inner_width - len(s) - 1 + x
@@ -511,9 +510,6 @@ class Window:
                     y = self.inner_height - 1
             
             self.cursor_x = last_x
-        
-        if self.theme:
-            self.theme.off()
         
         # Calculating the new X
         if isinstance(s, str):
@@ -1058,6 +1054,37 @@ class Bulgarian:
         return ""
 
 
+class AllergyAndUVAdvisor:
+    """Pollen (Trees/Grass) and UV (Sun Allergy) advisor"""
+
+    def advise(self, lat: str, lon: str) -> list[str]:
+        url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pollen_index_tree,pollen_index_grass,pollen_index_weed,uv_index&timezone=auto"
+
+        warnings: list[str] = []
+
+        response: requests.Response = requests.get(url, timeout=5)
+        if response.status_code != 200:
+            return []
+        
+        tree_pollen: int = data.get('pollen_index_tree', 0)
+        if tree_pollen >= 3:
+            warnings.append(f"[HIGH RISK] High tree pollen levels: {tree_pollen}/5.")
+        
+        grass_pollen: int = data.get('pollen_index_grass', 0)
+        if grass_pollen >= 3:
+            warnings.append(f"[RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass_pollen}/5.")
+        
+        uv_index: int = data.get('uv_index', 0)
+        if 6 <= uv_index < 8:
+            warnings.append(f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index}. Limit direct sun exposure! Avoid being out 11:00-16:00!")
+        if 8 <= uv_index < 10:
+            warnings.append(f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index}. Extra protection needed!")
+        if uv_index >= 10:
+            warnings.append(f"[EXTREME RISK][SUN ALLERGY] UV Index: {uv_index}. Avoid exposure!")
+        
+        return warnings
+
+
 class HolidaysManager:
     """Taking care of the national holidays"""
 
@@ -1127,6 +1154,7 @@ class CachedData:
         self.hmin: int = 0
         self.hmax: int = 0
         self.hcur: int = 0
+        self.baropressure: float = 0
 
         self.daynames: list[str] = []
         self.mins: list[str] = []
@@ -1190,6 +1218,7 @@ class CachedData:
         self.hmin = int(config["TODAY"]["hmin"])
         self.hmax = int(config["TODAY"]["hmax"])
         self.hcur = int(config["TODAY"]["hcur"])
+        self.baropressure = round(float(config["TODAY"]["baropressure"]))
 
         self.daynames = config.get("FORECAST", "daynames").split(",")
         self.mins = config.get("FORECAST", "mins").split(",")
@@ -1236,6 +1265,7 @@ class CachedData:
             "hmin": self.hmin,
             "hmax": self.hmax,
             "hcur": self.hcur,
+            "baropressure": self.baropressure
         }
 
         config["FORECAST"] = {
@@ -1924,6 +1954,7 @@ class WeatherData:
         self.humidity_level_max: str = ""
         self.humidity: str = ""
         self.wind_direction_long: str = ""
+        self.baropressure: float = 0
 
         self.warnings: list[str] = []
         self.week: list[BriefDailyForecast] = []
@@ -2206,7 +2237,7 @@ class WeatherForecaster:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lat}&longitude={lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day"
+            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,pressure_msl"
             f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max"
             f"&timezone={timezone.replace('/', '%2F')}"
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
@@ -2275,6 +2306,16 @@ class WeatherForecaster:
 
         return ""
     
+    def get_baropressure_warning(self, baropressure: float) -> str:
+        """Basic advisory"""
+
+        if baropressure < 1000:
+            return f"[{baropressure} hPa][RISK] Low atmospheric pressure. Risk for migraines, sinus headaches, arthritic joint pain, low blood pressure."
+        if baropressure > 1026:
+            return f"[{baropressure} hPa][RISK] High atmospheric pressure. Risk for high blood pressure, breathing issues."
+        
+        return ""
+    
     def get_humidity_risk(self, humidity: int) -> str:
         """Returns a message only if humidity poses a risk for people with
         medical conditions (respiratory)"""
@@ -2320,6 +2361,7 @@ class WeatherForecaster:
             weather_data.weather_code = cache.weather_code
             weather_data.wind = cache.wind
             weather_data.wind_direction = cache.wind_direction
+            weather_data.baropressure = cache.baropressure
             # weather_data.warnings = []
             weather_data.week = []
             # weather_data.warnings.append(cache.warning)
@@ -2356,11 +2398,6 @@ class WeatherForecaster:
                 aq_result: dict = future_aq.result()
                 followcities_result: dict | list = future_followcities.result()
 
-            # # Send the requests
-            # weather_result: dict = self._get_main_location_weather_data(self.config.lat, self.config.lon, self.config.timezone, tunit, wunit)
-            # aq_result: dict = self._get_aqi_data(self.config.lat, self.config.lon)
-            # followcities_result: dict | list = self._get_brief_weather_data(",".join([e["lat"] for e in self.config.followcities]), ",".join([e["lon"] for e in self.config.followcities]), ",".join([e["timezone"] for e in self.config.followcities]), tunit)
-
             # Extract Data
             current: dict[str] = weather_result["current"]
             daily: dict[str] = weather_result["daily"]
@@ -2375,6 +2412,7 @@ class WeatherForecaster:
             weather_data.hmin = round(float(daily["relative_humidity_2m_min"][0]))
             weather_data.hmax = round(float(daily["relative_humidity_2m_max"][0]))
             weather_data.hcur = round(float(current["relative_humidity_2m"]))
+            weather_data.baropressure = round(float(current["pressure_msl"]))
             weather_data.aqi = int(aqi)
             weather_data.air_quality = self.__get_air_quality_assessment(aqi)
             weather_data.precipitation = daily["precipitation_probability_max"][0]
@@ -2410,11 +2448,6 @@ class WeatherForecaster:
                         "province": combodata[0]["province"],
                     }
                     weather_data.followcities.append(city_data)
-
-            # if weather_data.weather_code >= 95:
-            #     weather_data.warnings.append(
-            #         "WARNING: SEVERE THUNDERSTORMS DETECTED IN YOUR AREA"
-            #     )
 
             # 7 day forecast
             for i in range(1, 8):
@@ -2579,21 +2612,52 @@ class Views:
 class ColorViews(Views):
     r"""Definition of color views"""
 
-    def _get_homeremote_cp(self, homeremote: str) -> int:
-        r"""Gets the color pair for home/remote warning message"""
+    def _get_warnings_cp(self, homeremote: str, label: str, message: str) -> int | str:
+        r"""Gets the color pair for warning messages"""
 
         # Idea is to trigger different color on "home" and "remote"
         # the rest are just meh
         if homeremote.lower() not in ["home", "remote", "emergency", "", "***", "meh"]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
         
-        cps: dict[str, int] = {
+        homeremotes: dict[str, int | str] = {
             "home": COL_WHITEBLACK,
-            "remote": COL_YELOWBLACK,
+            "remote": "general",
             "emergency": COL_YELOWRED,
         }
-        if homeremote in cps:
-            return cps[homeremote]
+        labels: dict[str, int | str] = {
+            "fire": COL_YELOWRED,
+            "flood": COL_CYANBLACK,
+            "earthquake": COL_WHITEBLACK,
+            "emergency": COL_YELOWRED,
+            "disaster": COL_YELOWRED,
+            "humidity": "general",
+            "amber": COL_YELOWRED,
+            "allergy": "general",
+            "uv": COL_YELOWBLACK,
+            "xray": COL_WHITEBLACK,
+            "geomagnetic": "general",
+            "electrostatic": "general",
+            "space": "general",
+            "air": COL_YELOWBLACK,
+            "baropressure": COL_WHITEBLACK,
+            "storm": COL_YELOWRED,
+        }
+
+        # List of labels which does not apply for the majority of population
+        generics: list[str] = ["remote", "humidity", "allergy", "geomagnetic", "electrostatic", "space"]
+
+        # Severities
+        if homeremote.lower() == "home" and "extreme risk" in message.lower():
+            return COL_YELOWRED
+        if homeremote.lower() == "home" and label.lower() in generics and "high risk" in message.lower():
+            return COL_WHITEBLACK
+
+        if homeremote.lower() == "home" and label.lower() in labels:
+            return labels[label.lower()]
+
+        if homeremote.lower() in homeremotes:
+            return homeremotes[homeremote.lower()]
         
         return COL_BLUEBLACK
 
@@ -2800,6 +2864,7 @@ class BasicView(Views):
         tmax: int = self.data.max
         hmin: int = self.data.hmin
         hmax: int = self.data.hmax
+        baropressure: float = self.data.baropressure
         hcur: int = self.data.hcur
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
@@ -2870,10 +2935,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         cache.weather_code = self.data.weather_code
         cache.is_day = is_day
         cache.followcities = follow_cities
-
-        # cache.warning = "No warnings."
-        # if len(warnings) > 0:
-        #     cache.warning = warnings[0]
+        cache.baropressure = baropressure
 
         cache.daynames = []
         cache.mins = []
@@ -2909,6 +2971,7 @@ class MotivationalView(Views):
         hmin: int = self.data.hmin
         hmax: int = self.data.hmax
         hcur: int = self.data.hcur
+        baropressure: float = self.data.baropressure
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
         wind: int = self.data.wind
@@ -2987,10 +3050,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
         cache.weather_code = self.data.weather_code
         cache.is_day = is_day
         cache.followcities = follow_cities
-
-        # cache.warning = "No warnings."
-        # if len(warnings) > 0:
-        #     cache.warning = warnings[0]
+        cache.baropressure = baropressure
 
         cache.daynames = []
         cache.mins = []
@@ -3098,6 +3158,7 @@ class ColorView(ColorViews):
             hmin: int = self.data.hmin
             hmax: int = self.data.hmax
             hcur: int = self.data.hcur
+            baropressure: float = self.data.baropressure
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -3127,16 +3188,13 @@ class ColorView(ColorViews):
             cache.hmax = hmax
             cache.hcur = hcur
             cache.wind = wind
+            cache.baropressure = baropressure
             cache.wind_direction = winddir
             cache.aqi = aqi
             cache.precipitation = precipitation
             cache.weather_code = self.data.weather_code
             cache.is_day = is_day
             cache.followcities = follow_cities
-
-            # cache.warning = "No warnings."
-            # if len(warnings) > 0:
-            #     cache.warning = warnings[0]
 
             cache.daynames = []
             cache.mins = []
@@ -3337,15 +3395,17 @@ class DashboardView(ColorViews):
             bulgarian: Bulgarian = Bulgarian()
             astronomer: Astronomer = Astronomer()
             holidays_manager: HolidaysManager = HolidaysManager()
+            allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
 
             # Ok, let's be a bit more nicer
             if self.config.country != "Bulgaria":
                 bulgarian = Bulgarian(self.config.country)
             
             self.celestial: dict[str, str | dict] = {}
-            new_holidays: dict[str, str]
+            new_holidays: dict[str, str] = {}
+            allergy_uv_warnings: list[str] = []
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                 future_fact = executor.submit(bulgarian.get_history_fact)
                 future_sun_times = executor.submit(
                     astronomer.get_sun_times, 
@@ -3355,6 +3415,14 @@ class DashboardView(ColorViews):
                     holidays_manager.update, 
                     self.config.holidays, self.config.country_code2
                 )
+                future_allergies_uv = executor.submit(
+                    allergy_uv_advisor.advise, 
+                    self.config.lat, self.config.lon
+                )
+
+            allergy_uv_warnings = future_allergies_uv.result()
+            for message in allergy_uv_warnings:
+                self.warnings.append("home", "", "ALLERGY", message)
             
             new_holidays = future_holidays.result()
             if self.config.holidays != new_holidays:
@@ -3380,11 +3448,14 @@ class DashboardView(ColorViews):
             # Risk assessment
             humidity_risk: str = self.forecaster.get_humidity_risk(self.data.hcur)
             storm_warning: str = self.forecaster.get_storm_warning(self.data.weather_code, self.data.wind)
+            baropressure_warning: str = self.forecaster.get_baropressure_warning(self.data.baropressure)
 
             if humidity_risk:
                 self.warnings.append("home", "", "HUMIDITY", humidity_risk)
             if storm_warning:
                 self.warnings.append("home", "", "STORM", storm_warning)
+            if baropressure_warning:
+                self.warnings.append("home", "", "BAROPRESSURE", baropressure_warning)
     
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
@@ -3596,6 +3667,7 @@ class DashboardView(ColorViews):
             hmin: int = self.data.hmin
             hmax: int = self.data.hmax
             hcur: int = self.data.hcur
+            baropressure: float = self.data.baropressure
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
             wind: int = self.data.wind
@@ -3631,10 +3703,7 @@ class DashboardView(ColorViews):
             cache.weather_code = self.data.weather_code
             cache.is_day = is_day
             cache.followcities = follow_cities
-
-            # cache.warning = "No warnings."
-            # if len(warnings) > 0:
-            #     cache.warning = warnings[0]
+            cache.baropressure = baropressure
 
             cache.daynames = []
             cache.mins = []
@@ -3729,8 +3798,11 @@ class DashboardView(ColorViews):
                 warnings_window.clear()
                 warnings: list[list[str]] = self.warnings.get_warnings(warnings_window_height - 2)
 
+                # Sure, the window is not 99 lines high.
+                # Printing on a greater line will simply make it print on the
+                # last line. I have a safeguard to make it happen.
                 for warning in warnings:
-                    warnings_window.print(self.warnings.apply_format(warning), x=0, newline=True, theme=self._get_homeremote_cp(warning[2]))
+                    warnings_window.print(self.warnings.apply_format(warning), x=0, y=99, newline=True, theme=self._get_warnings_cp(warning[2], warning[4], warning[-1]))
                 
                 if hasattr(self, "history_fact"):
                     history_window.clear()
