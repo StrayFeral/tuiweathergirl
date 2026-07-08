@@ -3747,7 +3747,7 @@ class DashboardView(ColorViews):
                     holiday: str = self.config.holidays[date_str].split("#")[1]
                     
                     misc_window.clear()
-                    misc_window.print(f"TODAY'S HOLIDAY: {holiday}", align="centered", y=0)
+                    misc_window.print(f"NATIONAL HOLIDAY: {holiday}", align="centered", y=0)
 
                 force_screen_update = False
 
