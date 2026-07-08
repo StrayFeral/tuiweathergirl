@@ -67,7 +67,8 @@ Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.
 USERAGENT: str = (
     f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
 )
-APIKEYENVVARNAME: str = "TIMEZONEAPIKEY"
+TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
+NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 MIN_COLS: int = 79
 MIN_LINES: int = 22
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
@@ -471,8 +472,8 @@ class Window:
         newline: bool = kwargs.get("newline", False)
         width: int = kwargs.get("width", self.width - abs(x))
 
-        if align not in ["left", "right", "centered"]:
-            raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'centered'.")
+        if align not in ["left", "right", "center"]:
+            raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'center'.")
         
         if isinstance(s, str) and ("\n" in s or "\r" in s):
             raise ValueError(f"String {s!r} contains newline or carriage return characters.")
@@ -485,7 +486,7 @@ class Window:
                 x = self.inner_width - len(s) - 1 + x
             else:
                 x = self.inner_width - len(s) - 1
-        elif align == "centered":
+        elif align == "center":
             if x < 0:
                 x = ((self.inner_width - len(s) - 1) // 2) + x
             else:
@@ -586,7 +587,7 @@ class Layout:
     the windows.
 
     The columns are defined from left to right. If there is only one column
-    it can be set centered.
+    it can be set center.
     """
 
     def __init__(self, **kwargs) -> None:
@@ -598,8 +599,8 @@ class Layout:
         self.maxx: int = kwargs.get("maxx")
         self.columns: list[LayoutColumn] = []
 
-        # One of the columns has been centered
-        self.__centered: bool = False
+        # One of the columns has been center
+        self.__center: bool = False
 
     @property
     def __free_column_space(self) -> int:
@@ -616,9 +617,9 @@ class Layout:
         return self.columns[-1].x + self.columns[-1].width + self.xspacing
 
     def add_column(self, width: int) -> None:
-        if self.__centered:
+        if self.__center:
             raise Exception(
-                "Cannot add more columns. One column has been already centered."
+                "Cannot add more columns. One column has been already center."
             )
         if width > self.__free_column_space:
             raise Exception(
@@ -628,13 +629,13 @@ class Layout:
         column: LayoutColumn = LayoutColumn(x=self.__next_column_x, width=width)
         self.columns.append(column)
 
-    def set_centered(self) -> None:
+    def set_center(self) -> None:
         if len(self.columns) > 1:
             raise Exception(
-                "Method set_centered() could be used only if there is just one column. Currently there are more."
+                "Method set_center() could be used only if there is just one column. Currently there are more."
             )
         self.columns[0].x = self.maxx // 2 - self.columns[0].width // 2
-        self.__centered = True
+        self.__center = True
 
 
 class LayoutManager:
@@ -1749,11 +1750,11 @@ class Locator:
             addr: dict = location.get("address", {})
             lat: str = location.get("lat", "")
             lon: str = location.get("lon", "")
-            apikey: str = os.getenv(APIKEYENVVARNAME)
+            apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
 
             if not apikey:
                 raise Exception(
-                    f"Environment variable {APIKEYENVVARNAME} is not set. Please get API key and set it in this variable before running this application."
+                    f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Please get API key and set it in this variable before running this application."
                 )
 
             if self.tzapi_calls > 0:
@@ -3404,7 +3405,7 @@ class DashboardView(ColorViews):
         first_two_windows_width: int = 38
         minimum_window_height: int = 1
         general_window_height: int = 4
-        warnings_window_height: int = 6
+        warnings_window_height: int = 10
         main_layout_columns_height: int = 6
         title_window_height: int = 3
         forecast_window_height: int = 6
@@ -3739,7 +3740,7 @@ class DashboardView(ColorViews):
                     celestial_window.clear()
                     spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
                     s: str = f"Sunrise: {self.celestial["sun"]["sunrise"]}{spc}Sunset: {self.celestial["sun"]["sunset"]}{spc}Zodiac: {self.celestial["zodiac"]}{spc}Chinese: {self.celestial["chinese"]}{spc}Moon: {self.celestial["moon"]}"
-                    celestial_window.print(s, align="centered", y=0)
+                    celestial_window.print(s, align="center", y=0)
                 
                 now: datetime = datetime.now()
                 date_str: str = now.strftime("%Y-%m-%d")
@@ -3747,7 +3748,7 @@ class DashboardView(ColorViews):
                     holiday: str = self.config.holidays[date_str].split("#")[1]
                     
                     misc_window.clear()
-                    misc_window.print(f"NATIONAL HOLIDAY: {holiday}", align="centered", y=0)
+                    misc_window.print(f"NATIONAL HOLIDAY: {holiday}", align="center", y=0)
 
                 force_screen_update = False
 
@@ -3998,11 +3999,15 @@ if __name__ == "__main__":
             raise ValueError("City and country must be provided together.")
 
         # No point to run everything if this is not set
-        apikey: str = os.getenv(APIKEYENVVARNAME)
-        if not apikey:
+        timezone_apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
+        if not timezone_apikey:
             raise Exception(
-                f"Environment variable {APIKEYENVVARNAME} is not set. Run the app with --help"
+                f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Run the app with --help"
             )
+        
+        nasafirms_apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
+        if not nasafirms_apikey:
+            print(f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get fires disasters information. Run the app with --help")
 
         # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
         config: Configuration = Configuration()
