@@ -997,7 +997,7 @@ class Astronomer:
 
 
 class Bulgarian:
-    def get_history_fact(self) -> str:
+    def get_history_fact(self, keyword: str = "") -> str:
         """Checks Wikipedia for major Bulgarian historical events occurring 
         today or yesterday.
         """
@@ -1010,6 +1010,9 @@ class Bulgarian:
             "Bulgaria", "Levski", "Botev", "Shipka", "Plovdiv", "Sofia", 
             "Turnovo", "Tarnovo", "Bulgarian Empire", "Cyrillic"
         ]
+
+        if len(keyword) > 0:
+            keywords.append(keyword)  # Just in case
         
         # Wikimedia requires a unique User-Agent identifying your app/contact info
         #headers = {
@@ -1052,6 +1055,48 @@ class Bulgarian:
                     return f"{year}: {clean_text}"
 
         return ""
+
+
+class HolidaysManager:
+    """Taking care of the national holidays"""
+
+    def _need_update(self, year: str, code1: str, code2: str) -> bool:
+        this_year: str = datetime.now().year
+        if this_year != year or code1 != code2:
+            return True
+        return False
+    
+    def update(self, holidays: dict[str, str], country_code2: str) -> dict[str, str]:
+        """Method to update the holidays data.
+
+        However no update would be needed if the holidays year is the same as
+        today's year and the holidays country code is the same as our
+        HOME's country code.
+        """
+
+        new_holidays: dict[str, str] = {}
+
+        # Holidays data
+        year: str = ""
+        code1: str = ""
+        separator: str = "#"
+
+        if len(holidays) > 0:
+            year = list(holidays.keys())[0].split("-")[0]
+            code1 = holidays[list(holidays.keys())[0]].split(separator)[0]
+
+            if not self._need_update(year, code1, country_code2):
+                return holidays
+        
+        if len(year) == 0:
+            year = datetime.now().year
+
+        url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code2.upper()}"
+        data = requests.get(url, timeout=5).json()
+        for holiday in data:
+            new_holidays[holiday["date"]] = f"{holiday["countryCode"]}{separator}{holiday["name"]}"
+        
+        return new_holidays
 
 
 class CachedData:
@@ -1243,6 +1288,8 @@ class Configuration:
 
         self.followcities: list[dict[str | int]] = []
 
+        self.holidays: dict[str, str] = {}
+
         self.filename = "~/.tuiweathergirlrc"
 
         if os.name == "nt":
@@ -1342,6 +1389,8 @@ Timezone: {self.timezone}"""
             "theme": self.theme,
         }
 
+        config["HOLIDAYS"] = self.holidays
+
         for i, city in enumerate(self.followcities):
             config[f"FOLLOWCITY{i+1}"] = {
                 "country": city["country"],
@@ -1386,6 +1435,8 @@ Timezone: {self.timezone}"""
         # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
         self.theme = config["PREFERENCES"]["theme"]
+
+        self.holidays = dict(config["HOLIDAYS"])
 
         for i in range(10):
             index: str = f"FOLLOWCITY{i+1}"
@@ -3284,8 +3335,14 @@ class DashboardView(ColorViews):
         if not hasattr(self, "history_fact") or self.history_fact["date"] != date.today():
             bulgarian: Bulgarian = Bulgarian()
             astronomer: Astronomer = Astronomer()
+            holidays_manager: HolidaysManager = HolidaysManager()
+
+            # Ok, let's be a bit more nicer
+            if self.config.country != "Bulgaria":
+                bulgarian = Bulgarian(self.config.country)
             
             self.celestial: dict[str, str | dict] = {}
+            new_holidays: dict[str, str]
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
                 future_fact = executor.submit(bulgarian.get_history_fact)
@@ -3293,7 +3350,16 @@ class DashboardView(ColorViews):
                     astronomer.get_sun_times, 
                     self.config.lat, self.config.lon, self.config.timezone
                 )
+                future_holidays = executor.submit(
+                    holidays_manager.update, 
+                    self.config.holidays, self.config.country_code2
+                )
             
+            new_holidays = future_holidays.result()
+            if self.config.holidays != new_holidays:
+                self.config.holidays = new_holidays
+                self.config.save()
+
             history_fact: str = future_fact.result()
             self.celestial["sun"]: dict[str, str] = future_sun_times.result()
 
@@ -3454,6 +3520,13 @@ class DashboardView(ColorViews):
                     column_num=0,
                     overlap=2,
                     title="Celestial",
+                    height=3,
+                    border=True
+                )
+                misc_window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=2,
+                    title="Misc",
                     height=3,
                     border=True
                 )
@@ -3664,9 +3737,17 @@ class DashboardView(ColorViews):
 
                 if hasattr(self, "celestial"):
                     celestial_window.clear()
-                    spc: str = f"{" " * 7}|{" " * 7}"
+                    spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
                     s: str = f"Sunrise: {self.celestial["sun"]["sunrise"]}{spc}Sunset: {self.celestial["sun"]["sunset"]}{spc}Zodiac: {self.celestial["zodiac"]}{spc}Chinese: {self.celestial["chinese"]}{spc}Moon: {self.celestial["moon"]}"
                     celestial_window.print(s, align="centered", y=0)
+                
+                now: datetime = datetime.now()
+                date_str: str = now.strftime("%Y-%m-%d")
+                if date_str in self.config.holidays:
+                    holiday: str = self.config.holidays[date_str].split("#")[1]
+                    
+                    misc_window.clear()
+                    misc_window.print(f"TODAY'S HOLIDAY: {holiday}", align="centered", y=0)
 
                 force_screen_update = False
 
