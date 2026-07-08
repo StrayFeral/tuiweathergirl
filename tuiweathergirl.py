@@ -1085,6 +1085,74 @@ class AllergyAndUVAdvisor:
         return warnings
 
 
+class GeomagneticAdvisor:
+    def get_kp_index(self) -> float:
+        url = "https://services.swpc.noaa.gov/products/noaa-scales.json"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                # The 'G' (Geomagnetic) scale is directly related to Kp
+                # Usually, we want the most recent 'observed' value
+                kp_val = float(data['0']['mag'])  # '0' is usually the latest entry
+                return kp_val
+        except Exception:
+            pass
+        return 0.0
+    
+    def get_geomagnetic_warning(self, kp_index: float) -> str:
+        """Evaluates risk for people sensitive to magnetic fluctuations"""
+        
+        if kp_index >= 4 and kp_index < 5:
+            return f"[RISK] Kp: {kp_index}. Early symptoms of migraines or restlessness for people with sensitivity."
+        elif kp_index >= 5:
+            return f"[HIGH RISK] Geom.storm in progress (Kp {kp_index}). People rare sensitivities: increased blood pressure, joint pain, severe headaches."
+        
+        return ""
+
+
+class ElectrostaticAdvisor:
+    def get_xray_flux(self) -> str:
+        """Fetches the current Solar X-ray flux class (e.g., 'B2.1', 'M5.0').
+        Source: NOAA GOES Primary X-ray Flux
+        """
+        
+        # This endpoint provides the 1-minute data for the last 24 hours
+        url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                # Get the very last measurement
+                latest = data[-1]
+                flux_value = latest.get('flux', 0.0)
+                
+                # Convert numeric flux to Class (A, B, C, M, X)
+                # 1e-8 = A, 1e-7 = B, 1e-6 = C, 1e-5 = M, 1e-4 = X
+                if flux_value < 1e-7: return f"A{flux_value/1e-8:.1f}"
+                elif flux_value < 1e-6: return f"B{flux_value/1e-7:.1f}"
+                elif flux_value < 1e-5: return f"C{flux_value/1e-6:.1f}"
+                elif flux_value < 1e-4: return f"M{flux_value/1e-5:.1f}"
+                else: return f"X{flux_value/1e-4:.1f}"
+        except Exception:
+            pass
+        return "B1.0" # Default/Quiet background
+    
+    def get_electrostatic_warning(self, xray_flux: str) -> str:
+        """Evaluates risk for electrosensitivity"""
+
+        if not xray_flux:
+            return ""
+            
+        class_letter = xray_flux[0].upper()
+        
+        if class_letter == 'M':
+            return f"[RISK] Sol.X-ray flux: {xray_flux} (M-Class). Discomfort or 'phantom' skin sensations for sensitive people."
+        elif class_letter == 'X':
+            return f"[RISK] Sol.X-ray flux: {xray_flux} (X-Class). Neurological discomfort, dizziness, and localized pain."
+
+        return ""
+
 class HolidaysManager:
     """Taking care of the national holidays"""
 
@@ -3396,6 +3464,8 @@ class DashboardView(ColorViews):
             astronomer: Astronomer = Astronomer()
             holidays_manager: HolidaysManager = HolidaysManager()
             allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
+            geomacnetic_advisor: GeomagneticAdvisor = GeomagneticAdvisor()
+            electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
 
             # Ok, let's be a bit more nicer
             if self.config.country != "Bulgaria":
@@ -3404,8 +3474,10 @@ class DashboardView(ColorViews):
             self.celestial: dict[str, str | dict] = {}
             new_holidays: dict[str, str] = {}
             allergy_uv_warnings: list[str] = []
+            geomagnetic_kpindex: float = 0
+            electrostatic_xray_flux: str = ""
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
                 future_fact = executor.submit(bulgarian.get_history_fact)
                 future_sun_times = executor.submit(
                     astronomer.get_sun_times, 
@@ -3419,6 +3491,18 @@ class DashboardView(ColorViews):
                     allergy_uv_advisor.advise, 
                     self.config.lat, self.config.lon
                 )
+                future_geomagnetic_kpindex = executor.submit(geomacnetic_advisor.get_kp_index)
+                future_electrostatic_xray_flux = executor.submit(electrostatic_advisor.get_xray_flux)
+            
+            geomagnetic_kpindex = future_geomagnetic_kpindex.result()
+            geomagnetic_warning = geomacnetic_advisor.get_geomagnetic_warning(geomagnetic_kpindex)
+            if geomagnetic_warning:
+                self.warnings.append("home", "", "GEOMAGNETIC", geomagnetic_warning)
+
+            electrostatic_xray_flux = future_electrostatic_xray_flux.result()
+            electrostatic_warning = electrostatic_advisor.get_electrostatic_warning(electrostatic_xray_flux)
+            if electrostatic_warning:
+                self.warnings.append("home", "", "ELECTROSTATIC", electrostatic_warning)
 
             allergy_uv_warnings = future_allergies_uv.result()
             for message in allergy_uv_warnings:
