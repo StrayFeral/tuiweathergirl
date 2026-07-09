@@ -2710,6 +2710,8 @@ class ColorViews(Views):
             "air": COL_YELOWBLACK,
             "baropressure": COL_WHITEBLACK,
             "storm": COL_YELOWRED,
+            "volcano": COL_YELOWRED,
+            "drought": COL_WHITEBLACK,
         }
 
         # List of labels which does not apply for the majority of population
