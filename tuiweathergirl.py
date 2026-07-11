@@ -882,7 +882,7 @@ class WarningsManager:
         if len(location) == 0:
             location = self.home_location
 
-        now = datetime.now()
+        now: datetime = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
 
@@ -976,7 +976,7 @@ class Astronomer:
         """Returns a simple string description of the current moon phase."""
 
         # Simplified calculation based on the known New Moon of Jan 6, 2000
-        now = datetime.now()
+        now: datetime = datetime.now()
         diff = now - datetime(2000, 1, 6, 18, 14)
         days = diff.total_seconds() / 86400
         lunation = days % 29.530588853
@@ -1109,6 +1109,60 @@ class GeomagneticAdvisor:
             return f"[HIGH RISK] Geom.storm in progress (Kp {kp_index}). People rare sensitivities: increased blood pressure, joint pain, severe headaches."
         
         return ""
+    
+
+class DisasterAdvisor:
+    """Monitors the national disasters"""
+
+    def get_disasters(self, countries_list: list[str]) -> list[list[str]]:
+        event_types: dict[str, str] = {
+            "DR": "DROUGHT",
+            "EQ": "EARTHQUAKE",
+            "FL": "FLOOD",
+            "TC": "STORM",
+            "TS": "TSUNAMI",
+            "VO": "VOLCANO",
+            "WF": "WILDFIRE"
+        }
+
+        disasters: list[list[str]] = []
+        url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
+
+        response = requests.get(url, timeout=5)
+        if response.status_code != 200:
+            return []
+        
+        data: requests.Response = response.json()
+
+        for feature in data["features"]:
+            now: datetime = datetime.now()
+            todate: datetime = datetime.fromisoformat(feature["properties"]["todate"])
+            old: datetime = now - todate
+
+            if old.days > 2 or feature["properties"]["istemporary"].lower() == "true" or feature["properties"]["iscurrent"].lower() == "false" or (feature["properties"]["alertlevel"].lower() == "green" and feature["properties"]["episodealertlevel"].lower() == "green"):
+                    next
+
+            matching_locations: list[str] = []
+            for location in feature["properties"]["affectedcountries"]:
+                if location["iso2"] in countries_list:
+                    matching_locations.append(location["countryname"])
+            
+            if len(matching_locations) == 0:
+                next
+
+            label: str = event_types[feature["properties"]["eventtype"]]
+
+            source: str = feature["properties"]["source"]
+            name: str = feature["properties"]["name"]
+            # severity: str = f"{feature["properties"]["severitydata"]["severity"]} {feature["properties"]["severitydata"]["severityunit"]}"
+            severity: str = feature["properties"]["severitydata"]["severitytext"]
+            message: str = f"{name}: {severity} ({source})"
+
+            for location in matching_locations:
+                disasters.append(["EMERGENCY", location, label, message])
+        
+        return disasters
+        
 
 
 class ElectrostaticAdvisor:
@@ -1122,7 +1176,7 @@ class ElectrostaticAdvisor:
         try:
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
-                data = response.json()
+                data: requests.Response = response.json()
                 # Get the very last measurement
                 latest = data[-1]
                 flux_value = latest.get('flux', 0.0)
@@ -1242,7 +1296,7 @@ class CachedData:
 
         mtime = cache_path.stat().st_mtime
         last_modified_date = datetime.fromtimestamp(mtime).astimezone()
-        now = datetime.now().astimezone()
+        now: datetime = datetime.now().astimezone()
 
         # Modified less than 5 mins ago:
         return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL // 60)
@@ -1393,7 +1447,7 @@ class Configuration:
 
         if os.name == "nt":
             self.filename = "~/tuiweathergirl.ini"
-
+    
     @property
     def country(self) -> str:
         return self._country
@@ -1413,6 +1467,16 @@ class Configuration:
     @country_code2.setter
     def country_code2(self, s: str) -> None:
         self._country_code2 = s.upper()
+    
+    @property
+    def countries_of_interest(self) -> list[str]:
+        """Returns only the 2-letter country codes"""
+        
+        countries: list[str] = [self.country_code2]
+        for city in self.followcities:
+            countries.append(city["country_code2"])
+        
+        return countries
 
     @property
     def city(self) -> str:
@@ -1454,7 +1518,7 @@ Timezone: {self.timezone}"""
     def dst(self) -> bool:
         if len(self.timezone) == 0:
             return False
-        now = datetime.now(ZoneInfo(self.timezone))
+        now: datetime = datetime.now(ZoneInfo(self.timezone))
         return now.dst().total_seconds() != 0
 
     @property
@@ -1772,8 +1836,39 @@ class Locator:
         "AN": ["AQ"],
     }
 
+    __ISO3_TO_ISO2 = {
+        "AFG": "AF", "ALB": "AL", "DZA": "DZ", "AND": "AD", "AGO": "AO", "ATG": "AG", "ARG": "AR", "ARM": "AM", "AUS": "AU",
+        "AUT": "AT", "AZE": "AZ", "BHS": "BS", "BHR": "BH", "BGD": "BD", "BRB": "BB", "BLR": "BY", "BEL": "BE", "BLZ": "BZ",
+        "BEN": "BJ", "BTN": "BT", "BOL": "BO", "BIH": "BA", "BWA": "BW", "BRA": "BR", "BRN": "BN", "BGR": "BG", "BFA": "BF",
+        "BDI": "BI", "CPV": "CV", "KHM": "KH", "CMR": "CM", "CAN": "CA", "CAF": "CF", "TCD": "TD", "CHL": "CL", "CHN": "CN",
+        "COL": "CO", "COM": "KM", "COG": "CG", "COD": "CD", "CRI": "CR", "CIV": "CI", "HRV": "HR", "CUB": "CU", "CYP": "CY",
+        "CZE": "CZ", "DNK": "DK", "DJI": "DJ", "DMA": "DM", "DOM": "DO", "ECU": "EC", "EGY": "EG", "SLV": "SV", "GNQ": "GQ",
+        "ERI": "ER", "EST": "EE", "SWZ": "SZ", "ETH": "ET", "FJI": "FJ", "FIN": "FI", "FRA": "FR", "GAB": "GA", "GMB": "GM",
+        "GEO": "GE", "DEU": "DE", "GHA": "GH", "GRC": "GR", "GRD": "GD", "GTM": "GT", "GIN": "GN", "GNB": "GW", "GUY": "GY",
+        "HTI": "HT", "HND": "HN", "HUN": "HU", "ISL": "IS", "IND": "IN", "IDN": "ID", "IRN": "IR", "IRQ": "IQ", "IRL": "IE",
+        "ISR": "IL", "ITA": "IT", "JAM": "JM", "JPN": "JP", "JOR": "JO", "KAZ": "KZ", "KEN": "KE", "KIR": "KI", "KOR": "KR",
+        "KWT": "KW", "KGZ": "KG", "LAO": "LA", "LVA": "LV", "LBN": "LB", "LSO": "LS", "LBR": "LR", "LBY": "LY", "LIE": "LI",
+        "LTU": "LT", "LUX": "LU", "MDG": "MG", "MWI": "MW", "MYS": "MY", "MDV": "MV", "MLI": "ML", "MLT": "MT", "MHL": "MH",
+        "MRT": "MR", "MUS": "MU", "MEX": "MX", "FSM": "FM", "MDA": "MD", "MCO": "MC", "MNG": "MN", "MNE": "ME", "MAR": "MA",
+        "MOZ": "MZ", "MMR": "MM", "NAM": "NA", "NRU": "NR", "NPL": "NP", "NLD": "NL", "NZL": "NZ", "NIC": "NI", "NER": "NE",
+        "NGA": "NG", "MKD": "MK", "NOR": "NO", "OMN": "OM", "PAK": "PK", "PLW": "PW", "PAN": "PA", "PNG": "PG", "PRY": "PY",
+        "PER": "PE", "PHL": "PH", "POL": "PL", "PRT": "PT", "QAT": "QA", "ROU": "RO", "RUS": "RU", "RWA": "RW", "KNA": "KN",
+        "LCA": "LC", "VCT": "VC", "WSM": "WS", "SMR": "SM", "STP": "ST", "SAU": "SA", "SEN": "SN", "SRB": "RS", "SYC": "SC",
+        "SLE": "SL", "SGP": "SG", "SVK": "SK", "SVN": "SI", "SLB": "SB", "SOM": "SO", "ZAF": "ZA", "SSD": "SS", "ESP": "ES",
+        "LKA": "LK", "SDN": "SD", "SUR": "SR", "SWE": "SE", "CHE": "CH", "SYR": "SY", "TWN": "TW", "TJK": "TJ", "TZA": "TZ",
+        "THA": "TH", "TLS": "TL", "TGO": "TG", "TON": "TO", "TTO": "TT", "TUN": "TN", "TUR": "TR", "TKM": "TM", "TUV": "TV",
+        "UGA": "UG", "UKR": "UA", "ARE": "AE", "GBR": "GB", "USA": "US", "URY": "UY", "UZB": "UZ", "VUT": "VU", "VEN": "VE",
+        "VNM": "VN", "YEM": "YE", "ZMB": "ZM", "ZWE": "ZW"
+    }
+
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
+    
+    def convert_to_country_code2(self, country_code3: str):
+        """Converts a 3-letter country code to a 2-letter country code"""
+        if country_code3 not in self.__ISO3_TO_ISO2:
+            raise ValueError(f"Unknown country code '{country_code3}'.")
+        return self.__ISO3_TO_ISO2[country_code3]
 
     def __get_continent_code(self, country: str) -> str:
         return next(
@@ -2408,7 +2503,7 @@ class WeatherForecaster:
         wunit = "kmh" if self.config.metric else "mph"
 
         # Format Date and Time
-        now = datetime.now(ZoneInfo(self.config.timezone))
+        now: datetime = datetime.now(ZoneInfo(self.config.timezone))
 
         cache = CachedData()
 
@@ -2597,7 +2692,7 @@ class PresentationConfiguration:
         return season
 
     def update_time(self) -> str:
-        now = datetime.now(ZoneInfo(self.timezone))
+        now: datetime = datetime.now(ZoneInfo(self.timezone))
         try:
             self.date = format_date(
                 now, format=self.date_format_length, locale=self.locale_id
@@ -2695,7 +2790,9 @@ class ColorViews(Views):
         }
         labels: dict[str, int | str] = {
             "fire": COL_YELOWRED,
+            "wildfire": COL_YELOWRED,
             "flood": COL_CYANBLACK,
+            "tsunami": COL_CYANBLACK,
             "earthquake": COL_WHITEBLACK,
             "emergency": COL_YELOWRED,
             "disaster": COL_YELOWRED,
@@ -3468,6 +3565,7 @@ class DashboardView(ColorViews):
             allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
             geomacnetic_advisor: GeomagneticAdvisor = GeomagneticAdvisor()
             electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
+            disaster_advisor: DisasterAdvisor = DisasterAdvisor()
 
             # Ok, let's be a bit more nicer
             if self.config.country != "Bulgaria":
@@ -3478,8 +3576,9 @@ class DashboardView(ColorViews):
             allergy_uv_warnings: list[str] = []
             geomagnetic_kpindex: float = 0
             electrostatic_xray_flux: str = ""
+            disasters: list[list[str]] = []
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
                 future_fact = executor.submit(bulgarian.get_history_fact)
                 future_sun_times = executor.submit(
                     astronomer.get_sun_times, 
@@ -3495,7 +3594,15 @@ class DashboardView(ColorViews):
                 )
                 future_geomagnetic_kpindex = executor.submit(geomacnetic_advisor.get_kp_index)
                 future_electrostatic_xray_flux = executor.submit(electrostatic_advisor.get_xray_flux)
+                future_disasters = executor.submit(
+                    disaster_advisor.get_disasters,
+                    self.config.countries_of_interest
+                )
             
+            disasters = future_disasters.result()
+            for disaster in disasters:
+                self.warnings.append(*disaster)
+
             geomagnetic_kpindex = future_geomagnetic_kpindex.result()
             geomagnetic_warning = geomacnetic_advisor.get_geomagnetic_warning(geomagnetic_kpindex)
             if geomagnetic_warning:
