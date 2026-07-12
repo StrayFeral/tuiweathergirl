@@ -4,9 +4,11 @@
 # 2026 by Evgueni Antonov (StrayF)
 
 import argparse
+import concurrent.futures
 import configparser
 import csv
 import curses
+import logging
 import math
 import os
 import random
@@ -14,17 +16,16 @@ import re
 import socket
 import sys
 import tempfile
+import textwrap
 import time
 import traceback
-import textwrap
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
-import concurrent.futures
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
@@ -84,6 +85,8 @@ COL_BLUEBLACK: int = 4
 COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
+
+logger = logging.getLogger(__name__)
 
 
 class InstanceGuard:
@@ -480,25 +483,37 @@ class Window:
         if isinstance(s, str) and ("\n" in s or "\r" in s):
             raise ValueError(f"String {s!r} contains newline or carriage return characters.")
 
-        if align == "right":
-            if x < 0:
-                x = self.inner_width - len(s) - 1 + x
-            else:
-                x = self.inner_width - len(s) - 1
-        elif align == "center":
-            if x < 0:
-                x = ((self.inner_width - len(s) - 1) // 2) + x
-            else:
-                x = ((self.inner_width - len(s) - 1) // 2)
-        
-        if y >= self.inner_height:
-            y = self.inner_height - 1
-        
         if isinstance(s, str):
+            if align == "right":
+                if x < 0:
+                    x = self.inner_width - len(s) - 1 + x
+                else:
+                    x = self.inner_width - len(s) - 1
+            elif align == "center":
+                if x < 0:
+                    x = ((self.inner_width - len(s) - 1) // 2) + x
+                else:
+                    x = ((self.inner_width - len(s) - 1) // 2)
+            
             self.printyx(y, x, s, theme=theme_key)
+        
         elif isinstance(s, TextList) or isinstance(s, TextParagraph):
             last_x: int = 0
             for line in s.get_data(width - 2):
+
+                if align == "right":
+                    if x < 0:
+                        x = self.inner_width - len(line) - 1 + x
+                    else:
+                        x = self.inner_width - len(line) - 1
+                elif align == "center":
+                    if x < 0:
+                        x = ((self.inner_width - len(line) - 1) // 2) + x
+                    else:
+                        x = ((self.inner_width - len(line) - 1) // 2)
+                
+                if y >= self.inner_height:
+                    y = self.inner_height - 1
 
                 if "\n" in line or "\r" in line:
                     raise ValueError(f"String {s!r} contains newline or carriage return characters.")
@@ -808,8 +823,8 @@ class LayoutManager:
 
 
 class WarningsManager:
-    """Manages the warnings. The logger is responsible to read the log file, 
-    filter out the old events and show the new ones only.
+    """Manages the warnings. This logger is responsible to read the disasters
+    file, filter out the old events and show the new ones only.
 
     Log format (CSV):
     date, time, homeremote, location, label, message
@@ -876,7 +891,7 @@ class WarningsManager:
     def append(self, homeremote: str, location: str = "", label: str = "general", message: str = "No warnings at the moment. All quiet.") -> None:
         """Append and save all messages"""
 
-        if homeremote.lower() not in ["home", "remote", "emergency", "", "***", "meh"]:
+        if homeremote.lower() not in ["home", "remote", "emergency", "disaster", "", "***", "meh"]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
         if len(location) == 0:
@@ -1012,9 +1027,6 @@ class Bulgarian:
             keywords.append(keyword)  # Just in case
         
         # Wikimedia requires a unique User-Agent identifying your app/contact info
-        #headers = {
-        #    "User-Agent": "TUIWeatherGirl/1.0 (contact: your-email@example.com) Python-Requests"
-        #}
         headers: dict[str, str] = {
             "User-Agent": USERAGENT,
             "Accept-Language": "en",
@@ -1114,6 +1126,28 @@ class GeomagneticAdvisor:
 class DisasterAdvisor:
     """Monitors the national disasters"""
 
+    def _get_affected_provinces(self, url: str) -> list[str]:
+        """I assume that more than one province might be affected"""
+
+        provinces: list[str] = []
+
+        response: requests.Response = requests.get(url, timeout=5)
+        if response.status_code != 200:
+            return []
+        
+        data = response.json()
+        
+        if "datums" not in data:
+            return []
+        
+        for datum in data["datums"]:
+            for subdatum in datum["datum"]:
+                for scalar in subdatum["scalars"]["scalar"]:
+                    if scalar["name"].upper() == "ADMIN_NAME":
+                        provinces.append(scalar["value"])
+        
+        return provinces
+
     def get_disasters(self, countries_list: list[str]) -> list[list[str]]:
         event_types: dict[str, str] = {
             "DR": "DROUGHT",
@@ -1128,11 +1162,11 @@ class DisasterAdvisor:
         disasters: list[list[str]] = []
         url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
 
-        response = requests.get(url, timeout=5)
+        response: requests.Response = requests.get(url, timeout=5)
         if response.status_code != 200:
             return []
         
-        data: requests.Response = response.json()
+        data = response.json()
 
         for feature in data["features"]:
             now: datetime = datetime.now()
@@ -1140,7 +1174,7 @@ class DisasterAdvisor:
             old: datetime = now - todate
 
             if old.days > 2 or feature["properties"]["istemporary"].lower() == "true" or feature["properties"]["iscurrent"].lower() == "false" or (feature["properties"]["alertlevel"].lower() == "green" and feature["properties"]["episodealertlevel"].lower() == "green"):
-                    next
+                    continue
 
             matching_locations: list[str] = []
             for location in feature["properties"]["affectedcountries"]:
@@ -1148,18 +1182,34 @@ class DisasterAdvisor:
                     matching_locations.append(location["countryname"])
             
             if len(matching_locations) == 0:
-                next
-
+                continue
+            
+            # At this point we have a location of interest
             label: str = event_types[feature["properties"]["eventtype"]]
-
             source: str = feature["properties"]["source"]
-            name: str = feature["properties"]["name"]
-            # severity: str = f"{feature["properties"]["severitydata"]["severity"]} {feature["properties"]["severitydata"]["severityunit"]}"
             severity: str = feature["properties"]["severitydata"]["severitytext"]
-            message: str = f"{name}: {severity} ({source})"
+
+            # Getting the details
+            provinces: list[str] = []
+            details_url: str = feature["properties"]["url"]["details"]
+            details_response: requests.Response = requests.get(details_url, timeout=5)
+            
+            if details_response.status_code == 200:
+                details_data = details_response.json()
+
+                if "properties" in details_data and "impacts" in details_data["properties"]:
+                    for impact in details_data["properties"]["impacts"]:
+                        if "resource" in impact and "impact" in impact["resource"]:
+                            provinces = self._get_affected_provinces(impact["resource"]["impact"])
 
             for location in matching_locations:
-                disasters.append(["EMERGENCY", location, label, message])
+                if not provinces:
+                    message: str = f"{severity} ({source})"
+                    disasters.append(["DISASTER", location, label, message])
+                else:
+                    for province in provinces:
+                        message: str = f"[{province}] {severity} ({source})"
+                        disasters.append(["DISASTER", location, label, message])
         
         return disasters
         
@@ -1632,7 +1682,7 @@ Timezone: {self.timezone}"""
             "city": city,
         }
         self.followcities.append(city_entry)
-
+    
 
 class Locator:
     r"""Gets location data"""
@@ -2052,7 +2102,6 @@ class Motivator:
         except Exception:
             pass
 
-        time.sleep(1)
         # Fallback quote in case the internet is slow or API is down
         return [
             "To appreciate the beauty of a snowflake, it is necessary to stand out in the cold.",
@@ -2666,6 +2715,15 @@ class PresentationConfiguration:
         self.time: str = ""
         self.dow: str = ""
         self.season: str = ""
+    
+    def get_time_for_timezone(self, timezone_str: str) -> str:
+        try:
+            target_zone: ZoneInfo = ZoneInfo(timezone_str)
+            city_time: datetime = datetime.now(target_zone)
+            fmt: str = "%H:%M" if self.time24 else "%I:%M%p"
+            return city_time.strftime(fmt)
+        except ZoneInfoNotFoundError:
+            return "00:00"
 
     def get_season(self, continent_code: str) -> str:
         now: datetime = datetime.now()
@@ -2780,13 +2838,14 @@ class ColorViews(Views):
 
         # Idea is to trigger different color on "home" and "remote"
         # the rest are just meh
-        if homeremote.lower() not in ["home", "remote", "emergency", "", "***", "meh"]:
+        if homeremote.lower() not in ["home", "remote", "emergency", "disaster", "", "***", "meh"]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
         
         homeremotes: dict[str, int | str] = {
             "home": COL_WHITEBLACK,
             "remote": "general",
             "emergency": COL_YELOWRED,
+            "disaster": COL_YELOWRED,
         }
         labels: dict[str, int | str] = {
             "fire": COL_YELOWRED,
@@ -2820,6 +2879,7 @@ class ColorViews(Views):
         if homeremote.lower() == "home" and label.lower() in generics and "high risk" in message.lower():
             return COL_WHITEBLACK
 
+        # if homeremote.lower() in ["home", "disaster"] and label.lower() in labels:
         if homeremote.lower() == "home" and label.lower() in labels:
             return labels[label.lower()]
 
@@ -3568,8 +3628,9 @@ class DashboardView(ColorViews):
             disaster_advisor: DisasterAdvisor = DisasterAdvisor()
 
             # Ok, let's be a bit more nicer
+            additional_fact_country: str = ""
             if self.config.country != "Bulgaria":
-                bulgarian = Bulgarian(self.config.country)
+                additional_fact_country = self.config.country
             
             self.celestial: dict[str, str | dict] = {}
             new_holidays: dict[str, str] = {}
@@ -3577,9 +3638,14 @@ class DashboardView(ColorViews):
             geomagnetic_kpindex: float = 0
             electrostatic_xray_flux: str = ""
             disasters: list[list[str]] = []
+            self.motivation: list[str] = []
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
-                future_fact = executor.submit(bulgarian.get_history_fact)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                future_motivation = executor.submit(Motivator.get_motivation)
+                future_fact = executor.submit(
+                    bulgarian.get_history_fact,
+                    additional_fact_country
+                )
                 future_sun_times = executor.submit(
                     astronomer.get_sun_times, 
                     self.config.lat, self.config.lon, self.config.timezone
@@ -3598,6 +3664,8 @@ class DashboardView(ColorViews):
                     disaster_advisor.get_disasters,
                     self.config.countries_of_interest
                 )
+            
+            self.motivation = future_motivation.result()
             
             disasters = future_disasters.result()
             for disaster in disasters:
@@ -3630,7 +3698,7 @@ class DashboardView(ColorViews):
             self.celestial["moon"]: str = astronomer.get_moon_phase()
 
             if history_fact == "":  # More motivation. Because why not?
-                history_fact = "On this day you are more amazing than ever!"
+                history_fact = f"'{self.motivation[0]}' //{self.motivation[1]}"
             fact_paragraph: TextParagraph = TextParagraph(history_fact)
 
             self.history_fact: dict[str, date | TextParagraph] = {
@@ -3919,6 +3987,13 @@ class DashboardView(ColorViews):
             location_window.print(f"Today: {datenow} {timenow}{dstmark}", x=-len(home_day)-3, align="right", theme="home")
             location_window.print(f"({home_day})", align="right", theme=self._get_daynight_cp(is_day))
 
+            # The followed cities
+            for city_cnt, city_data in enumerate(follow_cities):
+                city_wx: int = 56
+                citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+                city_time: str = self.presconf.get_time_for_timezone(citytimezone)
+                followcities_window.print(city_time, x=city_wx, y=city_cnt)
+
             if force_screen_update:
                 # Current sky, temperature and temperature range
                 currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
@@ -3995,11 +4070,11 @@ class DashboardView(ColorViews):
                 # Printing on a greater line will simply make it print on the
                 # last line. I have a safeguard to make it happen.
                 for warning in warnings:
-                    warnings_window.print(self.warnings.apply_format(warning), x=0, y=99, newline=True, theme=self._get_warnings_cp(warning[2], warning[4], warning[-1]))
+                    warnings_window.print(self.warnings.apply_format(warning), x=0, newline=True, theme=self._get_warnings_cp(warning[2], warning[4], warning[-1]))
                 
                 if hasattr(self, "history_fact"):
                     history_window.clear()
-                    history_window.print(self.history_fact["text"], x=0, y=0)
+                    history_window.print(self.history_fact["text"], align="center", y=0)
 
                 if hasattr(self, "celestial"):
                     celestial_window.clear()
@@ -4252,6 +4327,8 @@ class LocationManager:
 # ================================================================[ MAIN LOOP ]
 if __name__ == "__main__":
     try:
+        logging.basicConfig(filename='/tmp/tuiweathergirl.log', level=logging.INFO)
+
         InstanceGuard.ensure_single_instance()
         parser: ParseCommandline = ParseCommandline()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
