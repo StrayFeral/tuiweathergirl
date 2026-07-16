@@ -1097,34 +1097,186 @@ class AllergyAndUVAdvisor:
         return warnings
 
 
-class GeomagneticAdvisor:
-    def get_kp_index(self) -> float:
-        url = "https://services.swpc.noaa.gov/products/noaa-scales.json"
+class SpaceWeatherAdvisor:
+    """NOAA advisories"""
+
+    def get_geomagnetic_scales(self) -> Dict[str, Any]:
+        """Fetches the active categorical NOAA scales (G, S, R)"""
+
+        # NOTE: R-radio blackouts
+        # Caused by: solar flares
+        # Bursts of electromagnetic radiation: x-ray and extreme ultra-violet
+        # Result: Commercial/any radiotransmissions are absorbed in the
+        # upper athmosphere, thus not reaching receivers - blackout.
+        # AFFECTED: Aviation, HAM, GPS precision
+
+        # NOTE: S-solar radiation storms
+        # Caused by: solar eruptions
+        # AFFECTED: Satellite comms
+
+        # NOTE: G-geomagnetic storms,
+        # Caused by: coronal mass ejections, high-speed solar winds
+        # AFFECTED: Power grids, satellites, migratory life, bio-sensitives
+
+        url: str = "https://services.swpc.noaa.gov/products/noaa-scales.json"
+        fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
+        
         try:
-            response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                # The 'G' (Geomagnetic) scale is directly related to Kp
-                # Usually, we want the most recent 'observed' value
-                kp_val = float(data['0']['mag'])  # '0' is usually the latest entry
-                return kp_val
+                
+                # '0' represents the latest observed metrics block
+                latest_obs = data.get('0', {})
+                if not latest_obs:
+                    return fallback
+
+                # Extract and parse categorical scales (G, S, R)
+                # Converting values from strings (e.g., "0") to clean integers
+                g_scale = int(latest_obs.get('G', {}).get('Scale', 0))
+                s_scale = int(latest_obs.get('S', {}).get('Scale', 0))
+                r_scale = int(latest_obs.get('R', {}).get('Scale', 0))
+                
+                return {
+                    "G": g_scale,
+                    "S": s_scale,
+                    "R": r_scale,
+                    "DateStamp": latest_obs.get('DateStamp', ''),
+                    "TimeStamp": latest_obs.get('TimeStamp', '')
+                }
         except Exception:
             pass
+            
+        return fallback
+
+    def get_kp_index(self) -> float:
+        """Fetches the current planetary Kp-index"""
+
+        # NOTE: The Kp-index goes before the G-scale of geomagnetic anomalies
+        # at least to my understanding
+
+        url: str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+        try:
+            response: requests.Response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list) and len(data) > 0:
+                    # Entries are chronologically ordered; the last item is the most recent
+                    latest_entry = data[-1]
+                    
+                    # Modern SWPC format represents Kp as a raw floating-point number
+                    kp_val = latest_entry.get("Kp")
+                    if kp_val is not None:
+                        return float(kp_val)
+        except Exception:
+            pass
+            
         return 0.0
-    
-    def get_geomagnetic_warning(self, kp_index: float) -> str:
-        """Evaluates risk for people sensitive to magnetic fluctuations"""
-        
-        if kp_index >= 4 and kp_index < 5:
-            return f"[RISK] Kp: {kp_index}. Early symptoms of migraines or restlessness for people with sensitivity."
-        elif kp_index >= 5:
-            return f"[HIGH RISK] Geom.storm in progress (Kp {kp_index}). People rare sensitivities: increased blood pressure, joint pain, severe headaches."
-        
+
+    def get_geomagnetic_warning(self, kp_index: float, g_scale: int = None) -> str:
+        """Evaluates current space weather data to produce biomechanical alerts.
+        Warns individuals with high electrosensitivity or barometric/magnetic sensitivity.
+        """
+        # If g_scale is not supplied, we mathematically derive it from Kp.
+        # Kp 5 = G1, Kp 6 = G2, Kp 7 = G3, Kp 8 = G4, Kp 9 = G5
+        if g_scale is None:
+            g_scale = int(kp_index - 4) if kp_index >= 5 else 0
+
+        # Kp index 4 represents 'Active' geomagnetic activity (borderline storm)
+        if 4.0 <= kp_index < 5.0:
+            return f"[RISK][Kp {kp_index:.2f}] Unsettled atmospheric charging. Eventual migraines, restlessness, or mild joint irritation."
+            
+        # Kp index 5+ marks the formal threshold for active Geomagnetic Storms
+        elif kp_index >= 5.0:
+            storm_descriptions = {
+                1: "Minor",
+                2: "Moderate",
+                3: "Strong",
+                4: "Severe",
+                5: "Extreme"
+            }
+            storm_label = storm_descriptions.get(g_scale, f"Storm (G{g_scale})")
+            
+            return f"[HIGH RISK][Kp {kp_index:.2f}] {storm_label} Geomagnetic storm. Risk: Blood pressure, headaches, insomnia, severe joing pain."
+            
         return ""
+    
+    def get_solar_radiation_warning(self, s_scale: int) -> str:
+        """Generates warning strings for the S-scale (0 to 5)."""
+        
+        if s_scale < 2:
+            return ""
+        
+        warnings: Dict[int, str] = {
+            2: "[MODERATE RAD.STORM] Minor exposure to passengers and flight crews on high-altitude polar routes.",
+            3: "[STRONG RAD.STORM] Increased exposure to passengers and crews on high-altitude on polar routes.",
+            4: "[SEVERE RAD.STORM] Flights to avoid polar regions! Elevated radiation exposure for crews and passengers. Blackout for polar HF comms.",
+            5: "[EXTREME RAD.STORM][CRITICAL] Shut down for polar and high alt.routes! High exposure for crews and passengers! Blackouts!",
+        }
+        
+        warning: str = warnings.get(s_scale, f"[WARNING] Elevated Solar Radiation (S{s_scale}/5)")
+        return warning
+    
+    def get_radio_blackout_warning(self, r_scale: int) -> str:
+        """Generates warning strings for the R-scale (0 to 5)."""
+        
+        if r_scale < 2:
+            return ""
+        
+        warnings: Dict[int, str] = {
+            2: "[MODERATE RADIO BLACKOUT] HF comms limited. Marine and aviation operators may lose contact for tens of mins. Minor GPS errs.",
+            3: "[STRONG RADIO BLACKOUT] Loss of contact for 1 hour for marine, aviation and amateur ops. GPS errors.",
+            4: "[SEVERE RADIO BLACKOUT] HF radio blackout for entire sunlit side of Earth. No comms up to 2hrs. No GPS.",
+            5: "[EXTREME RADIO BLACKOUT] COMPLETE HF RADIO BLACKOUT. No comms for few hrs. No GPS.",
+        }
+            
+        warning = self.R_SCALE_WARNINGS.get(r_scale, f"[WARNING] Active Radio Blackout (R{r_scale}/5)")
+        return warning
+    
+    def get_warnings(self, Dict[str, Any]) -> list[str]:
+        spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
+
+        #spaceweather_advisor.get_geomagnetic_scales
+        #spaceweather_advisor.get_kp_index
+
+        geomagnetic_scales: Dict[str, Any] = future_geomagnetic_scales.result()
+        kp_index: float = future_kp_index.result()
+        spaceweather_advisor.get_geomagnetic_warning(kp_index, geomagnetic_scales["G"])
+        spaceweather_advisor.get_solar_radiation_warning(geomagnetic_scales["S"])
+        spaceweather_advisor.get_radio_blackout_warning(geomagnetic_scales["R"])
     
 
 class DisasterAdvisor:
     """Monitors the national disasters"""
+
+    def __init__(self, **kwargs) -> None:
+        # Controlling which types of disasters we want monitored
+        # Default - we monitor everything
+        self.earthquake: bool = True
+        self.flood: bool = True
+        self.wildfire: bool = True
+        self.drought: bool = True
+        self.storm: bool = True
+        self.tsunami: bool = True
+        self.volcano: bool = True
+
+        params: dict[str, str] = {
+            "quake": "earthquake",
+            "earthquake": "earthquake",
+            "flood": "flood",
+            "fire": "wildfire",
+            "wildfire": "wildfire",
+            "drought": "drought",
+            "storm": "storm",
+            "cyclone": "storm",
+            "tsunami": "tsunami",
+            "volcanoe": "volcanoe"
+        }
+
+        for param in params.keys():
+            if param in kwargs:
+                setattr(self, params[param], kwargs[param])
+        
 
     def _get_affected_provinces(self, url: str) -> list[str]:
         """I assume that more than one province might be affected"""
@@ -1185,7 +1337,11 @@ class DisasterAdvisor:
                 continue
             
             # At this point we have a location of interest
+            # but do we monitor this type of disasters?
             label: str = event_types[feature["properties"]["eventtype"]]
+            if not getattr(self, label):
+                continue
+
             source: str = feature["properties"]["source"]
             severity: str = feature["properties"]["severitydata"]["severitytext"]
 
@@ -3623,7 +3779,7 @@ class DashboardView(ColorViews):
             astronomer: Astronomer = Astronomer()
             holidays_manager: HolidaysManager = HolidaysManager()
             allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
-            geomacnetic_advisor: GeomagneticAdvisor = GeomagneticAdvisor()
+            spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
             electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
             disaster_advisor: DisasterAdvisor = DisasterAdvisor()
 
@@ -3658,7 +3814,7 @@ class DashboardView(ColorViews):
                     allergy_uv_advisor.advise, 
                     self.config.lat, self.config.lon
                 )
-                future_geomagnetic_kpindex = executor.submit(geomacnetic_advisor.get_kp_index)
+                future_geomagnetic_kpindex = executor.submit(spaceweather_advisor.get_kp_index)
                 future_electrostatic_xray_flux = executor.submit(electrostatic_advisor.get_xray_flux)
                 future_disasters = executor.submit(
                     disaster_advisor.get_disasters,
@@ -4350,6 +4506,8 @@ if __name__ == "__main__":
         nasafirms_apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
         if not nasafirms_apikey:
             print(f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get fires disasters information. Run the app with --help")
+        
+        print("\nPlease wait while loading... (might take a while)\n")
 
         # script_dir: str = str(Path(sys.argv[0]).resolve().parent)
         config: Configuration = Configuration()
