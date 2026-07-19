@@ -70,6 +70,7 @@ USERAGENT: str = (
 )
 TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
+REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
@@ -938,7 +939,7 @@ class Astronomer:
         
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
 
-        data = requests.get(url, timeout=5).json()
+        data = requests.get(url, timeout=REQTIMEOUT).json()
         if data['status'] == 'OK':
             # Format: 2026-05-04T04:12:34+00:00
             sunrise: str = data['results']['sunrise'][11:16]
@@ -1041,7 +1042,7 @@ class Bulgarian:
             # url: str = "https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/3/3"
             url: str = f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{month}/{day}"
             
-            response: requests.Response = requests.get(url, headers=headers, timeout=5)
+            response: requests.Response = requests.get(url, headers=headers, timeout=REQTIMEOUT)
             if response.status_code != 200:
                 continue
                 
@@ -1074,7 +1075,7 @@ class AllergyAndUVAdvisor:
 
         warnings: list[str] = []
 
-        response: requests.Response = requests.get(url, timeout=5)
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
         if response.status_code != 200:
             return []
         
@@ -1122,7 +1123,7 @@ class SpaceWeatherAdvisor:
         fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
         
         try:
-            response: requests.Response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
             if response.status_code == 200:
                 data = response.json()
                 
@@ -1157,7 +1158,7 @@ class SpaceWeatherAdvisor:
 
         url: str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
         try:
-            response: requests.Response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -1173,7 +1174,7 @@ class SpaceWeatherAdvisor:
             
         return 0.0
 
-    def get_geomagnetic_warning(self, kp_index: float, g_scale: int = None) -> str:
+    def _get_geomagnetic_warning(self, kp_index: float, g_scale: int = None) -> str:
         """Evaluates current space weather data to produce biomechanical alerts.
         Warns individuals with high electrosensitivity or barometric/magnetic sensitivity.
         """
@@ -1201,7 +1202,7 @@ class SpaceWeatherAdvisor:
             
         return ""
     
-    def get_solar_radiation_warning(self, s_scale: int) -> str:
+    def _get_solar_radiation_warning(self, s_scale: int) -> str:
         """Generates warning strings for the S-scale (0 to 5)."""
         
         if s_scale < 2:
@@ -1217,7 +1218,7 @@ class SpaceWeatherAdvisor:
         warning: str = warnings.get(s_scale, f"[WARNING] Elevated Solar Radiation (S{s_scale}/5)")
         return warning
     
-    def get_radio_blackout_warning(self, r_scale: int) -> str:
+    def _get_radio_blackout_warning(self, r_scale: int) -> str:
         """Generates warning strings for the R-scale (0 to 5)."""
         
         if r_scale < 2:
@@ -1233,17 +1234,33 @@ class SpaceWeatherAdvisor:
         warning = self.R_SCALE_WARNINGS.get(r_scale, f"[WARNING] Active Radio Blackout (R{r_scale}/5)")
         return warning
     
-    def get_warnings(self, Dict[str, Any]) -> list[str]:
-        spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
+    def get_warnings(self, kp_index: float, geomagnetic_scales: Dict[str, Any]) -> list[list[str]]:
+        geomagnetic_warning: str = self._get_geomagnetic_warning(kp_index, geomagnetic_scales["G"])
+        solar_radiation_warning: str = self._get_solar_radiation_warning(geomagnetic_scales["S"])
+        radio_blackout_warning: str = self._get_radio_blackout_warning(geomagnetic_scales["R"])
 
-        #spaceweather_advisor.get_geomagnetic_scales
-        #spaceweather_advisor.get_kp_index
+        warnings: list[list[str]] = []
 
-        geomagnetic_scales: Dict[str, Any] = future_geomagnetic_scales.result()
-        kp_index: float = future_kp_index.result()
-        spaceweather_advisor.get_geomagnetic_warning(kp_index, geomagnetic_scales["G"])
-        spaceweather_advisor.get_solar_radiation_warning(geomagnetic_scales["S"])
-        spaceweather_advisor.get_radio_blackout_warning(geomagnetic_scales["R"])
+        if geomagnetic_warning:
+            geomagnetic_entry: list[str] = ["remote", "SPACE", "GEOMAGNETIC", geomagnetic_warning]
+            if any(x in geomagnetic_warning for x in ("[STRONG", "[SEVERE", "[EXTREME")):
+                geomagnetic_entry = ["EMERGENCY", "SPACE", "GEOMAGNETIC", geomagnetic_warning]
+            warnings.append(geomagnetic_entry)
+
+        if solar_radiation_warning:
+            solar_radiation_entry: list[str] = ["remote", "SPACE", "SOLARRADIATION", solar_radiation_warning]
+            if any(x in solar_radiation_warning for x in ("[STRONG", "[SEVERE", "[EXTREME")):
+                solar_radiation_entry = ["EMERGENCY", "SPACE", "SOLARRADIATION", solar_radiation_warning]
+            warnings.append(solar_radiation_entry)
+
+        if radio_blackout_warning:
+            radioblackout_entry: list[str] = ["remote", "SPACE", "RADIOBLACKOUT", radio_blackout_warning]
+            if any(x in radio_blackout_warning for x in ("[STRONG", "[SEVERE", "[EXTREME")):
+                radioblackout_entry = ["EMERGENCY", "SPACE", "RADIOBLACKOUT", radio_blackout_warning]
+            warnings.append(radioblackout_entry)
+
+        return warnings
+            
     
 
 class DisasterAdvisor:
@@ -1277,13 +1294,20 @@ class DisasterAdvisor:
             if param in kwargs:
                 setattr(self, params[param], kwargs[param])
         
-
+    def _haversine(lat1, lon1, lat2, lon2) -> float:
+        """Calculates distance in km between two points. Implementation of the haversine formula for the planet Earth."""
+        R: int = 6371  # Earth mean radius
+        dlat: float = math.radians(lat2 - lat1)
+        dlon: float = math.radians(lon2 - lon1)
+        a: float = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
     def _get_affected_provinces(self, url: str) -> list[str]:
         """I assume that more than one province might be affected"""
 
         provinces: list[str] = []
 
-        response: requests.Response = requests.get(url, timeout=5)
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
         if response.status_code != 200:
             return []
         
@@ -1314,7 +1338,7 @@ class DisasterAdvisor:
         disasters: list[list[str]] = []
         url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
 
-        response: requests.Response = requests.get(url, timeout=5)
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
         if response.status_code != 200:
             return []
         
@@ -1348,7 +1372,7 @@ class DisasterAdvisor:
             # Getting the details
             provinces: list[str] = []
             details_url: str = feature["properties"]["url"]["details"]
-            details_response: requests.Response = requests.get(details_url, timeout=5)
+            details_response: requests.Response = requests.get(details_url, timeout=REQTIMEOUT)
             
             if details_response.status_code == 200:
                 details_data = details_response.json()
@@ -1368,7 +1392,139 @@ class DisasterAdvisor:
                         disasters.append(["DISASTER", location, label, message])
         
         return disasters
+    
+    def get_detailed_fires(self, lat: str, lon: str) -> list[list[str]]:
+        """This time pulling from NASA FIRMS if the API key is available"""
+
+        apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
+        if not apikey:
+            return []
         
+        latt: float = float(lat)
+        lonn: float = float(lon)
+        fire_list: list[str] = []
+
+        url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{apikey}/VIIRS_NOAA21_NRT/{lonn-1},{latt-1},{lonn+1},{latt+1}/1"
+
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT).text.split('\n')
+        for line in response[1:]:  # Skipping the CSV header
+            if not line:
+                continue
+            
+            f_lat, f_lon, ti4, scan, track, f_date, f_time, satellite, instrument, confidence, ver_, ti5, frp, daynight = line.split(',')
+            distance = self._haversine(latt, lonn, f_lat, f_lon)
+
+            # Scanning pixel area
+            pixel_area_km2: float = scan * track
+            f_size: str = "LARGE"
+            if pixel_area_km2 <= 0.20:
+                f_size = "small area"
+            elif pixel_area_km2 <= 0.45:
+                f_size = "MEDIUM AREA"
+            
+            # Heat Signature via FRP (Fire Radiative Power)
+            heat: str = "STRONG"
+            if frp < 5.0:
+                heat = "Weak"
+            elif frp <= 20.0:
+                heat = "MEDIUM"
+            
+            confident: str = ""
+            if confidence == 'L':
+                confident = " (Possible False Alarm/Low Certainty)"
+            
+            if distance <= 100:  # km
+                location: str = f"[{f_lat}, {f_lon}]"
+                message: str = f"[{f_date},{f_time}][{dist:.1f}km] {heat} fire on a {f_size} {confident}"
+                fire_list.append(["DISASTER", location, "WILDFIRE", message])
+        
+        return fire_list
+        
+    def get_detailed_quakes(self, lat: str, lon: str) -> list[list[str]]:
+        """USGS query"""
+
+        min_mmi: float = 2  # I'm not interested in weaker ones
+
+        start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        start_time: date = start_of_yesterday.isoformat()
+
+        quakes: list[list[str]] = []
+        url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}&maxradiuskm=200&minmagnitude=2.5"
+
+        response = requests.get(url, timeout=REQTIMEOUT)
+        if response.status_code != 200:
+            return []
+        
+        data: requests.Response = response.json()
+        
+        for feature in data["features"]:
+            magnitude: float = float(feature["properties"]["mag"])
+            place: str = feature["properties"]["place"]
+            alert: str = feature["properties"]["alert"]
+            tsunami: int = feature["properties"]["tsunami"]
+            mmi: float = float(feature["properties"]["tsunami"])
+            depth: float = float(feature["geometry"]["coordinates"][-1])
+            plane: str = "EARTH"
+
+            if depth < 0:
+                plane = "UNDERWATER"
+            
+            tsunami_str: str = ""
+            if tsunami:
+                tsunami_str = "[TSUNAMI!]"
+
+            if mmi < min_mmi:
+                continue
+            
+            location: str = f"***"
+            message: str = f"[{magnitude}][{alert.upper()}][{plane}]{tsunami_str} {place}"
+            quakes.append(["DISASTER", location, "EARTHQUAKE", message])
+        
+        return quakes
+
+    def get_fireballs(self) -> list[list[str]]:
+        """Querying NASA Fireballs"""
+
+        start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        url: str = "https://ssd-api.jpl.nasa.gov/fireball.api?date-start=" + start_of_yesterday.strftime('%Y-%m-%d')
+
+        response = requests.get(url, timeout=REQTIMEOUT)
+        if response.status_code != 200:
+            return []
+        
+        data: requests.Response = response.json()
+
+        if data["count"] == "0":
+            return []
+        
+        fireballs: list[list[str]] = []
+        
+        f: list[str] = data["fields"]
+        for datum in data["data"]:
+            date: str = datum[f.index["date"]]
+            energy: str = datum[f.index["energy"]]
+            impacte: float = float(datum[f.index["impact-e"]])
+            altitude: str = datum[f.index["alt"]]
+            velocity: str = datum[f.index["vel"]]
+
+            if velocity is None:
+                velocity = "UNKNOWN"
+            
+            size: str = "MINOR FIREBALL"
+            homeremote: str = "REMOTE"
+            if 0.1 >= impacte <= 1:
+                size = "MODERATE BOLIDE"
+            elif 1.1 >= impacte <= 10:
+                size = "SEVERE AIRBURST"
+                homeremote = "EMERGENCY"
+            elif impacte > 1-:
+                size = "CATASTROPHE!!!"
+                homeremote = "DISASTER"
+            
+            message: str = f"[{date}][SIZE: {size}] Altitude: {altitude}, velocity: {velocity}, impact-e: {impacte}."
+            fireballs.append([homeremote, "SPACE", "FIREBALL", message])
+        
+        return fireballs
 
 
 class ElectrostaticAdvisor:
@@ -1380,7 +1536,7 @@ class ElectrostaticAdvisor:
         # This endpoint provides the 1-minute data for the last 24 hours
         url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
         try:
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=REQTIMEOUT)
             if response.status_code == 200:
                 data: requests.Response = response.json()
                 # Get the very last measurement
@@ -1448,7 +1604,7 @@ class HolidaysManager:
             year = datetime.now().year
 
         url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code2.upper()}"
-        data = requests.get(url, timeout=5).json()
+        data = requests.get(url, timeout=REQTIMEOUT).json()
         for holiday in data:
             new_holidays[holiday["date"]] = f"{holiday["countryCode"]}{separator}{holiday["name"]}"
         
@@ -2092,7 +2248,7 @@ class Locator:
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
                 "&lang=en"
             )
-            response: requests.Response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
 
             if not response:
                 raise Exception(
@@ -2131,7 +2287,7 @@ class Locator:
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             )
-            response: requests.Response = requests.get(url, headers=headers, timeout=5)
+            response: requests.Response = requests.get(url, headers=headers, timeout=REQTIMEOUT)
 
             if not response.ok:
                 raise Exception(
@@ -2159,7 +2315,7 @@ class Locator:
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
-            response: requests.Response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
             self.tzapi_calls += 1
 
             if not response.ok:
@@ -2250,7 +2406,7 @@ class Motivator:
         r"""Fetches a random inspirational quote from Quotable API."""
 
         try:
-            response = requests.get("https://zenquotes.io/api/random", timeout=5)
+            response = requests.get("https://zenquotes.io/api/random", timeout=REQTIMEOUT)
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -2611,7 +2767,7 @@ class WeatherForecaster:
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
             f"&forecast_days=8"
         )
-        result: requests.Response = requests.get(url, timeout=5)
+        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
 
         if not result:
             raise Exception(
@@ -2632,7 +2788,7 @@ class WeatherForecaster:
             f"&timezone={timezones.replace('/', '%2F')}"
             f"&temperature_unit={tunit}"
         )
-        result: requests.Response = requests.get(url, timeout=5)
+        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
 
         if not result:
             raise Exception(
@@ -2650,7 +2806,7 @@ class WeatherForecaster:
             f"https://air-quality-api.open-meteo.com/v1/air-quality?"
             f"latitude={lat}&longitude={lon}&current=us_aqi"
         )
-        result: requests.Response = requests.get(url, timeout=5)
+        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
 
         if not result:
             raise Exception(
@@ -3009,6 +3165,7 @@ class ColorViews(Views):
             "flood": COL_CYANBLACK,
             "tsunami": COL_CYANBLACK,
             "earthquake": COL_WHITEBLACK,
+            "radioblackout": "general",
             "emergency": COL_YELOWRED,
             "disaster": COL_YELOWRED,
             "humidity": "general",
@@ -3018,6 +3175,8 @@ class ColorViews(Views):
             "xray": COL_WHITEBLACK,
             "geomagnetic": "general",
             "electrostatic": "general",
+            "solarradiation": "general",
+            "fireball": "general",
             "space": "general",
             "air": COL_YELOWBLACK,
             "baropressure": COL_WHITEBLACK,
@@ -3027,7 +3186,7 @@ class ColorViews(Views):
         }
 
         # List of labels which does not apply for the majority of population
-        generics: list[str] = ["remote", "humidity", "allergy", "geomagnetic", "electrostatic", "space"]
+        generics: list[str] = ["remote", "humidity", "allergy", "geomagnetic", "electrostatic", "space", "radioblackout", "solarradiation", "fireball"]
 
         # Severities
         if homeremote.lower() == "home" and "extreme risk" in message.lower():
@@ -3782,6 +3941,7 @@ class DashboardView(ColorViews):
             spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
             electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
             disaster_advisor: DisasterAdvisor = DisasterAdvisor()
+            spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
 
             # Ok, let's be a bit more nicer
             additional_fact_country: str = ""
@@ -3794,9 +3954,14 @@ class DashboardView(ColorViews):
             geomagnetic_kpindex: float = 0
             electrostatic_xray_flux: str = ""
             disasters: list[list[str]] = []
+            wildfires: list[list[str]] = []
+            quakes: list[list[str]] = []
+            fireballe: list[list[str]] = []
             self.motivation: list[str] = []
+            geomagnetic_scales: Dict[str, Any] = {}
+            kp_index: float = 0
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
                 future_motivation = executor.submit(Motivator.get_motivation)
                 future_fact = executor.submit(
                     bulgarian.get_history_fact,
@@ -3820,6 +3985,35 @@ class DashboardView(ColorViews):
                     disaster_advisor.get_disasters,
                     self.config.countries_of_interest
                 )
+                future_wildfires = executor.submit(
+                    disaster_advisor.get_detailed_fires,
+                    self.config.lat, self.config.lon
+                )
+                future_quakes = executor.submit(
+                    disaster_advisor.get_detailed_quakes,
+                    self.config.lat, self.config.lon
+                )
+                future_fireballs = executor.submit(disaster_advisor.get_fireballs)
+                future_geomagnetic_scales = executor.submit(spaceweather_advisor.get_geomagnetic_scales)
+                future_kp_index = executor.submit(spaceweather_advisor.get_kp_index)
+            
+            fireballs = future_fireballs.result()
+            for fireball in fireballs:
+                self.warnings.append(*fireball)
+
+            quakes = future_quakes.result()
+            for quake in quakes:
+                self.warnings.append(*quake)
+            
+            wildfires = future_wildfires.result()
+            for wildfire in wildfires:
+                self.warnings.append(*wildfire)
+            
+            geomagnetic_scales = future_geomagnetic_scales.result()
+            kp_index = future_kp_index.result()
+            spaceweather_warnings: list[list[str]] = spaceweather_advisor.get_warnings(kp_index, geomagnetic_scales)
+            for space_warning in spaceweather_warnings:
+                self.warnings.append(*space_warning)
             
             self.motivation = future_motivation.result()
             
