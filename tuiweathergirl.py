@@ -11,6 +11,7 @@ import curses
 import logging
 import math
 import os
+import pickle
 import random
 import re
 import socket
@@ -19,6 +20,7 @@ import tempfile
 import textwrap
 import time
 import traceback
+from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
@@ -49,9 +51,6 @@ EPILOGUE_HELP: str = """VIEWS:
     dashboard
         A colorful ncurses dashboard. Requires terminal size at least 146x38.
 
-    color
-        A base Curses view with colors.
-    
     setup
         Prints the currently set cities.
 
@@ -477,6 +476,7 @@ class Window:
         x: int = kwargs.get("x", self.cursor_x)
         newline: bool = kwargs.get("newline", False)
         width: int = kwargs.get("width", self.width - abs(x))
+        max_lines: int = kwargs.get("maxlines", 0)
 
         if align not in ["left", "right", "center"]:
             raise ValueError(f"Invalid text alignment '{align}'. Use 'left', 'right' or 'center'.")
@@ -500,7 +500,9 @@ class Window:
         
         elif isinstance(s, TextList) or isinstance(s, TextParagraph):
             last_x: int = 0
-            for line in s.get_data(width - 2):
+            for linenum, line in enumerate(s.get_data(width - 2)):
+                if max_lines > 0 and linenum >= max_lines:
+                    continue
 
                 if align == "right":
                     if x < 0:
@@ -1101,7 +1103,7 @@ class AllergyAndUVAdvisor:
 class SpaceWeatherAdvisor:
     """NOAA advisories"""
 
-    def get_geomagnetic_scales(self) -> Dict[str, Any]:
+    def get_geomagnetic_scales(self) -> dict[str, any]:
         """Fetches the active categorical NOAA scales (G, S, R)"""
 
         # NOTE: R-radio blackouts
@@ -1208,7 +1210,7 @@ class SpaceWeatherAdvisor:
         if s_scale < 2:
             return ""
         
-        warnings: Dict[int, str] = {
+        warnings: dict[int, str] = {
             2: "[MODERATE RAD.STORM] Minor exposure to passengers and flight crews on high-altitude polar routes.",
             3: "[STRONG RAD.STORM] Increased exposure to passengers and crews on high-altitude on polar routes.",
             4: "[SEVERE RAD.STORM] Flights to avoid polar regions! Elevated radiation exposure for crews and passengers. Blackout for polar HF comms.",
@@ -1224,17 +1226,17 @@ class SpaceWeatherAdvisor:
         if r_scale < 2:
             return ""
         
-        warnings: Dict[int, str] = {
+        warnings: dict[int, str] = {
             2: "[MODERATE RADIO BLACKOUT] HF comms limited. Marine and aviation operators may lose contact for tens of mins. Minor GPS errs.",
             3: "[STRONG RADIO BLACKOUT] Loss of contact for 1 hour for marine, aviation and amateur ops. GPS errors.",
             4: "[SEVERE RADIO BLACKOUT] HF radio blackout for entire sunlit side of Earth. No comms up to 2hrs. No GPS.",
             5: "[EXTREME RADIO BLACKOUT] COMPLETE HF RADIO BLACKOUT. No comms for few hrs. No GPS.",
         }
             
-        warning = self.R_SCALE_WARNINGS.get(r_scale, f"[WARNING] Active Radio Blackout (R{r_scale}/5)")
+        warning = warnings.get(r_scale, f"[WARNING] Active Radio Blackout (R{r_scale}/5)")
         return warning
     
-    def get_warnings(self, kp_index: float, geomagnetic_scales: Dict[str, Any]) -> list[list[str]]:
+    def get_warnings(self, kp_index: float, geomagnetic_scales: dict[str, any]) -> list[list[str]]:
         geomagnetic_warning: str = self._get_geomagnetic_warning(kp_index, geomagnetic_scales["G"])
         solar_radiation_warning: str = self._get_solar_radiation_warning(geomagnetic_scales["S"])
         radio_blackout_warning: str = self._get_radio_blackout_warning(geomagnetic_scales["R"])
@@ -1517,7 +1519,7 @@ class DisasterAdvisor:
             elif 1.1 >= impacte <= 10:
                 size = "SEVERE AIRBURST"
                 homeremote = "EMERGENCY"
-            elif impacte > 1-:
+            elif impacte > 10:
                 size = "CATASTROPHE!!!"
                 homeremote = "DISASTER"
             
@@ -1611,48 +1613,25 @@ class HolidaysManager:
         return new_holidays
 
 
-class CachedData:
-    r"""For when doing tests often or just restarting the app too often
+class CacheManager:
+    r"""For when restarting the app too often
     and avoid being banned by the APIs
     """
 
     def __init__(self) -> None:
-        self.testfilename: str = "tuiweathergirl_test.ini"
-        self.cachefilename: str = (
-            Path(tempfile.gettempdir()) / "tuiweathergirl_cache.ini"
+        self.filename: str = (
+            Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
         )
-        self.filename: str = self.testfilename
         self.loaded: bool = False
+        self._data: dict[str, Any] = {}
 
-        self.is_day: bool = True
-        self.sky: str = ""
-        self.temperature: int = 0
-        self.tmin: int = 0
-        self.tmax: int = 0
-        self.wind: int = 0
-        self.wind_direction: str = "NOTLOADED"
-        self.aqi: int = 0
-        self.precipitation: int = 0
-        self.weather_code: int = 0
-        self.warning: str = "NOTLOADED"
-        self.hmin: int = 0
-        self.hmax: int = 0
-        self.hcur: int = 0
-        self.baropressure: float = 0
-
-        self.daynames: list[str] = []
-        self.mins: list[str] = []
-        self.maxs: list[str] = []
-        self.precipitations: list[str] = []
-
-        self.followcities: list[dict[str | bool | int]] = []
-
-        if self.saved:
-            self.load()
+    def register(self, name: str, instance: any) -> None:
+        """Register a client object that needs caching."""
+        self._data[name] = instance
 
     @property
     def too_soon(self):
-        cache_path = Path(self.cachefilename).expanduser()
+        cache_path = Path(self.filename).expanduser()
         if not cache_path.exists():
             return False
 
@@ -1665,113 +1644,45 @@ class CachedData:
 
     @property
     def saved(self) -> bool:
-        test_path = Path(self.testfilename).expanduser()
-        cache_path = Path(self.cachefilename).expanduser()
-        if test_path.exists():
-            self.filename: str = self.testfilename
-            return True
-        if cache_path.exists():
-            self.filename: str = self.cachefilename
-
-            # Modified less than 5 mins ago:
-            # Load the cache, don't bother the API
-            return self.too_soon
-        return False
-
+        cache_path = Path(self.filename).expanduser()
+        return cache_path.exists()
+    
     def load(self) -> None:
         r"""Reads the cache"""
 
+        if len(self._data) == 0:
+            raise Exception("Cannot load cache: No registered client objects.")
         if not self.saved:
             raise Exception("Tried to load unsaved cache.")
-
-        config = configparser.ConfigParser()
+        
         full_path = Path(self.filename).expanduser()
-        config.read(full_path)
+        with open(full_path, "rb") as f:
+            payload: dict[str, Any] = pickle.load(f)
 
-        self.is_day = config.getboolean("TODAY", "is_day")
-        self.sky = config["TODAY"]["sky"]
-        self.temperature = round(float(config["TODAY"]["temperature"]))
-        self.tmin = round(float(config["TODAY"]["tmin"]))
-        self.tmax = round(float(config["TODAY"]["tmax"]))
-        self.wind = round(float(config["TODAY"]["wind"]))
-        self.wind_direction = config["TODAY"]["wind_direction"]
-        self.aqi = int(config["TODAY"]["aqi"])
-        self.precipitation = int(config["TODAY"]["precipitation"])
-        self.weather_code = int(config["TODAY"]["weather_code"])
-        self.warning = config["TODAY"]["warning"]
-        self.hmin = int(config["TODAY"]["hmin"])
-        self.hmax = int(config["TODAY"]["hmax"])
-        self.hcur = int(config["TODAY"]["hcur"])
-        self.baropressure = round(float(config["TODAY"]["baropressure"]))
-
-        self.daynames = config.get("FORECAST", "daynames").split(",")
-        self.mins = config.get("FORECAST", "mins").split(",")
-        self.maxs = config.get("FORECAST", "maxs").split(",")
-        self.precipitations = config.get("FORECAST", "precipitations").split(",")
-
-        for i in range(10):
-            index: str = f"FOLLOWCITY{i+1}"
-            if index in config:
-                city: dict[str | bool | int] = {
-                    "is_day": config.getboolean(index, "is_day"),
-                    "temperature": round(float(config[index]["temperature"])),
-                    # "tmin": round(config[index]["tmin"]),
-                    # "tmax": round(config[index]["tmax"]),
-                }
-                self.followcities.append(city)
+        for name, state_dict in payload.items():
+            if name in self._data:
+                self._data[name].__dict__.update(state_dict)
 
         self.loaded = True
 
+    
     def save(self) -> None:
         """Saves the cache."""
 
         if self.too_soon:
             return
-
+        
         # I don't care of a previous cache
-        cachefile: Path = Path(self.cachefilename)
+        cachefile: Path = Path(self.filename)
         cachefile.unlink(missing_ok=True)
-
-        config = configparser.ConfigParser()
-
-        config["TODAY"] = {
-            "is_day": self.is_day,
-            "sky": self.sky,
-            "temperature": str(self.temperature),
-            "tmin": str(self.tmin),
-            "tmax": str(self.tmax),
-            "wind": str(self.wind),
-            "wind_direction": self.wind_direction,
-            "aqi": str(self.aqi),
-            "precipitation": str(self.precipitation),
-            "weather_code": str(self.weather_code),
-            "warning": self.warning,
-            "hmin": self.hmin,
-            "hmax": self.hmax,
-            "hcur": self.hcur,
-            "baropressure": self.baropressure
+        
+        payload: dict[str, Any] = {
+            name: client.__dict__ 
+            for name, client in self._data.items()
         }
+        with open(cachefile, "wb") as f:
+            pickle.dump(payload, f)
 
-        config["FORECAST"] = {
-            "daynames": ",".join(self.daynames),
-            "mins": ",".join(map(str, self.mins)),
-            "maxs": ",".join(map(str, self.maxs)),
-            "precipitations": ",".join(map(str, self.precipitations)),
-        }
-
-        i: int = 0
-        for city in self.followcities:
-            config[f"FOLLOWCITY{i+1}"] = {
-                "is_day": city["is_day"],
-                "temperature": str(city["temperature"]),
-                # "tmin": str(self["tmin"]),
-                # "tmax": str(self["tmax"]),
-            }
-            i += 1
-
-        with open(self.cachefilename, "w", encoding="utf-8") as f:
-            config.write(f)
-    
     def delete(self) -> None:
         """Deletes the cache."""
 
@@ -2484,6 +2395,10 @@ class WeatherData:
         self.week: list[BriefDailyForecast] = []
         self.cities_data: list[list[str | int]] = []
 
+        # This was never planned originally
+        # but I decided to add it in the last moment
+        self.misc_data: dict[list[any]] = {}
+
 
 class WeatherForecaster:
     r"""Gets the weather forecast"""
@@ -2866,61 +2781,127 @@ class WeatherForecaster:
         # Format Date and Time
         now: datetime = datetime.now(ZoneInfo(self.config.timezone))
 
-        cache = CachedData()
+        cache = CacheManager()
+        cache.register("weather_data", weather_data)
 
-        # Freshly loaded cache
-        if cache.loaded and cache.too_soon:
-            # Fill the object with data
-            # weather_data.is_day = cache.is_day
-            weather_data.sky = cache.sky
-            weather_data.temperature = cache.temperature
-            weather_data.min = cache.tmin
-            weather_data.max = cache.tmax
-            weather_data.hmin = cache.hmin
-            weather_data.hmax = cache.hmax
-            weather_data.hcur = cache.hcur
-            weather_data.aqi = cache.aqi
-            weather_data.air_quality = self.__get_air_quality_assessment(cache.aqi)
-            weather_data.precipitation = cache.precipitation
-            weather_data.weather_code = cache.weather_code
-            weather_data.wind = cache.wind
-            weather_data.wind_direction = cache.wind_direction
-            weather_data.baropressure = cache.baropressure
-            # weather_data.warnings = []
-            weather_data.week = []
-            # weather_data.warnings.append(cache.warning)
-            weather_data.followcities = cache.followcities
+        warnings: WarningsManager = WarningsManager()
 
-            # 7 day forecast
-            for i in range(0, 7):
-                day: BriefDailyForecast = BriefDailyForecast()
-                day.min = int(cache.mins[i])
-                day.max = int(cache.maxs[i])
-                day.precip = int(cache.precipitations[i])
-                day.dow = cache.daynames[i]
-                weather_data.week.append(day)
+        bulgarian: Bulgarian = Bulgarian()
+        astronomer: Astronomer = Astronomer()
+        holidays_manager: HolidaysManager = HolidaysManager()
+        allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
+        spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
+        electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
+        disaster_advisor: DisasterAdvisor = DisasterAdvisor()
 
-        else:
+        # Ok, let's be a bit more nicer
+        additional_fact_country: str = ""
+        if self.config.country != "Bulgaria":
+            additional_fact_country = self.config.country
+
+        if cache.loaded or cache.too_soon:
+            return
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+
             # Send the requests
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                future_weather = executor.submit(
-                    self._get_main_location_weather_data, 
-                    self.config.lat, self.config.lon, self.config.timezone, tunit, wunit
-                )
-                future_aq = executor.submit(
-                    self._get_aqi_data, 
-                    self.config.lat, self.config.lon
-                )
-                future_followcities = executor.submit(
-                    self._get_brief_weather_data,
-                    ",".join([e["lat"] for e in self.config.followcities]),
-                    ",".join([e["lon"] for e in self.config.followcities]),
-                    ",".join([e["timezone"] for e in self.config.followcities]),
-                    tunit
-                )
-                weather_result: dict = future_weather.result()
-                aq_result: dict = future_aq.result()
-                followcities_result: dict | list = future_followcities.result()
+            # -----------------
+            future_weather = executor.submit(
+                self._get_main_location_weather_data, 
+                self.config.lat, self.config.lon, self.config.timezone, tunit, wunit
+            )
+            future_aq = executor.submit(
+                self._get_aqi_data, 
+                self.config.lat, self.config.lon
+            )
+            future_followcities = executor.submit(
+                self._get_brief_weather_data,
+                ",".join([e["lat"] for e in self.config.followcities]),
+                ",".join([e["lon"] for e in self.config.followcities]),
+                ",".join([e["timezone"] for e in self.config.followcities]),
+                tunit
+            )
+            future_motivation = executor.submit(Motivator.get_motivation)
+            future_fact = executor.submit(
+                bulgarian.get_history_fact,
+                additional_fact_country
+            )
+            future_sun_times = executor.submit(
+                astronomer.get_sun_times, 
+                self.config.lat, self.config.lon, self.config.timezone
+            )
+            future_holidays = executor.submit(
+                holidays_manager.update, 
+                self.config.holidays, self.config.country_code2
+            )
+            future_allergies_uv = executor.submit(
+                allergy_uv_advisor.advise, 
+                self.config.lat, self.config.lon
+            )
+            future_electrostatic_xray_flux = executor.submit(electrostatic_advisor.get_xray_flux)
+            future_disasters = executor.submit(
+                disaster_advisor.get_disasters,
+                self.config.countries_of_interest
+            )
+            future_wildfires = executor.submit(
+                disaster_advisor.get_detailed_fires,
+                self.config.lat, self.config.lon
+            )
+            future_quakes = executor.submit(
+                disaster_advisor.get_detailed_quakes,
+                self.config.lat, self.config.lon
+            )
+            future_fireballs = executor.submit(disaster_advisor.get_fireballs)
+            future_geomagnetic_scales = executor.submit(spaceweather_advisor.get_geomagnetic_scales)
+            future_kp_index = executor.submit(spaceweather_advisor.get_kp_index)
+
+            # Get the responses
+            # -----------------
+            weather_result: dict = future_weather.result()
+            aq_result: dict = future_aq.result()
+            followcities_result: dict | list = future_followcities.result()
+            fireballs: list[list[str]] = future_fireballs.result()
+            quakes: list[list[str]] = future_quakes.result()
+            wildfires: list[list[str]] = future_wildfires.result()
+            geomagnetic_scales: dict[str, any] = future_geomagnetic_scales.result()
+            kp_index: float = future_kp_index.result()
+            spaceweather_warnings: list[list[str]] = spaceweather_advisor.get_warnings(kp_index, geomagnetic_scales)
+            motivation: list[str] = future_motivation.result()
+            disasters: list[list[str]] = future_disasters.result()
+            electrostatic_xray_flux: str = future_electrostatic_xray_flux.result()
+            electrostatic_warning: str = electrostatic_advisor.get_electrostatic_warning(electrostatic_xray_flux)
+            allergy_uv_warnings: list[str] = future_allergies_uv.result()
+            
+            new_holidays: dict[str, str] = future_holidays.result()
+            if self.config.holidays != new_holidays:
+                self.config.holidays = new_holidays
+                self.config.save()
+
+            history_fact: str = future_fact.result()
+
+            celestial: dict[str, any] = {
+                "sun": future_sun_times.result(),  # dict[str, str]
+                "zodiac": astronomer.get_zodiac_sign(),  # str
+                "chinese": astronomer.get_chinese_zodiac(),  # str
+                "moon": astronomer.get_moon_phase()  # str
+            }
+
+            if history_fact == "":  # More motivation. Because why not?
+                history_fact = f"'{motivation[0]}' //{motivation[1]}"
+            fact_paragraph: TextParagraph = TextParagraph(history_fact)
+
+            history_fact: dict[str, date | TextParagraph] = {
+                "date": date.today(),
+                "text": fact_paragraph,
+            }
+
+
+            # Apply data
+            # ----------
+
+            humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
+            storm_warning: str = self.get_storm_warning(weather_data.weather_code, weather_data.wind)
+            baropressure_warning: str = self.get_baropressure_warning(weather_data.baropressure)
 
             # Extract Data
             current: dict[str] = weather_result["current"]
@@ -2946,7 +2927,6 @@ class WeatherForecaster:
                 current["wind_direction_10m"]
             )
 
-            # weather_data.warnings = []
             weather_data.week = []
             
             # followcities_result[i]["current"]["temperature_2m"]
@@ -2982,23 +2962,54 @@ class WeatherForecaster:
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 weather_data.week.append(day)
 
-        weather_data.wind_type = self.__get_wind_type(weather_data.wind, wunit)
-        weather_data.precipitation_type = self.__get_precipitation_type(
-            weather_data.weather_code
-        )  # Rain, Snow, Storm, Precip
-        weather_data.humidity_level_min = self.__get_humidity_assessment(
-            weather_data.hmin, weather_data.temperature
-        )
-        weather_data.humidity_level_max = self.__get_humidity_assessment(
-            weather_data.hmax, weather_data.temperature
-        )
-        weather_data.humidity = self.__get_humidity_assessment(
-            weather_data.hcur, weather_data.temperature
-        )
-        weather_data.wind_direction_long = self.__get_wind_direction_long(
-            weather_data.wind_direction
-        )
-        weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
+            weather_data.wind_type = self.__get_wind_type(weather_data.wind, wunit)
+            weather_data.precipitation_type = self.__get_precipitation_type(
+                weather_data.weather_code
+            )  # Rain, Snow, Storm, Precip
+            weather_data.humidity_level_min = self.__get_humidity_assessment(
+                weather_data.hmin, weather_data.temperature
+            )
+            weather_data.humidity_level_max = self.__get_humidity_assessment(
+                weather_data.hmax, weather_data.temperature
+            )
+            weather_data.humidity = self.__get_humidity_assessment(
+                weather_data.hcur, weather_data.temperature
+            )
+            weather_data.wind_direction_long = self.__get_wind_direction_long(
+                weather_data.wind_direction
+            )
+            weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
+
+            # Misc
+            # ----
+            # weather_data.misc_data["motivation"] = motivation
+            weather_data.misc_data["histfact"] = history_fact
+            weather_data.misc_data["celestial"] = celestial
+
+            # WARNINGS
+            # --------
+            if humidity_risk:
+                warnings.append("home", "", "HUMIDITY", humidity_risk)
+            if storm_warning:
+                warnings.append("home", "", "STORM", storm_warning)
+            if baropressure_warning:
+                warnings.append("home", "", "BAROPRESSURE", baropressure_warning)
+            for fireball in fireballs:
+                warnings.append(*fireball)
+            for quake in quakes:
+                warnings.append(*quake)
+            for wildfire in wildfires:
+                warnings.append(*wildfire)
+            for space_warning in spaceweather_warnings:
+                warnings.append(*space_warning)
+            for disaster in disasters:
+                warnings.append(*disaster)
+            if electrostatic_warning:
+                warnings.append("home", "", "ELECTROSTATIC", electrostatic_warning)
+            for message in allergy_uv_warnings:
+                warnings.append("home", "", "ALLERGY", message)
+
+            cache.save()
 
 
 class PresentationConfiguration:
@@ -3423,7 +3434,7 @@ class BasicView(Views):
         humidity: str = self.data.humidity
         wind_direction_long: str = self.data.wind_direction_long
         # ---
-        warnings: list[str] = self.data.warnings
+        # warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
         follow_cities: list = self.data.followcities
 
@@ -3455,40 +3466,15 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             temperatures = f"{dmin:>2} deg /{dmax:>2} deg {tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
-        for warning in warnings:
-            print(f"\n{warning}")
+        # for warning in warnings:
+        #     print(f"\n{warning}")
 
         # print("\nTry: tuiweathergirl --help")
         print("\n")
 
         # Saving the cache
-        cache = CachedData()
-        cache.sky = sky
-        cache.temperature = temperature
-        cache.tmin = tmin
-        cache.tmax = tmax
-        cache.hmin = hmin
-        cache.hmax = hmax
-        cache.hcur = hcur
-        cache.wind = wind
-        cache.wind_direction = winddir
-        cache.aqi = aqi
-        cache.precipitation = precipitation
-        cache.weather_code = self.data.weather_code
-        cache.is_day = is_day
-        cache.followcities = follow_cities
-        cache.baropressure = baropressure
-
-        cache.daynames = []
-        cache.mins = []
-        cache.maxs = []
-        cache.precipitations = []
-        for day in week:
-            cache.mins.append(day.min)
-            cache.maxs.append(day.max)
-            cache.precipitations.append(day.precip)
-            cache.daynames.append(day.dow)
-
+        cache = CacheManager()
+        cache.register("weather_data", self.data)
         cache.save()
 
 
@@ -3529,7 +3515,7 @@ class MotivationalView(Views):
         humidity: str = self.data.humidity
         wind_direction_long: str = self.data.wind_direction_long
         # ---
-        warnings: list[str] = self.data.warnings
+        # warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
         follow_cities: list = self.data.followcities
 
@@ -3570,357 +3556,17 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             temperatures = f"{dmin:>2} deg/{dmax:>2} deg {tsuffix}"
             print(f"{dow} ~ {temperatures:<6} ~ {dprecip:>3}%")
 
-        for warning in warnings:
-            print(f"\n{warning}")
+        # for warning in warnings:
+        #     print(f"\n{warning}")
 
         # print("\nTry: tuiweathergirl --help")
         print("\n")
 
         # Saving the cache
-        cache = CachedData()
-        cache.sky = sky
-        cache.temperature = temperature
-        cache.tmin = tmin
-        cache.tmax = tmax
-        cache.hmin = hmin
-        cache.hmax = hmax
-        cache.hcur = hcur
-        cache.wind = wind
-        cache.wind_direction = winddir
-        cache.aqi = aqi
-        cache.precipitation = precipitation
-        cache.weather_code = self.data.weather_code
-        cache.is_day = is_day
-        cache.followcities = follow_cities
-        cache.baropressure = baropressure
-
-        cache.daynames = []
-        cache.mins = []
-        cache.maxs = []
-        cache.precipitations = []
-        for day in week:
-            cache.mins.append(day.min)
-            cache.maxs.append(day.max)
-            cache.precipitations.append(day.precip)
-            cache.daynames.append(day.dow)
-
+        cache = CacheManager()
+        cache.register("weather_data", self.data)
         cache.save()
 
-
-class ColorView(ColorViews):
-    """Color view - a base Curses view with colors"""
-
-    def screen(self, stdscr: curses.window) -> None:
-        # Color definitions
-        curses.start_color()
-        curses.init_pair(
-            COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED
-        )  # Warnings
-        curses.init_pair(
-            COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK
-        )  # Sunny
-        curses.init_pair(
-            COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK
-        )  # Cloudy
-        curses.init_pair(COL_BLUEBLACK, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Rain
-        curses.init_pair(COL_REDBLACK, curses.COLOR_RED, curses.COLOR_BLACK)  # Bad
-        curses.init_pair(COL_GREENBLACK, curses.COLOR_GREEN, curses.COLOR_BLACK)  # Good
-        curses.init_pair(COL_CYANBLACK, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Title
-
-        stdscr.attron(curses.A_DIM)
-
-        forecaster: WeatherForecaster = WeatherForecaster(self.config)
-
-        # Global settings
-        stdscr.erase()
-        self.test_terminal_resized(stdscr, MIN_LINES, MIN_COLS)
-        # stdscr.nodelay(True)
-        curses.curs_set(False)  # Hide cursor
-        stdscr.timeout(1000)  # Wait 1 second
-
-        # Data which won't change
-        city: str = self.config.city
-        province: str = self.presconf.province
-        country: str = self.config.country
-
-        # Init
-        view_width: int = 73
-        data_window_width: int = 36
-        datax: int = 16
-        time24_x: int = 45
-        if not self.config.time24:
-            time24_x = time24_x - 2
-
-        # Windows initialization
-        title_win = curses.newwin(3, view_width, 0, 1)
-        location_win = curses.newwin(1, view_width - 1, 3, 2)
-        status_win = curses.newwin(7, data_window_width, 4, 1)
-        air_win = curses.newwin(7, data_window_width, 4, 38)
-        forecast_win = curses.newwin(8, view_width, 12, 1)
-        warnings_win = curses.newwin(4, view_width, 21, 1)
-        brief_win = curses.newwin(1, view_width, 25, 1)
-        last_refresh_win = curses.newwin(1, view_width, 26, 1)
-
-        title_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-        title_win.box()
-        title_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-        title_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-        title_win.addstr(
-            1,
-            2,
-            f"TUIWEATHERGIRL {APPVERSION}                      Evgueni Antonov (StrayF) 2026",
-        )
-        title_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-
-        location_win.addstr(0, 0, f"Home: {city}, {province}{country}")
-
-        last_refresh: str = ""
-
-        # -------------------------------------------------- VIEW MAIN LOOP
-        elapsed: int = 0
-        while True:
-            elapsed += 1
-
-            # Data to display
-            timenow: str = self.presconf.update_time()
-            datenow: str = self.presconf.date
-            dow: str = self.presconf.dow
-            season: str = self.presconf.season
-            dstmark: str = "*" if self.config.dst else ""
-
-            if len(last_refresh) == 0:
-                last_refresh = f"Last refresh: {datenow} {timenow}"
-
-            # Technically we do not need this, but filling up the addstr()s
-            # later would be more messy without it
-            sky: str = self.data.sky
-            temperature: int = self.data.temperature
-            tmin: int = self.data.min
-            tmax: int = self.data.max
-            hmin: int = self.data.hmin
-            hmax: int = self.data.hmax
-            hcur: int = self.data.hcur
-            baropressure: float = self.data.baropressure
-            tsuffix: str = self.presconf.tsuffix
-            wunit: str = self.presconf.wunit
-            wind: int = self.data.wind
-            winddir: str = self.data.wind_direction
-            aqi: int = self.data.aqi
-            airquality: str = self.data.air_quality
-            precipitation: int = self.data.precipitation
-            is_day: bool = self.data.is_day
-            wind_type: str = self.data.wind_type
-            precipitation_type: str = self.data.precipitation_type
-            humidity_level_min: str = self.data.humidity_level_min
-            humidity_level_max: str = self.data.humidity_level_max
-            humidity: str =  self.data.humidity
-            wind_direction_long: str = self.data.wind_direction_long
-            # ---
-            warnings: list[str] = self.data.warnings
-            week: list[BriefDailyForecast] = self.data.week
-            follow_cities: list = self.data.followcities
-
-            # Saving the cache
-            cache = CachedData()
-            cache.sky = sky
-            cache.temperature = temperature
-            cache.tmin = tmin
-            cache.tmax = tmax
-            cache.hmin = hmin
-            cache.hmax = hmax
-            cache.hcur = hcur
-            cache.wind = wind
-            cache.baropressure = baropressure
-            cache.wind_direction = winddir
-            cache.aqi = aqi
-            cache.precipitation = precipitation
-            cache.weather_code = self.data.weather_code
-            cache.is_day = is_day
-            cache.followcities = follow_cities
-
-            cache.daynames = []
-            cache.mins = []
-            cache.maxs = []
-            cache.precipitations = []
-            for day in week:
-                cache.mins.append(day.min)
-                cache.maxs.append(day.max)
-                cache.precipitations.append(day.precip)
-                cache.daynames.append(day.dow)
-
-            cache.save()
-
-            # ----------------------------------------- Screen update
-            location_win.move(0, time24_x)
-            location_win.clrtoeol()
-            location_win.addstr(0, time24_x, f"Today: {datenow} {timenow}")
-
-            status_win.erase()
-            status_win.move(0, 0)
-            status_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            status_win.box()
-            status_win.addstr(2, 0, "├──────────────────────────────────┤")
-            status_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            status_win.attron(curses.color_pair(COL_CYANBLACK))
-            status_win.addstr(1, 11, "CURRENT STATUS")
-            status_win.attroff(curses.color_pair(COL_CYANBLACK))
-            status_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-            status_win.addstr(3, 3, "Sky    :")
-            status_win.addstr(4, 3, "Temp   :")
-            status_win.addstr(5, 3, "Range  :")
-            status_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-            status_win.attron(curses.color_pair(self._get_sky_cp(sky)))
-            status_win.addstr(3, datax, sky)
-            status_win.attroff(curses.color_pair(self._get_sky_cp(sky)))
-            status_win.attron(curses.color_pair(self._get_temp_cp(temperature)))
-            status_win.addstr(4, datax, f"{temperature}°{tsuffix}")
-            status_win.attroff(curses.color_pair(self._get_temp_cp(temperature)))
-            status_win.attron(curses.color_pair(self._get_temp_cp(tmin)))
-            status_win.addstr(5, datax, f"{tmin}°{tsuffix}")
-            status_win.attroff(curses.color_pair(self._get_temp_cp(tmin)))
-            status_win.addstr(5, datax + 4, "/")
-            status_win.attron(curses.color_pair(self._get_temp_cp(tmax)))
-            status_win.addstr(5, datax + 6, f"{tmax}°{tsuffix}")
-            status_win.attron(curses.color_pair(self._get_temp_cp(tmax)))
-
-            air_win.erase()
-            air_win.move(0, 0)
-            air_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            air_win.box()
-            air_win.addstr(2, 0, "├──────────────────────────────────┤")
-            air_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            air_win.attron(curses.color_pair(COL_CYANBLACK))
-            air_win.addstr(1, 10, "AIR & CONDITIONS")
-            air_win.attroff(curses.color_pair(COL_CYANBLACK))
-            air_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-            air_win.addstr(3, 3, "Wind   :")
-            air_win.addstr(4, 3, "AQI    :")
-            air_win.addstr(5, 3, "Precip :")
-            air_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-            air_win.attron(curses.color_pair(COL_WHITEBLACK))
-            air_win.addstr(3, datax, f"{winddir} {wind}{wunit}")
-            air_win.attroff(curses.color_pair(COL_WHITEBLACK))
-            air_win.attron(curses.color_pair(self._get_aqistr_cp(airquality)))
-            air_win.addstr(4, datax, f"{aqi} ({airquality})")
-            air_win.attroff(curses.color_pair(self._get_aqistr_cp(airquality)))
-            air_win.attron(curses.color_pair(COL_BLUEBLACK))
-            air_win.addstr(5, datax, "[")
-            air_win.attroff(curses.color_pair(COL_BLUEBLACK))
-            air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
-            air_win.addstr(5, datax + 1, self.prog_bar(precipitation))
-            air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
-            air_win.attron(curses.color_pair(COL_BLUEBLACK))
-            air_win.addstr(5, datax + 10, "]")
-            air_win.attroff(curses.color_pair(COL_BLUEBLACK))
-            air_win.attron(curses.color_pair(self._get_progbar_cp(precipitation)))
-            air_win.addstr(5, datax + 12, f"{precipitation}%  ")
-            air_win.attroff(curses.color_pair(self._get_progbar_cp(precipitation)))
-
-            forecast_win.erase()
-            forecast_win.move(0, 0)
-            forecast_win.attron(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            forecast_win.box()
-            forecast_win.attroff(curses.color_pair(COL_BLUEBLACK) | curses.A_DIM)
-            forecast_win.attron(curses.color_pair(COL_CYANBLACK))
-            forecast_win.addstr(0, 28, " 7-DAY FORECAST ")
-            forecast_win.attroff(curses.color_pair(COL_CYANBLACK))
-            forecast_win.attroff(curses.A_DIM)
-
-            warnings_win.erase()
-            warnings_win.move(0, 0)
-            warnings_win.attron(curses.color_pair(COL_REDBLACK))
-            warnings_win.box()
-            warnings_win.attroff(curses.color_pair(COL_REDBLACK))
-            warnings_win.attron(curses.color_pair(COL_WHITEBLACK))
-            warnings_win.addstr(0, 30, " WARNINGS ")
-            warnings_win.attroff(curses.color_pair(COL_WHITEBLACK))
-            if len(warnings) > 0:
-                warnings_win.attron(curses.color_pair(COL_YELOWBLACK))
-                for i in range(len(warnings)):
-                    warnings_win.addstr(1 + i, 2, warnings[i])
-                warnings_win.attroff(curses.color_pair(COL_YELOWBLACK))
-            else:
-                warnings_win.attron(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
-                # warnings_win.addstr(1, 2, "No warnings.")
-                warnings_win.attroff(curses.color_pair(COL_GREENBLACK) | curses.A_DIM)
-
-            brief_win.erase()
-            brief_win.move(0, 0)
-            brief_win.attron(curses.A_DIM)
-            brief_win.addstr(
-                0,
-                1,
-                f"Auto-refresh: {self.weather_refresh_interval // 60}min                                            [q] Quit",
-            )
-
-            last_refresh_win.erase()
-            last_refresh_win.move(0, 0)
-            last_refresh_win.attron(curses.A_DIM)
-            last_refresh_win.addstr(0, 1, last_refresh)
-
-            # 7 day forecast
-            for day_cnt, day in enumerate(week):
-                wy: int = 2 + (day_cnt % 4)
-                wx: int = 3 if day_cnt < 4 else 40
-
-                dmin: int = day.min
-                dmax: int = day.max
-                dprecip: int = day.precip
-                dow: str = day.dow
-
-                forecast_win.move(wy, wx)
-                forecast_win.attron(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-                forecast_win.addstr(wy, wx, f"{dow}:")
-                forecast_win.attroff(curses.color_pair(COL_WHITEBLACK) | curses.A_DIM)
-                forecast_win.attron(curses.color_pair(self._get_temp_cp(dmin)))
-                tmins = f"{dmin:>2}°"
-                forecast_win.addstr(wy, wx + 5, f"{tmins}:")
-                forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmin)))
-                forecast_win.attron(curses.color_pair(COL_WHITEBLACK))
-                forecast_win.addstr(wy, wx + 8, "/")
-                forecast_win.attroff(curses.color_pair(COL_WHITEBLACK))
-                forecast_win.attron(curses.color_pair(self._get_temp_cp(dmax)))
-                tmaxs = f"{dmax:>2}°{tsuffix}"
-                forecast_win.addstr(wy, wx + 9, f"{tmaxs}")
-                forecast_win.attroff(curses.color_pair(self._get_temp_cp(dmax)))
-                forecast_win.attron(curses.color_pair(COL_BLUEBLACK))
-                forecast_win.addstr(wy, wx + 14, "[")
-                forecast_win.attroff(curses.color_pair(COL_BLUEBLACK))
-                forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
-                forecast_win.addstr(wy, wx + 15, self.prog_bar(dprecip))
-                forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
-                forecast_win.attron(curses.color_pair(COL_BLUEBLACK))
-                forecast_win.addstr(wy, wx + 25, "]")
-                forecast_win.attroff(curses.color_pair(COL_BLUEBLACK))
-                forecast_win.attron(curses.color_pair(self._get_progbar_cp(dprecip)))
-                forecast_win.addstr(wy, wx + 27, f"{dprecip}%  ")
-                forecast_win.attroff(curses.color_pair(self._get_progbar_cp(dprecip)))
-
-            # Data update
-            if elapsed % self.weather_refresh_interval == 0:
-                forecaster.get_data(self.data)
-                last_refresh = f"Last refresh: {datenow} {timenow}       "
-
-            keypressed = stdscr.getch()
-            if keypressed == ord("q"):
-                break
-
-            # Pushing the changes
-            title_win.noutrefresh()
-            location_win.noutrefresh()
-            status_win.noutrefresh()
-            air_win.noutrefresh()
-            forecast_win.noutrefresh()
-            warnings_win.noutrefresh()
-            brief_win.noutrefresh()
-            last_refresh_win.noutrefresh()
-            curses.doupdate()  # Pushes all changes to screen at once
-
-            time.sleep(1)  # Prevent 100% CPU usage
-
-    def display(self) -> None:
-        curses.wrapper(self.screen)
-    
 
 class DashboardView(ColorViews):
     """A dashboard color view"""
@@ -3931,142 +3577,6 @@ class DashboardView(ColorViews):
         # stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
         stdscr.timeout(1000)  # Wait 1 second
-    
-    def get_data(self) -> None:
-        if not hasattr(self, "history_fact") or self.history_fact["date"] != date.today():
-            bulgarian: Bulgarian = Bulgarian()
-            astronomer: Astronomer = Astronomer()
-            holidays_manager: HolidaysManager = HolidaysManager()
-            allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
-            spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
-            electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
-            disaster_advisor: DisasterAdvisor = DisasterAdvisor()
-            spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
-
-            # Ok, let's be a bit more nicer
-            additional_fact_country: str = ""
-            if self.config.country != "Bulgaria":
-                additional_fact_country = self.config.country
-            
-            self.celestial: dict[str, str | dict] = {}
-            new_holidays: dict[str, str] = {}
-            allergy_uv_warnings: list[str] = []
-            geomagnetic_kpindex: float = 0
-            electrostatic_xray_flux: str = ""
-            disasters: list[list[str]] = []
-            wildfires: list[list[str]] = []
-            quakes: list[list[str]] = []
-            fireballe: list[list[str]] = []
-            self.motivation: list[str] = []
-            geomagnetic_scales: Dict[str, Any] = {}
-            kp_index: float = 0
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
-                future_motivation = executor.submit(Motivator.get_motivation)
-                future_fact = executor.submit(
-                    bulgarian.get_history_fact,
-                    additional_fact_country
-                )
-                future_sun_times = executor.submit(
-                    astronomer.get_sun_times, 
-                    self.config.lat, self.config.lon, self.config.timezone
-                )
-                future_holidays = executor.submit(
-                    holidays_manager.update, 
-                    self.config.holidays, self.config.country_code2
-                )
-                future_allergies_uv = executor.submit(
-                    allergy_uv_advisor.advise, 
-                    self.config.lat, self.config.lon
-                )
-                future_geomagnetic_kpindex = executor.submit(spaceweather_advisor.get_kp_index)
-                future_electrostatic_xray_flux = executor.submit(electrostatic_advisor.get_xray_flux)
-                future_disasters = executor.submit(
-                    disaster_advisor.get_disasters,
-                    self.config.countries_of_interest
-                )
-                future_wildfires = executor.submit(
-                    disaster_advisor.get_detailed_fires,
-                    self.config.lat, self.config.lon
-                )
-                future_quakes = executor.submit(
-                    disaster_advisor.get_detailed_quakes,
-                    self.config.lat, self.config.lon
-                )
-                future_fireballs = executor.submit(disaster_advisor.get_fireballs)
-                future_geomagnetic_scales = executor.submit(spaceweather_advisor.get_geomagnetic_scales)
-                future_kp_index = executor.submit(spaceweather_advisor.get_kp_index)
-            
-            fireballs = future_fireballs.result()
-            for fireball in fireballs:
-                self.warnings.append(*fireball)
-
-            quakes = future_quakes.result()
-            for quake in quakes:
-                self.warnings.append(*quake)
-            
-            wildfires = future_wildfires.result()
-            for wildfire in wildfires:
-                self.warnings.append(*wildfire)
-            
-            geomagnetic_scales = future_geomagnetic_scales.result()
-            kp_index = future_kp_index.result()
-            spaceweather_warnings: list[list[str]] = spaceweather_advisor.get_warnings(kp_index, geomagnetic_scales)
-            for space_warning in spaceweather_warnings:
-                self.warnings.append(*space_warning)
-            
-            self.motivation = future_motivation.result()
-            
-            disasters = future_disasters.result()
-            for disaster in disasters:
-                self.warnings.append(*disaster)
-
-            geomagnetic_kpindex = future_geomagnetic_kpindex.result()
-            geomagnetic_warning = geomacnetic_advisor.get_geomagnetic_warning(geomagnetic_kpindex)
-            if geomagnetic_warning:
-                self.warnings.append("home", "", "GEOMAGNETIC", geomagnetic_warning)
-
-            electrostatic_xray_flux = future_electrostatic_xray_flux.result()
-            electrostatic_warning = electrostatic_advisor.get_electrostatic_warning(electrostatic_xray_flux)
-            if electrostatic_warning:
-                self.warnings.append("home", "", "ELECTROSTATIC", electrostatic_warning)
-
-            allergy_uv_warnings = future_allergies_uv.result()
-            for message in allergy_uv_warnings:
-                self.warnings.append("home", "", "ALLERGY", message)
-            
-            new_holidays = future_holidays.result()
-            if self.config.holidays != new_holidays:
-                self.config.holidays = new_holidays
-                self.config.save()
-
-            history_fact: str = future_fact.result()
-            self.celestial["sun"]: dict[str, str] = future_sun_times.result()
-
-            self.celestial["zodiac"]: str = astronomer.get_zodiac_sign()
-            self.celestial["chinese"]: str = astronomer.get_chinese_zodiac()
-            self.celestial["moon"]: str = astronomer.get_moon_phase()
-
-            if history_fact == "":  # More motivation. Because why not?
-                history_fact = f"'{self.motivation[0]}' //{self.motivation[1]}"
-            fact_paragraph: TextParagraph = TextParagraph(history_fact)
-
-            self.history_fact: dict[str, date | TextParagraph] = {
-                "date": date.today(),
-                "text": fact_paragraph,
-            }
-
-            # Risk assessment
-            humidity_risk: str = self.forecaster.get_humidity_risk(self.data.hcur)
-            storm_warning: str = self.forecaster.get_storm_warning(self.data.weather_code, self.data.wind)
-            baropressure_warning: str = self.forecaster.get_baropressure_warning(self.data.baropressure)
-
-            if humidity_risk:
-                self.warnings.append("home", "", "HUMIDITY", humidity_risk)
-            if storm_warning:
-                self.warnings.append("home", "", "STORM", storm_warning)
-            if baropressure_warning:
-                self.warnings.append("home", "", "BAROPRESSURE", baropressure_warning)
     
     def screen(self, stdscr: curses.window) -> None:
         theme_palette: ThemePalette = ThemePalette()
@@ -4252,7 +3762,7 @@ class DashboardView(ColorViews):
                 brief_window.print(f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit", x=1)
 
                 # Get initial additional data
-                self.get_data()
+                # self.get_data()
                 
                 force_screen_update = True
 
@@ -4296,36 +3806,12 @@ class DashboardView(ColorViews):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
-            follow_cities: list = self.data.followcities
+            # follow_cities: list = self.data.followcities
+            follow_cities: list = self.data.cities_data
 
             # Saving the cache
-            cache = CachedData()
-            cache.sky = sky
-            cache.temperature = temperature
-            cache.tmin = tmin
-            cache.tmax = tmax
-            cache.hmin = hmin
-            cache.hmax = hmax
-            cache.hcur = hcur
-            cache.wind = wind
-            cache.wind_direction = winddir
-            cache.aqi = aqi
-            cache.precipitation = precipitation
-            cache.weather_code = self.data.weather_code
-            cache.is_day = is_day
-            cache.followcities = follow_cities
-            cache.baropressure = baropressure
-
-            cache.daynames = []
-            cache.mins = []
-            cache.maxs = []
-            cache.precipitations = []
-            for day in week:
-                cache.mins.append(day.min)
-                cache.maxs.append(day.max)
-                cache.precipitations.append(day.precip)
-                cache.daynames.append(day.dow)
-
+            cache = CacheManager()
+            cache.register("weather_data", self.data)
             cache.save()
 
             home_day: str = "night"
@@ -4424,12 +3910,12 @@ class DashboardView(ColorViews):
                 
                 if hasattr(self, "history_fact"):
                     history_window.clear()
-                    history_window.print(self.history_fact["text"], align="center", y=0)
+                    history_window.print(self.data.misc_data["histfact"]["text"], align="center", y=0, maxlines=3)
 
                 if hasattr(self, "celestial"):
                     celestial_window.clear()
                     spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
-                    s: str = f"Sunrise: {self.celestial["sun"]["sunrise"]}{spc}Sunset: {self.celestial["sun"]["sunset"]}{spc}Zodiac: {self.celestial["zodiac"]}{spc}Chinese: {self.celestial["chinese"]}{spc}Moon: {self.celestial["moon"]}"
+                    s: str = f"Sunrise: {self.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.data.misc_data["celestial"]["moon"]}"
                     celestial_window.print(s, align="center", y=0)
                 
                 now: datetime = datetime.now()
@@ -4478,7 +3964,6 @@ class WeatherGirl:
             "basic": BasicView(config, data, present_config),
             "motivate": MotivationalView(config, data, present_config),
             "dashboard": DashboardView(config, data, present_config),
-            "color": ColorView(config, data, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -4503,7 +3988,7 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "basic", "motivate", "dashboard", "color"],
+            choices=["setup", "basic", "motivate", "dashboard"],
             default="",
             help="Select the view",
         )
@@ -4723,17 +4208,17 @@ if __name__ == "__main__":
             location_manager.add_city(
                 cli_arguments["newcity"], cli_arguments["country"], config
             )
-            cache = CachedData()
+            cache = CacheManager()
             cache.delete()
         if cli_arguments.get("removecity"):
             view_name = "setup"
             location_manager.remove_city(cli_arguments["removecity"], config)
-            cache = CachedData()
+            cache = CacheManager()
             cache.delete()
         if cli_arguments.get("homecity"):
             view_name = "setup"
             location_manager.set_home(cli_arguments["homecity"], config)
-            cache = CachedData()
+            cache = CacheManager()
             cache.delete()
 
         forecaster: WeatherForecaster = WeatherForecaster(config)
