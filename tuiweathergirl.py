@@ -128,6 +128,78 @@ class APIIssues:
         )
 
 
+# Yes, I know you have questions by looking at this.
+# No worries. I have questions too lol
+tech_events_in_history: list[str] = [
+    "1948-01-01: Konrad Zuse completes Plankalkül, the earliest high-level non-von Neumann programming language.",
+    "1949-01-01: John Mauchly proposes Short Code, the first electronic programming language for computers.",
+    "1952-01-01: Alick Glennie develops Autocode, considered the first compiled programming language.",
+    "1957-04-15: IBM releases FORTRAN, the first widely used high-level general-purpose programming language.",
+    "1958-01-01: ALGOL is designed by an international committee, introducing structured code blocks and scoping.",
+    "1958-03-01: John McCarthy develops LISP, pioneering garbage collection, tree structures, and dynamic typing.",
+    "1959-09-01: CODASYL creates COBOL, designed specifically for business data processing systems.",
+    "1962-01-01: Ole-Johan Dahl and Kristen Nygaard create Simula, introducing object-oriented programming.",
+    "1964-05-01: John G. Kemeny and Thomas E. Kurtz design BASIC to give non-science students access to computers.",
+    "1966-01-01: Kenneth E. Iverson creates APL, an array-oriented language using unique mathematical notation.",
+    "1970-01-01: Niklaus Wirth releases Pascal, designed as a structured programming tool for education.",
+    "1971-11-03: AT&T Bell Labs releases Unix 1st Edition for PDP-11, created by Ritchie and Thompson.",
+    "1972-01-01: Dennis Ritchie creates C at Bell Labs to rewrite the Unix operating system kernel.",
+    "1972-01-02: Alan Kay, Dan Ingalls, and Adele Goldberg release Smalltalk, pioneering object-oriented UI design.",
+    "1972-01-03: Alain Colmerauer and Philippe Roussel create Prolog, pioneering logic programming.",
+    "1980-01-01: US Dept of Defense sponsors Ada, created by Jean Ichbiah for high-integrity embedded systems.",
+    "1981-08-12: Microsoft releases MS-DOS 1.0 (PC DOS 1.0) alongside the original IBM PC Model 5150.",
+    "1984-01-01: Brad Cox and Tom Love release Objective-C, combining Smalltalk object messaging with C syntax.",
+    "1984-01-02: Cleve Moler releases MATLAB, designed for numeric computing, matrix math, and data visualization.",
+    "1985-10-14: Bjarne Stroustrup releases C++ 1.0, adding object-oriented features to the C language.",
+    "1985-11-20: Microsoft launches Windows 1.0, its first graphical GUI environment layer for MS-DOS.",
+    "1987-12-18: Larry Wall releases Perl 1.0, a powerful text processing and system administration language.",
+    "1990-04-01: A committee defines Haskell 1.0, a purely functional programming language named after Curry.",
+    "1991-02-20: Guido van Rossum publishes Python 0.9.0, focusing on code readability and clean syntax.",
+    "1991-05-01: Microsoft releases Visual Basic 1.0, revolutionizing rapid application GUI development.",
+    "1991-09-17: Linus Torvalds uploads the first Linux kernel (version 0.01) to an FTP server.",
+    "1992-04-06: Microsoft releases Windows 3.1, adding TrueType fonts, multimedia support, and 32-bit disk access.",
+    "1993-01-01: Roberto Ierusalimschy et al. release Lua, a lightweight embeddable scripting language.",
+    "1993-07-17: Patrick Volkerding releases Slackware 1.00, the oldest actively maintained Linux distro.",
+    "1993-08-01: Ian Murdock releases Debian 0.90, laying the groundwork for one of Linux's largest distros.",
+    "1993-08-01: Ross Ihaka and Robert Gentleman release R, designed for statistical computing and graphics.",
+    "1994-11-03: Red Hat Linux 1.0 ('Mother's Day') is released, laying the foundation for RHEL.",
+    "1995-06-08: Rasmus Lerdorf releases PHP, initially designed as Personal Home Page Tools for dynamic web.",
+    "1995-08-24: Microsoft releases Windows 95, introducing the modern Start menu, Taskbar, and Explorer UI.",
+    "1995-12-04: Netscape and Sun announce JavaScript, created in 10 days by Brendan Eich for browsers.",
+    "1995-12-21: Yukihiro Matsumoto releases Ruby, designed for human programmer productivity and joy.",
+    "1996-01-23: Sun Microsystems officially releases JDK 1.0 for Java ('Write Once, Run Anywhere').",
+    "1998-06-25: Microsoft releases Windows 98, featuring improved USB support and Active Desktop integration.",
+    "2001-10-25: Microsoft releases Windows XP, unifying its consumer and business lines under the NT kernel.",
+    "2002-02-13: Microsoft releases C# 1.0 alongside the official launch of the .NET Framework 1.0.",
+    "2002-03-11: Judd Vinet releases Arch Linux 0.1 ('Homer'), built on minimalism and user control.",
+    "2003-11-06: Red Hat launches Fedora Core 1 ('Yarrow') as a community-driven upstream distribution.",
+    "2004-01-20: Martin Odersky releases Scala, combining object-oriented and functional programming paradigms.",
+    "2004-03-01: James Strachan releases Groovy, a dynamic agile language for the Java Virtual Machine.",
+    "2004-10-20: Canonical releases Ubuntu 4.10 ('Warty Warthog'), bringing user-friendly Linux to the masses.",
+    "2005-01-01: Don Syme releases F# at Microsoft Research, bringing functional programming to .NET.",
+    "2007-01-30: Microsoft launches Windows Vista with Aero UI, User Account Control (UAC), and security updates.",
+    "2009-10-22: Microsoft releases Windows 7, refining UI performance and introducing the modernized Taskbar.",
+    "2009-11-10: Google announces Go as an open-source system language built for modern concurrent scale.",
+    "2011-07-19: JetBrains reveals Kotlin, an expressive, concise JVM language later adopted for Android.",
+    "2011-10-10: Google announces Dart as a client-optimized programming language for multi-platform apps.",
+    "2012-01-01: José Valim creates Elixir, a dynamic functional language built on the Erlang VM (BEAM).",
+    "2012-02-14: Bezanson, Edelman, Karpinski, and Shah release Julia for high-performance scientific computing.",
+    "2012-10-01: Microsoft releases TypeScript 0.8, bringing static typing and tooling to JavaScript.",
+    "2014-09-09: Apple releases Swift 1.0 with the iOS 8 SDK as a safe, fast replacement for Objective-C.",
+    "2015-05-15: Mozilla releases Rust 1.0, guaranteeing memory safety without needing a garbage collector.",
+    "2015-07-29: Microsoft launches Windows 10, introducing Windows as a Service and unified desktop UI.",
+    "2016-02-08: Andrew Kelley creates Zig, a modern systems programming language designed to replace C.",
+    "2021-10-05: Microsoft releases Windows 11 with a centered taskbar design and strict TPM 2.0 requirements.",
+]
+
+# You probably have even more questions here.
+# Me too.
+def pick_one(stuff: list[str]) -> str:
+    if not stuff:
+        raise ValueError("Empty source given.")
+    return random.choice(stuff)
+
+
 class Theme:
     def __init__(self, **kwargs) -> None:
         self.general: list[int] = kwargs["general"]
@@ -4118,12 +4190,12 @@ class DashboardView(ColorViews):
         first_two_windows_width: int = 38
         minimum_window_height: int = 1
         general_window_height: int = 4
-        warnings_window_height: int = 10
+        warnings_window_height: int = 11
         main_layout_columns_height: int = 6
         title_window_height: int = 3
         forecast_window_height: int = 6
         followcities_window_height: int = 12
-        history_window_height: int = 2
+        history_window_height: int = 4
         default_text_indent: int = 1
         labels_x: int = default_text_indent
         data_x: int = labels_x + 8
@@ -4224,7 +4296,7 @@ class DashboardView(ColorViews):
                     column_num=0,
                     overlap=2,
                     title="On This Day",
-                    height=general_window_height,  # history_window_height,
+                    height=history_window_height,
                     border=True,
                 )
                 celestial_window = layout_manager.add_window(
@@ -4233,9 +4305,9 @@ class DashboardView(ColorViews):
                 misc_window = layout_manager.add_window(
                     column_num=0, overlap=2, title="Misc", height=3, border=True
                 )
-                brief_window = layout_manager.add_window(
-                    column_num=0, overlap=2, title="Brief", height=minimum_window_height
-                )
+                # brief_window = layout_manager.add_window(
+                #     column_num=0, overlap=2, title="Brief", height=minimum_window_height
+                # )
                 lastrefresh_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
@@ -4279,9 +4351,13 @@ class DashboardView(ColorViews):
                     theme="border",
                 )
                 # Misc
-                brief_window.print(
-                    f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit",
-                    x=1,
+                # brief_window.print(
+                #     f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit",
+                #     x=1,
+                # )
+                lastrefresh_window.print(
+                    f"Auto-refresh: {self.weather_refresh_interval // 60}min   [q] Quit",
+                    align="right"
                 )
 
                 # Get initial additional data
@@ -4548,7 +4624,7 @@ class DashboardView(ColorViews):
                         align="center",
                         x=0,
                         y=0,
-                        maxlines=general_window_height - 2,
+                        maxlines=history_window_height - 2,
                     )
 
                 if "celestial" in self.data.misc_data:
@@ -4561,13 +4637,15 @@ class DashboardView(ColorViews):
 
                 now: datetime = datetime.now()
                 date_str: str = now.strftime("%Y-%m-%d")
-                if date_str in self.config.holidays:
-                    holiday: str = self.config.holidays[date_str].split("#")[1]
 
-                    misc_window.clear()
-                    misc_window.print(
-                        f"NATIONAL HOLIDAY: {holiday}", align="center", y=0
-                    )
+                stuff: str = pick_one(tech_events_in_history)
+                stuff = f"FACT: {stuff}"
+                if date_str in self.config.holidays:
+                    stuff = self.config.holidays[date_str].split("#")[1]
+                    stuff = f"NATIONAL HOLIDAY: {stuff}"
+
+                misc_window.clear()
+                misc_window.print(stuff, align="center", y=0)
 
                 force_screen_update = False
 
