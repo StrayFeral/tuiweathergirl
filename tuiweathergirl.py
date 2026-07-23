@@ -988,7 +988,7 @@ class Astronomer:
 
         local_tz = ZoneInfo(timezone_name)
         local_dt = utc_dt.astimezone(local_tz)
-        
+
         return local_dt.strftime("%H:%M")
 
     def get_sun_times(
@@ -1256,7 +1256,7 @@ class SpaceWeatherAdvisor:
                 latest_obs: dict = data.get("0", {})
                 if not latest_obs:
                     return fallback
-                
+
                 predicted: dict = data.get("1", {})
 
                 # Extract and parse categorical scales (G, S, R)
@@ -1307,7 +1307,9 @@ class SpaceWeatherAdvisor:
 
         return 0.0
 
-    def _get_geomagnetic_warning(self, kp_index: float, g_scale: list[int] = None) -> str:
+    def _get_geomagnetic_warning(
+        self, kp_index: float, g_scale: list[int] = None
+    ) -> str:
         """Evaluates current space weather data to produce biomechanical alerts.
         Warns individuals with high electrosensitivity or barometric/magnetic sensitivity.
         """
@@ -1316,10 +1318,10 @@ class SpaceWeatherAdvisor:
         g_scale_calculated: int = int(kp_index - 4) if kp_index >= 5 else 0
 
         if g_scale is None:
-            g_scale = [0,0]
-        
+            g_scale = [0, 0]
+
         observed, predicted = g_scale
-            
+
         if observed != g_scale_calculated:
             observed = g_scale_calculated
 
@@ -1358,7 +1360,8 @@ class SpaceWeatherAdvisor:
         }
 
         warning: str = warnings.get(
-            observed, f"[WARNING] Elevated Solar Radiation (S{observed}/5). Storm probability: {predicted}%."
+            observed,
+            f"[WARNING] Elevated Solar Radiation (S{observed}/5). Storm probability: {predicted}%.",
         )
         return warning
 
@@ -1378,7 +1381,8 @@ class SpaceWeatherAdvisor:
         }
 
         warning = warnings.get(
-            observed, f"[WARNING] Active Radio Blackout (R{observed}/5)(Prediction: {predicted}% for Moderate)."
+            observed,
+            f"[WARNING] Active Radio Blackout (R{observed}/5)(Prediction: {predicted}% for Moderate).",
         )
         return warning
 
@@ -1624,7 +1628,7 @@ class DisasterAdvisor:
             "\n"
         )
         logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
-        
+
         for line in response[1:]:  # Skipping the CSV header
             if not line:
                 continue
@@ -1675,7 +1679,9 @@ class DisasterAdvisor:
                 confident = " (Possible False Alarm/Low Certainty)"
 
             time_str: str = f"{f_date} {f_time.zfill(4)}"
-            utc_dt = datetime.strptime(time_str, "%Y-%m-%d %H%M").replace(tzinfo=ZoneInfo("UTC"))
+            utc_dt = datetime.strptime(time_str, "%Y-%m-%d %H%M").replace(
+                tzinfo=ZoneInfo("UTC")
+            )
             local_dt = utc_dt.astimezone(ZoneInfo(timezone))
             datetime_str: str = local_dt.strftime("%Y-%m-%d %I:%M %p %Z")
 
@@ -3321,7 +3327,9 @@ class WeatherForecaster:
             )
             future_wildfires = executor.submit(
                 disaster_advisor.get_detailed_fires,
-                self.config.lat, self.config.lon, self.config.timezone
+                self.config.lat,
+                self.config.lon,
+                self.config.timezone,
             )
             future_quakes = executor.submit(
                 disaster_advisor.get_detailed_quakes, self.config.lat, self.config.lon
@@ -4798,7 +4806,7 @@ if __name__ == "__main__":
             level=LOGLEVEL,
             format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
         )
-        
+
         logger = logging.getLogger(__name__)
         logger.info("")
         logger.info(
