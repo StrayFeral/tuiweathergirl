@@ -71,6 +71,7 @@ NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
+MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
@@ -970,8 +971,8 @@ class WarningsManager:
 
     def apply_format(self, message_list) -> str:
         dates, times, homeremote, location, label, message = message_list
-        message_str: str = f"[{dates}][{times}][{location:.15}][{label}]{message:.90}"
-        return message_str
+        message_str: str = f"[{dates}][{times}][{location:.15}][{label}]{message}"
+        return message_str[:MAXSTRINGLEN]
 
 
 class Astronomer:
@@ -987,6 +988,7 @@ class Astronomer:
 
         local_tz = ZoneInfo(timezone_name)
         local_dt = utc_dt.astimezone(local_tz)
+        
         return local_dt.strftime("%H:%M")
 
     def get_sun_times(
@@ -1240,7 +1242,8 @@ class SpaceWeatherAdvisor:
         # AFFECTED: Power grids, satellites, migratory life, bio-sensitives
 
         url: str = "https://services.swpc.noaa.gov/products/noaa-scales.json"
-        fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
+        # fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
+        fallback: dict = {"G": [0, 0], "S": [0, 0], "R": [0, 0]}
         logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         try:
@@ -1250,22 +1253,28 @@ class SpaceWeatherAdvisor:
                 data = response.json()
 
                 # '0' represents the latest observed metrics block
-                latest_obs = data.get("0", {})
+                latest_obs: dict = data.get("0", {})
                 if not latest_obs:
                     return fallback
+                
+                predicted: dict = data.get("1", {})
 
                 # Extract and parse categorical scales (G, S, R)
                 # Converting values from strings (e.g., "0") to clean integers
-                g_scale = int(latest_obs.get("G", {}).get("Scale", 0))
-                s_scale = int(latest_obs.get("S", {}).get("Scale", 0))
-                r_scale = int(latest_obs.get("R", {}).get("Scale", 0))
+                g_scale = int(latest_obs.get("G", {}).get("Scale") or 0)
+                s_scale = int(latest_obs.get("S", {}).get("Scale") or 0)
+                r_scale = int(latest_obs.get("R", {}).get("Scale") or 0)
+
+                g_predicted = int(predicted.get("G", {}).get("Scale") or 0)
+                s_predicted = int(predicted.get("S", {}).get("Prob") or 0)
+                r_predicted = int(predicted.get("R", {}).get("MinorProb") or 0)
 
                 return {
-                    "G": g_scale,
-                    "S": s_scale,
-                    "R": r_scale,
-                    "DateStamp": latest_obs.get("DateStamp", ""),
-                    "TimeStamp": latest_obs.get("TimeStamp", ""),
+                    "G": [g_scale, g_predicted],
+                    "S": [s_scale, s_predicted],
+                    "R": [r_scale, r_predicted],
+                    # "DateStamp": latest_obs.get("DateStamp", ""),
+                    # "TimeStamp": latest_obs.get("TimeStamp", ""),
                 }
         except Exception:
             pass
@@ -1298,67 +1307,78 @@ class SpaceWeatherAdvisor:
 
         return 0.0
 
-    def _get_geomagnetic_warning(self, kp_index: float, g_scale: int = None) -> str:
+    def _get_geomagnetic_warning(self, kp_index: float, g_scale: list[int] = None) -> str:
         """Evaluates current space weather data to produce biomechanical alerts.
         Warns individuals with high electrosensitivity or barometric/magnetic sensitivity.
         """
         # If g_scale is not supplied, we mathematically derive it from Kp.
         # Kp 5 = G1, Kp 6 = G2, Kp 7 = G3, Kp 8 = G4, Kp 9 = G5
+        g_scale_calculated: int = int(kp_index - 4) if kp_index >= 5 else 0
+
         if g_scale is None:
-            g_scale = int(kp_index - 4) if kp_index >= 5 else 0
+            g_scale = [0,0]
+        
+        observed, predicted = g_scale
+            
+        if observed != g_scale_calculated:
+            observed = g_scale_calculated
 
         # Kp index 4 represents 'Active' geomagnetic activity (borderline storm)
         if 4.0 <= kp_index < 5.0:
-            return f"[RISK][Kp {kp_index:.2f}] Unsettled atmospheric charging. Eventual migraines, restlessness, or mild joint irritation."
-
-        # Kp index 5+ marks the formal threshold for active Geomagnetic Storms
+            return f"[Kp {kp_index:.2f}] Unsettled atm.charging. Ev.migraines, restlessness, mild joint irritation (Predicted:G{predicted})."
         elif kp_index >= 5.0:
+            # Kp index 5+ marks the formal threshold for active Geomagnetic Storms
             storm_descriptions = {
-                1: "Minor",
-                2: "Moderate",
-                3: "Strong",
-                4: "Severe",
-                5: "Extreme",
+                0: "G0 No storms",
+                1: "G1 Minor",
+                2: "G2 Moderate",
+                3: "G3 Strong",
+                4: "G4 Severe",
+                5: "G5 Extreme",
             }
-            storm_label = storm_descriptions.get(g_scale, f"Storm (G{g_scale})")
+            storm_label = storm_descriptions.get(observed, f"Storm (G{observed})")
 
-            return f"[HIGH RISK][Kp {kp_index:.2f}] {storm_label} Geomagnetic storm. Risk: Blood pressure, headaches, insomnia, severe joing pain."
+            return f"[Kp {kp_index:.2f}] {storm_label} storm. Risk: Blood pressure, headaches, insomnia, sev.joing pain (Predicted:G{predicted})."
 
         return ""
 
-    def _get_solar_radiation_warning(self, s_scale: int) -> str:
+    def _get_solar_radiation_warning(self, s_scale: list[int]) -> str:
         """Generates warning strings for the S-scale (0 to 5)."""
 
-        if s_scale < 2:
+        observed, predicted = s_scale
+
+        if observed < 2:
             return ""
 
         warnings: dict[int, str] = {
             2: "[MODERATE RAD.STORM] Minor exposure to passengers and flight crews on high-altitude polar routes.",
             3: "[STRONG RAD.STORM] Increased exposure to passengers and crews on high-altitude on polar routes.",
-            4: "[SEVERE RAD.STORM] Flights to avoid polar regions! Elevated radiation exposure for crews and passengers. Blackout for polar HF comms.",
+            4: "[SEVERE RAD.STORM] Flights to avoid polar regions! Elevated rad.exposure for crews and passengers. Blackout for polar HF comms.",
             5: "[EXTREME RAD.STORM][CRITICAL] Shut down for polar and high alt.routes! High exposure for crews and passengers! Blackouts!",
         }
 
         warning: str = warnings.get(
-            s_scale, f"[WARNING] Elevated Solar Radiation (S{s_scale}/5)"
+            observed, f"[WARNING] Elevated Solar Radiation (S{observed}/5). Storm probability: {predicted}%."
         )
         return warning
 
-    def _get_radio_blackout_warning(self, r_scale: int) -> str:
+    def _get_radio_blackout_warning(self, r_scale: list[int]) -> str:
         """Generates warning strings for the R-scale (0 to 5)."""
 
-        if r_scale < 2:
+        observed, predicted = r_scale
+
+        if observed < 2:
             return ""
 
         warnings: dict[int, str] = {
-            2: "[MODERATE RADIO BLACKOUT] HF comms limited. Marine and aviation operators may lose contact for tens of mins. Minor GPS errs.",
+            2: "[MODERATE RADIO BLACKOUT] HF comms limited. Marine and aviation operators may lose contact for 10 mins. Minor GPS errs.",
             3: "[STRONG RADIO BLACKOUT] Loss of contact for 1 hour for marine, aviation and amateur ops. GPS errors.",
             4: "[SEVERE RADIO BLACKOUT] HF radio blackout for entire sunlit side of Earth. No comms up to 2hrs. No GPS.",
             5: "[EXTREME RADIO BLACKOUT] COMPLETE HF RADIO BLACKOUT. No comms for few hrs. No GPS.",
         }
 
         warning = warnings.get(
-            r_scale, f"[WARNING] Active Radio Blackout (R{r_scale}/5)"
+            observed, f"[WARNING] Active Radio Blackout (R{observed}/5)(Prediction: {predicted}% for Moderate)."
         )
         return warning
 
@@ -1586,7 +1606,7 @@ class DisasterAdvisor:
 
         return disasters
 
-    def get_detailed_fires(self, lat: str, lon: str) -> list[list[str]]:
+    def get_detailed_fires(self, lat: str, lon: str, timezone: str) -> list[list[str]]:
         """This time pulling from NASA FIRMS if the API key is available"""
 
         apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
@@ -1604,6 +1624,7 @@ class DisasterAdvisor:
             "\n"
         )
         logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        
         for line in response[1:]:  # Skipping the CSV header
             if not line:
                 continue
@@ -1653,10 +1674,15 @@ class DisasterAdvisor:
             if confidence == "L":
                 confident = " (Possible False Alarm/Low Certainty)"
 
+            time_str: str = f"{f_date} {f_time.zfill(4)}"
+            utc_dt = datetime.strptime(time_str, "%Y-%m-%d %H%M").replace(tzinfo=ZoneInfo("UTC"))
+            local_dt = utc_dt.astimezone(ZoneInfo(timezone))
+            datetime_str: str = local_dt.strftime("%Y-%m-%d %I:%M %p %Z")
+
             if distance <= 100:  # km
                 location: str = f"{f_lat},{f_lon}"
                 message: str = (
-                    f"[{f_date},{f_time}][{distance:.1f}km] {heat} fire on a {f_size} {confident}"
+                    f"[{datetime_str}][{distance:.1f}km] {heat} fire on a {f_size} {confident}"
                 )
                 fire_list.append(["DISASTER", location, "WILDFIRE", message])
 
@@ -3294,7 +3320,8 @@ class WeatherForecaster:
                 disaster_advisor.get_disasters, self.config.countries_of_interest
             )
             future_wildfires = executor.submit(
-                disaster_advisor.get_detailed_fires, self.config.lat, self.config.lon
+                disaster_advisor.get_detailed_fires,
+                self.config.lat, self.config.lon, self.config.timezone
             )
             future_quakes = executor.submit(
                 disaster_advisor.get_detailed_quakes, self.config.lat, self.config.lon
@@ -4758,25 +4785,27 @@ if __name__ == "__main__":
         parser: ParseCommandline = ParseCommandline()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
 
-        DEBUG_MODE = cli_arguments["debug"]
+        DEBUG_MODE: str = cli_arguments["debug"]
+        debug_mode_str: str = ""
+        LOGLEVEL: int = logging.INFO
 
         if DEBUG_MODE:
-            logging.basicConfig(
-                filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
-                level=logging.DEBUG,
-                format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
-            )
-        else:
-            logging.basicConfig(
-                filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
-                level=logging.INFO,
-                format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
-            )
+            LOGLEVEL = logging.DEBUG
+            debug_mode_str = "*** DEBUG MODE ENABLED ***"
+
+        logging.basicConfig(
+            filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
+            level=LOGLEVEL,
+            format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
+        )
+        
         logger = logging.getLogger(__name__)
+        logger.info("")
         logger.info(
             " ===================================================== NEW SESSION"
         )
         logger.info(f" TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
+        logger.info(debug_mode_str)
         logger.info("")
 
         view_name: str = cli_arguments.get("view")
