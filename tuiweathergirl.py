@@ -192,6 +192,7 @@ tech_events_in_history: list[str] = [
     "2021-10-05: Microsoft releases Windows 11 with a centered taskbar design and strict TPM 2.0 requirements.",
 ]
 
+
 # You probably have even more questions here.
 # Me too.
 def pick_one(stuff: list[str]) -> str:
@@ -4357,7 +4358,7 @@ class DashboardView(ColorViews):
                 # )
                 lastrefresh_window.print(
                     f"Auto-refresh: {self.weather_refresh_interval // 60}min   [q] Quit",
-                    align="right"
+                    align="right",
                 )
 
                 # Get initial additional data
