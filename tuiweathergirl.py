@@ -86,7 +86,7 @@ COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 class InstanceGuard:
@@ -1657,11 +1657,15 @@ class CacheManager:
         
         full_path = Path(self.filename).expanduser()
         with open(full_path, "rb") as f:
-            payload: dict[str, Any] = pickle.load(f)
+            payload: dict[str, any] = pickle.load(f)
 
-        for name, state_dict in payload.items():
+        for name, cached in payload.items():
             if name in self._data:
-                self._data[name].__dict__.update(state_dict)
+                # self._data[name].__dict__.update(cached)
+                self._data[name].__dict__.clear()
+                self._data[name].__dict__.update(cached.__dict__)
+            else:
+                raise Exception(f"Client '{name}' was cached but not registered to be loaded.")
 
         self.loaded = True
 
@@ -1677,8 +1681,7 @@ class CacheManager:
         cachefile.unlink(missing_ok=True)
         
         payload: dict[str, Any] = {
-            name: client.__dict__ 
-            for name, client in self._data.items()
+            name: instance for name, instance in self._data.items()
         }
         with open(cachefile, "wb") as f:
             pickle.dump(payload, f)
@@ -2784,6 +2787,10 @@ class WeatherForecaster:
         cache = CacheManager()
         cache.register("weather_data", weather_data)
 
+        if not cache.loaded and cache.too_soon:
+            cache.load()
+            return
+
         warnings: WarningsManager = WarningsManager()
 
         bulgarian: Bulgarian = Bulgarian()
@@ -2798,9 +2805,6 @@ class WeatherForecaster:
         additional_fact_country: str = ""
         if self.config.country != "Bulgaria":
             additional_fact_country = self.config.country
-
-        if cache.loaded or cache.too_soon:
-            return
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
 
@@ -2899,10 +2903,6 @@ class WeatherForecaster:
             # Apply data
             # ----------
 
-            humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
-            storm_warning: str = self.get_storm_warning(weather_data.weather_code, weather_data.wind)
-            baropressure_warning: str = self.get_baropressure_warning(weather_data.baropressure)
-
             # Extract Data
             current: dict[str] = weather_result["current"]
             daily: dict[str] = weather_result["daily"]
@@ -2931,7 +2931,7 @@ class WeatherForecaster:
             
             # followcities_result[i]["current"]["temperature_2m"]
             # followcities_result[i]["current"]["is_day"]
-            weather_data.followcities = []
+            weather_data.cities_data = []
             if isinstance(followcities_result, dict):
                 city_data: dict = {
                     "temperature": round(float(followcities_result["current"]["temperature_2m"])),
@@ -2940,7 +2940,7 @@ class WeatherForecaster:
                     "country_code2": self.config.followcities[-1]["country_code2"],
                     "province": self.config.followcities[-1]["province"],
                 }
-                weather_data.followcities = [city_data]
+                weather_data.cities_data = [city_data]
             if isinstance(followcities_result, list):
                 # followcities_result = followcities_result
                 for combodata in zip(self.config.followcities, followcities_result):
@@ -2951,7 +2951,7 @@ class WeatherForecaster:
                         "country_code2": combodata[0]["country_code2"],
                         "province": combodata[0]["province"],
                     }
-                    weather_data.followcities.append(city_data)
+                    weather_data.cities_data.append(city_data)
 
             # 7 day forecast
             for i in range(1, 8):
@@ -2985,6 +2985,10 @@ class WeatherForecaster:
             # weather_data.misc_data["motivation"] = motivation
             weather_data.misc_data["histfact"] = history_fact
             weather_data.misc_data["celestial"] = celestial
+
+            humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
+            storm_warning: str = self.get_storm_warning(weather_data.weather_code, weather_data.wind)
+            baropressure_warning: str = self.get_baropressure_warning(weather_data.baropressure)
 
             # WARNINGS
             # --------
@@ -3436,7 +3440,7 @@ class BasicView(Views):
         # ---
         # warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list = self.data.followcities
+        follow_cities: list = self.data.cities_data
 
         day: str = "day" if is_day else "night"
 
@@ -3517,7 +3521,7 @@ class MotivationalView(Views):
         # ---
         # warnings: list[str] = self.data.warnings
         week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list = self.data.followcities
+        follow_cities: list = self.data.cities_data
 
         day: str = "day" if is_day else "night"
 
@@ -3578,7 +3582,7 @@ class DashboardView(ColorViews):
         curses.curs_set(False)  # Hide cursor
         stdscr.timeout(1000)  # Wait 1 second
     
-    def screen(self, stdscr: curses.window) -> None:
+    def screen(self, stdscr: curses.window) -> None:  # DEBUG: 
         theme_palette: ThemePalette = ThemePalette()
         theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
@@ -3752,7 +3756,7 @@ class DashboardView(ColorViews):
                 currently_window.print("Humidt:", x=labels_x, y=3)
                 # Wind, air quality and precipitation labels
                 airquality_window.print("Wind  :", x=labels_x, y=0)
-                airquality_window.print("AQI   :", x=labels_x, y=1)
+                airquality_window.print("Air Q :", x=labels_x, y=1)
                 airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
                 airquality_window.print(":", x=labels_x+6, y=2, theme="general")
                 airquality_window.print("Humidt:", x=labels_x, y=3)
@@ -3764,6 +3768,17 @@ class DashboardView(ColorViews):
                 # Get initial additional data
                 # self.get_data()
                 
+                force_screen_update = True
+            
+
+            current_time: datetime = datetime.now()
+            elapsed: timedelta = current_time - start_time
+            
+            # Data update
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
+                self.forecaster.get_data(self.data)
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
+                lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
 
             # ------------------------------------------------- REFRESH DATA
@@ -3806,7 +3821,6 @@ class DashboardView(ColorViews):
             # ---
             warnings: list[str] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
-            # follow_cities: list = self.data.followcities
             follow_cities: list = self.data.cities_data
 
             # Saving the cache
@@ -3842,7 +3856,7 @@ class DashboardView(ColorViews):
                 airquality_window.print(f"{wind_type}, {winddir} {wind}{wunit}", x=data_x, y=0, theme=self._get_wind_cp(wind, wunit))
                 airquality_window.print(self.data.precipitation_type, x=labels_x, y=2, theme=self._get_precipitation_type_cp(self.data.precipitation_type))
                 airquality_window.print(":", x=labels_x+6, y=2, theme="general")
-                airquality_window.print(f"{aqi} ({airquality})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
+                airquality_window.print(f"{airquality} ({aqi})", x=data_x, y=1, theme=self._get_aqistr_cp(airquality))
                 airquality_window.print("[", x=data_x, y=2, theme="border")
                 airquality_window.print(self.prog_bar(precipitation), x=data_x+1, y=2, theme=self._get_progbar_cp(precipitation))
                 airquality_window.print("]", x=data_x+10, y=2, theme="border")
@@ -3908,16 +3922,16 @@ class DashboardView(ColorViews):
                 for warning in warnings:
                     warnings_window.print(self.warnings.apply_format(warning), x=0, newline=True, theme=self._get_warnings_cp(warning[2], warning[4], warning[-1]))
                 
-                if hasattr(self, "history_fact"):
+                if "histfact" in self.data.misc_data:
                     history_window.clear()
                     history_window.print(self.data.misc_data["histfact"]["text"], align="center", y=0, maxlines=3)
 
-                if hasattr(self, "celestial"):
+                if "celestial" in self.data.misc_data:
                     celestial_window.clear()
                     spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
                     s: str = f"Sunrise: {self.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.data.misc_data["celestial"]["moon"]}"
                     celestial_window.print(s, align="center", y=0)
-                
+            
                 now: datetime = datetime.now()
                 date_str: str = now.strftime("%Y-%m-%d")
                 if date_str in self.config.holidays:
@@ -3929,18 +3943,6 @@ class DashboardView(ColorViews):
                 force_screen_update = False
 
 
-            current_time: datetime = datetime.now()
-            elapsed: timedelta = current_time - start_time
-            
-            # Data update
-            if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
-                self.forecaster.get_data(self.data)
-                self.get_data()
-                last_refresh = f"Last refresh: {datenow} {timenow}       "
-                lastrefresh_window.print(last_refresh, x=1, y=0)
-                force_screen_update = True
-
-            
             # Pushing the changes
             layout_manager.refresh_screen()
             self.update_screen()
@@ -4162,7 +4164,7 @@ class LocationManager:
 # ================================================================[ MAIN LOOP ]
 if __name__ == "__main__":
     try:
-        logging.basicConfig(filename='/tmp/tuiweathergirl.log', level=logging.INFO)
+        # logging.basicConfig(filename='/tmp/tuiweathergirl.log', level=logging.INFO)
 
         InstanceGuard.ensure_single_instance()
         parser: ParseCommandline = ParseCommandline()
