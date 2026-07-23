@@ -20,7 +20,6 @@ import tempfile
 import textwrap
 import time
 import traceback
-from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
@@ -85,8 +84,6 @@ COL_BLUEBLACK: int = 4
 COL_REDBLACK: int = 5
 COL_GREENBLACK: int = 6
 COL_CYANBLACK: int = 7
-
-# logger = logging.getLogger(__name__)
 
 
 class InstanceGuard:
@@ -998,8 +995,10 @@ class Astronomer:
         """Fetches sunrise and sunset for today in UTC."""
 
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         data = requests.get(url, timeout=REQTIMEOUT).json()
+        logger.debug(f"[{self.__class__.__name__}] JSONDATA={pf(data)}")
         if data["status"] == "OK":
             # Format: 2026-05-04T04:12:34+00:00
             sunrise: str = data["results"]["sunrise"][11:16]
@@ -1144,10 +1143,12 @@ class Bulgarian:
             url: str = (
                 f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{month}/{day}"
             )
+            logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
             response: requests.Response = requests.get(
                 url, headers=headers, timeout=REQTIMEOUT
             )
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             if response.status_code != 200:
                 continue
 
@@ -1181,10 +1182,12 @@ class AllergyAndUVAdvisor:
 
     def advise(self, lat: str, lon: str) -> list[str]:
         url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pollen_index_tree,pollen_index_grass,pollen_index_weed,uv_index&timezone=auto"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         warnings: list[str] = []
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1238,9 +1241,11 @@ class SpaceWeatherAdvisor:
 
         url: str = "https://services.swpc.noaa.gov/products/noaa-scales.json"
         fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         try:
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
 
@@ -1274,8 +1279,10 @@ class SpaceWeatherAdvisor:
         # at least to my understanding
 
         url: str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
         try:
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -1458,7 +1465,7 @@ class DisasterAdvisor:
             if param in kwargs:
                 setattr(self, params[param], kwargs[param])
 
-    def _haversine(lat1, lon1, lat2, lon2) -> float:
+    def _haversine(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Calculates distance in km between two points. Implementation of the haversine formula for the planet Earth."""
         R: int = 6371  # Earth mean radius
         dlat: float = math.radians(lat2 - lat1)
@@ -1506,8 +1513,10 @@ class DisasterAdvisor:
 
         disasters: list[list[str]] = []
         url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1589,10 +1598,12 @@ class DisasterAdvisor:
         fire_list: list[str] = []
 
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{apikey}/VIIRS_NOAA21_NRT/{lonn-1},{latt-1},{lonn+1},{latt+1}/1"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT).text.split(
             "\n"
         )
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
         for line in response[1:]:  # Skipping the CSV header
             if not line:
                 continue
@@ -1613,6 +1624,14 @@ class DisasterAdvisor:
                 frp,
                 daynight,
             ) = line.split(",")
+            f_lat = float(f_lat)
+            f_lon = float(f_lon)
+            ti4 = float(ti4)
+            scan = float(scan)
+            track = float(track)
+            ti5 = float(ti5)
+            frp = float(frp)
+
             distance = self._haversine(latt, lonn, f_lat, f_lon)
 
             # Scanning pixel area
@@ -1637,7 +1656,7 @@ class DisasterAdvisor:
             if distance <= 100:  # km
                 location: str = f"[{f_lat}, {f_lon}]"
                 message: str = (
-                    f"[{f_date},{f_time}][{dist:.1f}km] {heat} fire on a {f_size} {confident}"
+                    f"[{f_date},{f_time}][{distance:.1f}km] {heat} fire on a {f_size} {confident}"
                 )
                 fire_list.append(["DISASTER", location, "WILDFIRE", message])
 
@@ -1655,8 +1674,10 @@ class DisasterAdvisor:
 
         quakes: list[list[str]] = []
         url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}&maxradiuskm=200&minmagnitude=2.5"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1699,8 +1720,10 @@ class DisasterAdvisor:
             "https://ssd-api.jpl.nasa.gov/fireball.api?date-start="
             + start_of_yesterday.strftime("%Y-%m-%d")
         )
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
         response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1749,8 +1772,10 @@ class ElectrostaticAdvisor:
 
         # This endpoint provides the 1-minute data for the last 24 hours
         url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
         try:
             response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data: requests.Response = response.json()
                 # Get the very last measurement
@@ -1824,7 +1849,9 @@ class HolidaysManager:
             year = datetime.now().year
 
         url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code2.upper()}"
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
         data = requests.get(url, timeout=REQTIMEOUT).json()
+        logger.debug(f"[{self.__class__.__name__}] JSONDATA={pf(data)}")
         for holiday in data:
             new_holidays[holiday["date"]] = (
                 f"{holiday["countryCode"]}{separator}{holiday["name"]}"
@@ -2552,7 +2579,10 @@ class Locator:
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
                 "&lang=en"
             )
+            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
 
             if not response:
                 raise Exception(
@@ -2591,9 +2621,12 @@ class Locator:
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             )
+            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+
             response: requests.Response = requests.get(
                 url, headers=headers, timeout=REQTIMEOUT
             )
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
 
             if not response.ok:
                 raise Exception(
@@ -2621,7 +2654,10 @@ class Locator:
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
+            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             self.tzapi_calls += 1
 
             if not response.ok:
@@ -2712,9 +2748,10 @@ class Motivator:
         r"""Fetches a random inspirational quote from Quotable API."""
 
         try:
-            response = requests.get(
-                "https://zenquotes.io/api/random", timeout=REQTIMEOUT
-            )
+            url: str = "https://zenquotes.io/api/random"
+            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            response = requests.get(url, timeout=REQTIMEOUT)
+            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -3081,14 +3118,17 @@ class WeatherForecaster:
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
             f"&forecast_days=8"
         )
-        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
-        if not result:
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+
+        if not response:
             raise Exception(
-                f"Cannot obtain weather data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+                f"Cannot obtain weather data. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
             )
 
-        return result.json()
+        return response.json()
 
     def _get_brief_weather_data(
         self, lats: str, lons: str, timezones: str, tunit: str
@@ -3103,14 +3143,17 @@ class WeatherForecaster:
             f"&timezone={timezones.replace('/', '%2F')}"
             f"&temperature_unit={tunit}"
         )
-        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
-        if not result:
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+
+        if not response:
             raise Exception(
-                f"Cannot obtain weather data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+                f"Cannot obtain weather data. Error {response.status_code}: {APIIssues.get_api_problem(reponse.status_code)}"
             )
 
-        return result.json()
+        return response.json()
 
     def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
         r"""Gets only AQI data for the given location"""
@@ -3120,14 +3163,17 @@ class WeatherForecaster:
             f"https://air-quality-api.open-meteo.com/v1/air-quality?"
             f"latitude={lat}&longitude={lon}&current=us_aqi"
         )
-        result: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] URL={url}")
 
-        if not result:
+        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+
+        if not response:
             raise Exception(
-                f"Cannot obtain air quality data. Error {result.status_code}: {APIIssues.get_api_problem(result.status_code)}"
+                f"Cannot obtain air quality data. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
             )
 
-        return result.json()
+        return response.json()
 
     def get_storm_warning(self, weather_code: int, wind: int) -> str:
         if 95 <= weather_code <= 99:
@@ -4706,13 +4752,30 @@ class LocationManager:
 # ================================================================[ MAIN LOOP ]
 if __name__ == "__main__":
     try:
-        # logging.basicConfig(filename='/tmp/tuiweathergirl.log', level=logging.INFO)
-
         InstanceGuard.ensure_single_instance()
         parser: ParseCommandline = ParseCommandline()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
 
         DEBUG_MODE = cli_arguments["debug"]
+
+        if DEBUG_MODE:
+            logging.basicConfig(
+                filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
+                level=logging.DEBUG,
+                format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
+            )
+        else:
+            logging.basicConfig(
+                filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
+                level=logging.INFO,
+                format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
+            )
+        logger = logging.getLogger(__name__)
+        logger.info(
+            " ===================================================== NEW SESSION"
+        )
+        logger.info(f" TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
+        logger.info("")
 
         view_name: str = cli_arguments.get("view")
 
