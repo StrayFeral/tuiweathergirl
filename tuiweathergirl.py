@@ -4327,30 +4327,7 @@ class DashboardView(ColorViews):
                 location_window.print(
                     f" Home: {city}{province1}, {country}", theme="home"
                 )
-                # Current situation labels
-                currently_window.print("Sky   :", x=labels_x, y=0)
-                currently_window.print("Temp  :", x=labels_x, y=1)
-                currently_window.print("Range :", x=labels_x, y=2)
-                currently_window.print("Humidt:", x=labels_x, y=3)
-                # Wind, air quality and precipitation labels
-                airquality_window.print("Wind  :", x=labels_x, y=0)
-                airquality_window.print("Air Q :", x=labels_x, y=1)
-                airquality_window.print(
-                    self.data.precipitation_type,
-                    x=labels_x,
-                    y=2,
-                    theme=self._get_precipitation_type_cp(self.data.precipitation_type),
-                )
-                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
-                airquality_window.print("Humidt:", x=labels_x, y=3)
-                # 7 day forecast labels
-                forecast_window.draw_line(
-                    x=first_two_windows_width - 2,
-                    y=0,
-                    direction="vertical",
-                    length=4,
-                    theme="border",
-                )
+
                 # Misc
                 # brief_window.print(
                 #     f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit",
@@ -4448,6 +4425,11 @@ class DashboardView(ColorViews):
 
             if force_screen_update:
                 # Current sky, temperature and temperature range
+                currently_window.clear()
+                currently_window.print("Sky   :", x=labels_x, y=0)
+                currently_window.print("Temp  :", x=labels_x, y=1)
+                currently_window.print("Range :", x=labels_x, y=2)
+                currently_window.print("Humidt:", x=labels_x, y=3)
                 currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
                 currently_window.print(
                     f"{temperature}°{tsuffix}",
@@ -4455,6 +4437,7 @@ class DashboardView(ColorViews):
                     y=1,
                     theme=self._get_temp_cp(temperature),
                 )
+
                 currently_window.print(
                     f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin)
                 )
@@ -4465,6 +4448,20 @@ class DashboardView(ColorViews):
                     y=2,
                     theme=self._get_temp_cp(tmax),
                 )
+
+                # Wind, air quality and precipitation labels
+                airquality_window.clear()
+                airquality_window.print("Wind  :", x=labels_x, y=0)
+                airquality_window.print("Air Q :", x=labels_x, y=1)
+                airquality_window.print(
+                    self.data.precipitation_type,
+                    x=labels_x,
+                    y=2,
+                    theme=self._get_precipitation_type_cp(self.data.precipitation_type),
+                )
+                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                airquality_window.print("Humidt:", x=labels_x, y=3)
+
                 currently_window.print(
                     f"{self.data.hcur}% ({humidity})",
                     x=data_x,
@@ -4521,6 +4518,14 @@ class DashboardView(ColorViews):
                 )
 
                 # 7 day forecast
+                forecast_window.clear()
+                forecast_window.draw_line(
+                    x=first_two_windows_width - 2,
+                    y=0,
+                    direction="vertical",
+                    length=4,
+                    theme="border",
+                )
                 for day_cnt, day in enumerate(week):
                     wy: int = day_cnt % 4
                     wx: int = 1 if day_cnt < 4 else first_two_windows_width + 1
