@@ -1654,7 +1654,7 @@ class DisasterAdvisor:
                 confident = " (Possible False Alarm/Low Certainty)"
 
             if distance <= 100:  # km
-                location: str = f"[{f_lat}, {f_lon}]"
+                location: str = f"{f_lat},{f_lon}"
                 message: str = (
                     f"[{f_date},{f_time}][{distance:.1f}km] {heat} fire on a {f_size} {confident}"
                 )
@@ -3234,6 +3234,7 @@ class WeatherForecaster:
             return
 
         warnings: WarningsManager = WarningsManager()
+        warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
 
         bulgarian: Bulgarian = Bulgarian()
         astronomer: Astronomer = Astronomer()
@@ -3565,6 +3566,7 @@ class Views:
         self.config: Configuration = config
         self.data: WeatherData = data
         self.warnings: WarningsManager = WarningsManager()
+        self.warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
         self.height: int | None = None
@@ -4102,8 +4104,6 @@ class DashboardView(ColorViews):
         elif len(province1) > 0:
             province1 = f", {province1}"
 
-        self.warnings.home_location = f"{city}-{self.config.country_code2}"
-
         layout_manager: LayoutManager | None = None
 
         title_window: Window | None = None
@@ -4495,10 +4495,11 @@ class DashboardView(ColorViews):
                 # Sure, the window is not 99 lines high.
                 # Printing on a greater line will simply make it print on the
                 # last line. I have a safeguard to make it happen.
-                for warning in warnings:
+                for msgy, warning in enumerate(warnings):
                     warnings_window.print(
                         self.warnings.apply_format(warning),
                         x=0,
+                        y=msgy,
                         newline=True,
                         theme=self._get_warnings_cp(
                             warning[2], warning[4], warning[-1]
@@ -4510,8 +4511,9 @@ class DashboardView(ColorViews):
                     history_window.print(
                         self.data.misc_data["histfact"]["text"],
                         align="center",
+                        x=0,
                         y=0,
-                        maxlines=3,
+                        maxlines=general_window_height - 2,
                     )
 
                 if "celestial" in self.data.misc_data:
