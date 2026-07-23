@@ -39,13 +39,13 @@ DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "color"
 DEFAULT_THEME: str = "main"
 APPVERSION: str = "1.0"
+MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
-    f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Your daily terminal weathergirl."
+    f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
 )
-EPILOGUE_HELP: str = """VIEWS:
+EPILOGUE_HELP: str = f"""VIEWS:
     motivate and basic
-        Best for barebone terminals.
-        Printing to STDOUT then exit. You would enjoy the Motivate view a lot.
+        Best for barebone terminals (simple STDOUT). Try Motivate!
     
     dashboard
         A colorful ncurses dashboard. Requires terminal size at least 146x38.
@@ -53,21 +53,23 @@ EPILOGUE_HELP: str = """VIEWS:
     setup
         Prints the currently set cities.
 
-NOTE: --addcity and --country must be passed together.
+NOTE: --addcity and --country must be passed together
 
 HOW DOES TUIWEATHERGIRL WORKS:
     - The app would auto-configure. Config file: ~/.tuiweathergirlrc
     - You may edit it, but if you mess-it up, better delete it and run the app again
-    - You may add up to 10 additional cities, but not every view will show them all
+    - You may add up to {MAX_CITIES - 1} additional cities, but not every view will show them
 
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.com/
+For detailed wildfires info set NASAFIRMSAPIKEY (free API key): https://firms.modaps.eosdis.nasa.gov/api/map_key
 """
 USERAGENT: str = (
     f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
 )
 TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
+LOGFILENAME: str = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
 REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
@@ -75,7 +77,6 @@ MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
-MAX_CITIES: int = 10  # This includes the home city
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -943,6 +944,11 @@ class WarningsManager:
 
         if os.name == "nt":
             self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+
+    def delete(self) -> None:
+        full_path = Path(self._filename).expanduser()
+        if full_path.exists():
+            full_path.unlink()
 
     def _is_old(self, message_date: str) -> bool:
         cutoff = datetime.now() - timedelta(days=self.keep_max_days)
@@ -4337,6 +4343,7 @@ class DashboardView(ColorViews):
                     f"Auto-refresh: {self.weather_refresh_interval // 60}min   [q] Quit",
                     align="right",
                 )
+                lastrefresh_window.print(f"Last refresh: **none**", x=1, y=0)
 
                 # Get initial additional data
                 # self.get_data()
@@ -4360,11 +4367,6 @@ class DashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
-
-            if len(last_refresh) == 0:
-                # last_refresh = f"Last refresh: {datenow} {timenow}"
-                last_refresh = f"Last refresh: **none**"
-                lastrefresh_window.print(last_refresh, x=1, y=0)
 
             # Technically we do not need this, but filling up the addstr()s
             # later would be more messy without it
@@ -4651,7 +4653,7 @@ class DashboardView(ColorViews):
                     stuff = f"NATIONAL HOLIDAY: {stuff}"
 
                 misc_window.clear()
-                misc_window.print(stuff, align="center", y=0)
+                misc_window.print(stuff, align="center", x=0, y=0)
 
                 force_screen_update = False
 
@@ -4737,6 +4739,11 @@ class ParseCommandline:
             "--debug",
             action="store_true",
             help="A bit more printing on errors",
+        )
+        cli_parser.add_argument(
+            "--clearcache",
+            action="store_true",
+            help="Clears the cache, the app log and the warnings log",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
@@ -4886,7 +4893,7 @@ if __name__ == "__main__":
             debug_mode_str = "*** DEBUG MODE ENABLED ***"
 
         logging.basicConfig(
-            filename=Path(tempfile.gettempdir()) / "tuiweathergirl.log",
+            filename=LOGFILENAME,
             level=LOGLEVEL,
             format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
         )
@@ -4912,11 +4919,23 @@ if __name__ == "__main__":
                 f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Run the app with --help"
             )
 
+        # This is nice to have, but not mandatory
         nasafirms_apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
         if not nasafirms_apikey:
             print(
                 f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get fires disasters information. Run the app with --help"
             )
+
+        if cli_arguments.get("clearcache"):
+            cache: CacheManager = CacheManager()
+            cache.delete()
+            warnings: WarningsManager = WarningsManager()
+            warnings.delete()
+            if LOGFILENAME.exists():
+                LOGFILENAME.unlink()
+                LOGFILENAME.touch()
+            print("Cache deleted, warnings log deleted, logfile reset.")
+            sys.exit(0)
 
         print("\nPlease wait while loading... (might take a while)\n")
 
@@ -4961,20 +4980,32 @@ if __name__ == "__main__":
         weather_girl.present(view_name)
 
         print(
-            f"TUIWEATHERGIRL {APPVERSION} -Your daily terminal weathergirl- by Evgueni Antonov (StrayF) 2026."
+            f"TUIWEATHERGIRL {APPVERSION} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
         )
         print("For help: tuiweathergirl --help")
         print("Cast Spells!")
 
     except Exception as e:
-        print(
-            f"\nTUIWEATHERGIRL {APPVERSION} =============================================[ EXCEPTION ]"
+        title: str = (
+            f"TUIWEATHERGIRL {APPVERSION} =============================================[ EXCEPTION ]"
         )
+        print(f"\n{title}")
         print(e)
+
+        logging.basicConfig(
+            filename=LOGFILENAME,
+            level=logging.INFO,
+            format="[%(asctime)s][%(levelname)s] %(message)s",
+        )
+
+        logger = logging.getLogger("__main__")
+        logger.info(title)
+        logger.info(e)
 
         if DEBUG_MODE:
             print(
                 "\n---------------------------------------------------------------[ STACKTRACE ]"
             )
             traceback.print_exc()
+
         sys.exit(1)
