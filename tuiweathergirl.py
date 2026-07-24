@@ -21,7 +21,7 @@ import textwrap
 import time
 import traceback
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PosixPath
 from pprint import pformat as pf
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -130,8 +130,8 @@ class APIIssues:
 
 
 # Yes, I know you have questions by looking at this.
-# No worries. I have questions too lol
-tech_events_in_history: list[str] = [
+# No worries. I have questions too.
+facts_sheet: list[str] = [
     "1948-01-01: Konrad Zuse completes Plankalkül, the earliest high-level non-von Neumann programming language.",
     "1949-01-01: John Mauchly proposes Short Code, the first electronic programming language for computers.",
     "1952-01-01: Alick Glennie develops Autocode, considered the first compiled programming language.",
@@ -191,6 +191,57 @@ tech_events_in_history: list[str] = [
     "2015-07-29: Microsoft launches Windows 10, introducing Windows as a Service and unified desktop UI.",
     "2016-02-08: Andrew Kelley creates Zig, a modern systems programming language designed to replace C.",
     "2021-10-05: Microsoft releases Windows 11 with a centered taskbar design and strict TPM 2.0 requirements.",
+    "1969-09-13 Scooby-Doo, Where Are You! premiered on CBS.",
+    "1969 Scooby-Doo was created by Joe Ruby and Ken Spears for Hanna-Barbera, with development overseen by exec.Fred Silverman.",
+    "1969 Iwao Takamoto designed the main character Scooby-Doo and established his distinctive appearance.",
+    "1969 Iwao Takamoto designed the visual appearances of Daphne Blake, Velma Dinkley, Fred Jones, and Shaggy Rogers.",
+    "1969 The Mystery Machine first appeared as the team's iconic van in Scooby-Doo, Where Are You!.",
+    "1969 The Mystery Machine was designed by Hanna-Barbera's production artists as part of the OG series.",
+    "1969-09-13 Daphne Blake made her first appearance in the premiere episode of Scooby-Doo, Where Are You!.",
+    "1969-09-13 Velma Dinkley made her first appearance in the premiere episode of Scooby-Doo, Where Are You!.",
+    "1969-09-13 Fred Jones made his first appearance in the premiere episode of Scooby-Doo, Where Are You!.",
+    "1969-09-13 Shaggy Rogers made his first appearance in the premiere episode of Scooby-Doo, Where Are You!.",
+    "1969-09-13 Scooby-Doo made his first appearance in the premiere episode of Scooby-Doo, Where Are You!.",
+    "1984-03-01 Clive Barker: Books of Blood Vol. 1 book published",
+    "1985-11-01 Clive Barker: The Damnation Game book published",
+    "1986-11-01 Clive Barker: The Hellbound Heart book published",
+    "1987-05-01 Clive Barker: Weaveworld book published",
+    "1988-09-02 Clive Barker: Hellraiser movie released",
+    "1988-11-01 Clive Barker: Cabal book published",
+    "1989-10-01 Clive Barker: The Great and Secret Show book published",
+    "1990-02-16 Clive Barker: Nightbreed movie released",
+    "1991-10-01 Clive Barker: Imajica book published",
+    "1992-05-01 Clive Barker: Candyman movie released",
+    "1994-10-01 Clive Barker: Everville book published",
+    "1995-10-01 Clive Barker: Sacrament book published",
+    "1996-10-01 Clive Barker: The Thief of Always book published",
+    "1998-10-01 Clive Barker: Galilee book published",
+    "2001-10-01 Clive Barker: Coldheart Canyon book published",
+    "2002-10-11 Clive Barker: Saint Sinner movie released",
+    "2004-10-01 Clive Barker: Abarat: Days of Magic, Nights of War book published",
+    "2007-10-01 Clive Barker: Mister B. Gone book published",
+    "2009-10-01 Clive Barker: Abarat: Absolute Midnight book published",
+    "2009-10-23 Clive Barker: Book of Blood movie released",
+    "2015-05-19 Clive Barker: The Scarlet Gospels book published",
+    "2020-09-02 Clive Barker: Books of Blood movie released",
+    "1935-01-08 Elvis Aaron Presley was born in Tupelo, Mississippi.",
+    "1948-11-06 Elvis moved with his family to Memphis, Tennessee, shaping his musical influences.",
+    "1953-07-18 Elvis recorded his first demo at Sun Studio as a gift for his mother.",
+    "1954-07-05 Elvis recorded 'That's All Right,' launching his professional music career.",
+    "1955-11-21 Elvis signed with RCA Records, greatly expanding his national fame.",
+    "1956-01-01 Carl Perkins released 'Blue Suede Shoes,' a major early rockabilly hit.",
+    "1956-01-27 Elvis released 'Heartbreak Hotel,' his first No. 1 pop hit.",
+    "1956-01-30 Elvis recorded 'Blue Suede Shoes' at RCA Studios in New York.",
+    "1956-03-23 Elvis released debut album 'Elvis Presley' featuring 'Blue Suede Shoes.'",
+    "1956-03-26 Elis began filming his first movie, 'Love Me Tender.'",
+    "1956-08-31 RCA released Elvis' 'Blue Suede Shoes' single version.",
+    "1957-03-25 Elvis purchased Graceland mansion in Memphis.",
+    "1958-03-24 Elvis entered the U.S. Army and served in Germany.",
+    "1967-05-01 Elvis married Priscilla Beaulieu in Las Vegas.",
+    "1977-08-16 Elvis Presley died at Graceland in Memphis at age 42.",
+    "1511 Hernán Cortés participated in the Spanish conquest of Cuba under Diego Velázquez.",
+    "1519-11-14 Hernán Cortés captured Aztec ruler Moctezuma II during Spanish occupation.",
+    "1521-08-13 Hernán Cortés captured Tenochtitlan after a long siege, ending the Aztec Empire.",
 ]
 
 
@@ -943,10 +994,10 @@ class WarningsManager:
         self.home_location: str = ""
 
         if os.name == "nt":
-            self.filename = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+            self.filename: PosixPath = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
 
     def delete(self) -> None:
-        full_path = Path(self._filename).expanduser()
+        full_path: PosixPath = Path(self._filename).expanduser()
         if full_path.exists():
             full_path.unlink()
 
@@ -973,7 +1024,7 @@ class WarningsManager:
             self._messages = []
 
     def _load(self) -> None:
-        full_path = Path(self._filename).expanduser()
+        full_path: PosixPath = Path(self._filename).expanduser()
         if not full_path.exists():
             return []
 
@@ -982,7 +1033,7 @@ class WarningsManager:
             self._messages = [row for row in list(reader) if len(row) == self.RECLEN]
 
     def _save(self) -> None:
-        full_path = Path(self._filename).expanduser()
+        full_path: PosixPath = Path(self._filename).expanduser()
         with open(full_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerows(self._messages)
@@ -1006,6 +1057,8 @@ class WarningsManager:
         location: str = "",
         label: str = "general",
         message: str = "No warnings at the moment. All quiet.",
+        ogdate: str = None,
+        ogtime: str = None,
     ) -> None:
         """Append and save all messages"""
 
@@ -1035,6 +1088,11 @@ class WarningsManager:
             label.upper(),
             message,
         ]
+
+        # Preserving original date and time, if needed
+        if ogdate and ogtime:
+            message_entry[0] = ogdate
+            message_entry[1] = ogtime
 
         # Appending, if not a duplicate or if no previous messages
         if len(self._messages) == 0 or (
@@ -1977,7 +2035,7 @@ class CacheManager:
     """
 
     def __init__(self) -> None:
-        self.filename: str = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
+        self.filename: PosixPath = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
         self.loaded: bool = False
         self._data: dict[str, Any] = {}
 
@@ -2045,9 +2103,7 @@ class CacheManager:
 
     def delete(self) -> None:
         """Deletes the cache."""
-
-        cachefile: Path = Path(self.cachefilename)
-        cachefile.unlink(missing_ok=True)
+        self.filename.unlink(missing_ok=True)
 
 
 class Configuration:
@@ -4646,7 +4702,7 @@ class DashboardView(ColorViews):
                 now: datetime = datetime.now()
                 date_str: str = now.strftime("%Y-%m-%d")
 
-                stuff: str = pick_one(tech_events_in_history)
+                stuff: str = pick_one(facts_sheet)
                 stuff = f"FACT: {stuff}"
                 if date_str in self.config.holidays:
                     stuff = self.config.holidays[date_str].split("#")[1]
