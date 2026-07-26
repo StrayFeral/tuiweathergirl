@@ -314,10 +314,14 @@ class MainTheme(Theme):
 class ThemePalette:
     def __init__(self) -> None:
         self.palette: dict[str, Theme] = {"main": MainTheme()}
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
     def get_theme(self, themename: str = "main") -> Theme:
         if themename not in self.palette:
             raise ValueError(f"Invalid theme name '{themename}'.")
+        self.logger.info(f"Theme: '{themename}' is now set")
         return self.palette[themename]
 
     def init_colors(self) -> None:
@@ -535,6 +539,13 @@ class Window:
 
         self.inner_height: int = self.height
         self.inner_width: int = self.width
+
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+        self.logger.debug(
+            f"Window {self.column_num}-{self.column_len+1} [{self.title}]; Coord: {self.x},{self.y}, Dimensions: {self.width},{self.height}"
+        )
 
         if self.border:
             self.inner_height = self.height - 2
@@ -994,7 +1005,9 @@ class WarningsManager:
         self.home_location: str = ""
 
         if os.name == "nt":
-            self.filename: PosixPath = Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+            self.filename: PosixPath = (
+                Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+            )
 
     def delete(self) -> None:
         full_path: PosixPath = Path(self._filename).expanduser()
@@ -1133,11 +1146,13 @@ class Astronomer:
     ) -> dict[str, str]:
         """Fetches sunrise and sunset for today in UTC."""
 
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        logger.debug(f"URL={url}")
 
         data = requests.get(url, timeout=REQTIMEOUT).json()
-        logger.debug(f"[{self.__class__.__name__}] JSONDATA={pf(data)}")
+        logger.debug(f"JSONDATA={pf(data)}")
         if data["status"] == "OK":
             # Format: 2026-05-04T04:12:34+00:00
             sunrise: str = data["results"]["sunrise"][11:16]
@@ -1246,6 +1261,8 @@ class Bulgarian:
         today or yesterday.
         """
 
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         now: datetime = datetime.now()
         yesterday: datetime = now - timedelta(days=1)
 
@@ -1282,12 +1299,12 @@ class Bulgarian:
             url: str = (
                 f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{month}/{day}"
             )
-            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            logger.debug(f"URL={url}")
 
             response: requests.Response = requests.get(
                 url, headers=headers, timeout=REQTIMEOUT
             )
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code != 200:
                 continue
 
@@ -1320,13 +1337,15 @@ class AllergyAndUVAdvisor:
     """Pollen (Trees/Grass) and UV (Sun Allergy) advisor"""
 
     def advise(self, lat: str, lon: str) -> list[str]:
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pollen_index_tree,pollen_index_grass,pollen_index_weed,uv_index&timezone=auto"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        logger.debug(f"URL={url}")
 
         warnings: list[str] = []
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1360,6 +1379,11 @@ class AllergyAndUVAdvisor:
 class SpaceWeatherAdvisor:
     """NOAA advisories"""
 
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+
     def get_geomagnetic_scales(self) -> dict[str, any]:
         """Fetches the active categorical NOAA scales (G, S, R)"""
 
@@ -1381,11 +1405,11 @@ class SpaceWeatherAdvisor:
         url: str = "https://services.swpc.noaa.gov/products/noaa-scales.json"
         # fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
         fallback: dict = {"G": [0, 0], "S": [0, 0], "R": [0, 0]}
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         try:
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            self.logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
 
@@ -1425,10 +1449,10 @@ class SpaceWeatherAdvisor:
         # at least to my understanding
 
         url: str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
         try:
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            self.logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -1599,6 +1623,10 @@ class DisasterAdvisor:
     """Monitors the national disasters"""
 
     def __init__(self, **kwargs) -> None:
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+
         # Controlling which types of disasters we want monitored
         # Default - we monitor everything
         self.earthquake: bool = True
@@ -1674,10 +1702,10 @@ class DisasterAdvisor:
 
         disasters: list[list[str]] = []
         url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1759,12 +1787,12 @@ class DisasterAdvisor:
         fire_list: list[str] = []
 
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{apikey}/VIIRS_NOAA21_NRT/{lonn-1},{latt-1},{lonn+1},{latt+1}/1"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT).text.split(
             "\n"
         )
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
 
         for line in response[1:]:  # Skipping the CSV header
             if not line:
@@ -1843,10 +1871,10 @@ class DisasterAdvisor:
 
         quakes: list[list[str]] = []
         url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}&maxradiuskm=200&minmagnitude=2.5"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1889,10 +1917,10 @@ class DisasterAdvisor:
             "https://ssd-api.jpl.nasa.gov/fireball.api?date-start="
             + start_of_yesterday.strftime("%Y-%m-%d")
         )
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
 
@@ -1939,12 +1967,14 @@ class ElectrostaticAdvisor:
         Source: NOAA GOES Primary X-ray Flux
         """
 
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         # This endpoint provides the 1-minute data for the last 24 hours
         url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        logger.debug(f"URL={url}")
         try:
             response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data: requests.Response = response.json()
                 # Get the very last measurement
@@ -2000,6 +2030,8 @@ class HolidaysManager:
         HOME's country code.
         """
 
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         new_holidays: dict[str, str] = {}
 
         # Holidays data
@@ -2018,9 +2050,9 @@ class HolidaysManager:
             year = datetime.now().year
 
         url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code2.upper()}"
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        logger.debug(f"URL={url}")
         data = requests.get(url, timeout=REQTIMEOUT).json()
-        logger.debug(f"[{self.__class__.__name__}] JSONDATA={pf(data)}")
+        logger.debug(f"JSONDATA={pf(data)}")
         for holiday in data:
             new_holidays[holiday["date"]] = (
                 f"{holiday["countryCode"]}{separator}{holiday["name"]}"
@@ -2035,9 +2067,14 @@ class CacheManager:
     """
 
     def __init__(self) -> None:
-        self.filename: PosixPath = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
+        self.filename: PosixPath = (
+            Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
+        )
         self.loaded: bool = False
         self._data: dict[str, Any] = {}
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
     def register(self, name: str, instance: any) -> None:
         """Register a client object that needs caching."""
@@ -2084,6 +2121,7 @@ class CacheManager:
                 )
 
         self.loaded = True
+        self.logger.info("Cache loaded")
 
     def save(self) -> None:
         """Saves the cache."""
@@ -2101,9 +2139,12 @@ class CacheManager:
         with open(cachefile, "wb") as f:
             pickle.dump(payload, f)
 
+        self.logger.info("Cache saved")
+
     def delete(self) -> None:
         """Deletes the cache."""
         self.filename.unlink(missing_ok=True)
+        self.logger.info("Cache deleted")
 
 
 class Configuration:
@@ -2136,6 +2177,10 @@ class Configuration:
 
         if os.name == "nt":
             self.filename = "~/tuiweathergirl.ini"
+
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
     @property
     def country(self) -> str:
@@ -2261,6 +2306,8 @@ Timezone: {self.timezone}"""
         with open(full_path, "w") as configfile:
             config.write(configfile)
 
+        self.logger.info("Config saved")
+
     def load(self) -> None:
         r"""Read the configuration from the config file"""
 
@@ -2305,6 +2352,8 @@ Timezone: {self.timezone}"""
                     "timezone": config[index]["timezone"],
                 }
                 self.followcities.append(city)
+
+        self.logger.info("Config loaded")
 
     def follow_city(self, city: str, country: str) -> None:
         for city_entry in self.followcities:
@@ -2723,6 +2772,9 @@ class Locator:
 
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
     def convert_to_country_code2(self, country_code3: str):
         """Converts a 3-letter country code to a 2-letter country code"""
@@ -2739,6 +2791,8 @@ class Locator:
     def config(
         self, config: Configuration, city: str = "", country: str = ""
     ) -> None | dict[str | int]:
+        logger.debug("Locator is running")
+
         if city == "" or country == "":
             # Attempt auto-location
 
@@ -2746,10 +2800,10 @@ class Locator:
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
                 "&lang=en"
             )
-            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            self.logger.debug(f"URL={url}")
 
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            self.logger.debug(f"RESPONSE={pf(response)}")
 
             if not response:
                 raise Exception(
@@ -2788,12 +2842,12 @@ class Locator:
             url: str = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             )
-            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            self.logger.debug(f"URL={url}")
 
             response: requests.Response = requests.get(
                 url, headers=headers, timeout=REQTIMEOUT
             )
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            self.logger.debug(f"RESPONSE={pf(response)}")
 
             if not response.ok:
                 raise Exception(
@@ -2821,10 +2875,10 @@ class Locator:
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
-            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            self.logger.debug(f"URL={url}")
 
             response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            self.logger.debug(f"RESPONSE={pf(response)}")
             self.tzapi_calls += 1
 
             if not response.ok:
@@ -2914,11 +2968,13 @@ class Motivator:
     def get_motivation() -> list[str]:
         r"""Fetches a random inspirational quote from Quotable API."""
 
+        logger = logging.getLogger(f"{__class__.__qualname__}")
+
         try:
             url: str = "https://zenquotes.io/api/random"
-            logger.debug(f"[{self.__class__.__name__}] URL={url}")
+            logger.debug(f"URL={url}")
             response = requests.get(url, timeout=REQTIMEOUT)
-            logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+            logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -3007,6 +3063,9 @@ class WeatherForecaster:
     def __init__(self, config: Configuration) -> None:
         self.config = config
         self.locale_id = f"{config.language}_{config.country_code2}"
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
     def __get_wind_direction(self, degrees: float) -> str:
         dirs = [
@@ -3285,10 +3344,10 @@ class WeatherForecaster:
             f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
             f"&forecast_days=8"
         )
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
             raise Exception(
@@ -3310,10 +3369,10 @@ class WeatherForecaster:
             f"&timezone={timezones.replace('/', '%2F')}"
             f"&temperature_unit={tunit}"
         )
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
             raise Exception(
@@ -3330,10 +3389,10 @@ class WeatherForecaster:
             f"https://air-quality-api.open-meteo.com/v1/air-quality?"
             f"latitude={lat}&longitude={lon}&current=us_aqi"
         )
-        logger.debug(f"[{self.__class__.__name__}] URL={url}")
+        self.logger.debug(f"URL={url}")
 
         response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"[{self.__class__.__name__}] RESPONSE={pf(response)}")
+        self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
             raise Exception(
@@ -3742,6 +3801,10 @@ class Views:
         self.height: int | None = None
         self.width: int | None = None
 
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+
     def prog_bar(self, percent: int, maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
         percent = max(0, min(100, percent))
@@ -4028,6 +4091,8 @@ class SetupView(Views):
     r"""Prints the setup"""
 
     def display(self) -> None:
+        self.logger.info("View is running")
+
         # Data to display
         city: str = self.config.city
         province: str = self.presconf.province
@@ -4057,6 +4122,8 @@ class BasicView(Views):
     r"""Just prints"""
 
     def display(self) -> None:
+        self.logger.info("View is running")
+
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
@@ -4138,6 +4205,8 @@ class MotivationalView(Views):
     r"""Just prints"""
 
     def display(self) -> None:
+        self.logger.info("View is running")
+
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
@@ -4235,6 +4304,8 @@ class DashboardView(ColorViews):
         stdscr.timeout(1000)  # Wait 1 second
 
     def screen(self, stdscr: curses.window) -> None:  # DEBUG:
+        self.logger.info("View is running")
+
         theme_palette: ThemePalette = ThemePalette()
         theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
@@ -4821,6 +4892,11 @@ class ParseCommandline:
 
 
 class LocationManager:
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+
     def set_home(self, citynum: int, config: Configuration) -> None:
         r"""Change home city"""
 
@@ -4890,6 +4966,7 @@ class LocationManager:
 
         config.save()  # Update config
         print(f"Home city is now set to: {config.city}, {config.country}")
+        self.logger.info(f"Home city changed to: {config.city}, {config.country}")
         sys.exit(0)
 
     def remove_city(self, citynum: int, config: Configuration) -> None:
@@ -4912,6 +4989,8 @@ class LocationManager:
         # print(f"Removed city: {city}, {country}")
         # sys.exit(0)
 
+        self.logger.info(f"City {citynum} is unfollowed")
+
     def add_city(self, city: str, country: str, config: Configuration) -> None:
         r"""Add a new city to follow"""
 
@@ -4932,6 +5011,8 @@ class LocationManager:
                 }  # Update values
         config.save()  # Update config
 
+        self.logger.info(f"Followed new city: {city}, {country}")
+
 
 # ================================================================[ MAIN LOOP ]
 if __name__ == "__main__":
@@ -4951,13 +5032,14 @@ if __name__ == "__main__":
         logging.basicConfig(
             filename=LOGFILENAME,
             level=LOGLEVEL,
-            format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
+            # format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
+            format="[%(asctime)s][%(levelname)s][%(name)s][%(funcName)s] %(message)s",
         )
 
         logger = logging.getLogger(__name__)
         logger.info("")
         logger.info(
-            " ===================================================== NEW SESSION"
+            " ===================================================== SESSION START"
         )
         logger.info(f" TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
         logger.info(debug_mode_str)
@@ -5041,6 +5123,10 @@ if __name__ == "__main__":
         print("For help: tuiweathergirl --help")
         print("Cast Spells!")
 
+        logger.info(
+            " ===================================================== SESSION END"
+        )
+
     except Exception as e:
         title: str = (
             f"TUIWEATHERGIRL {APPVERSION} =============================================[ EXCEPTION ]"
@@ -5048,20 +5134,14 @@ if __name__ == "__main__":
         print(f"\n{title}")
         print(e)
 
-        logging.basicConfig(
-            filename=LOGFILENAME,
-            level=logging.INFO,
-            format="[%(asctime)s][%(levelname)s] %(message)s",
-        )
-
-        logger = logging.getLogger("__main__")
-        logger.info(title)
-        logger.info(e)
+        logger = logging.getLogger(__name__)
 
         if DEBUG_MODE:
-            print(
-                "\n---------------------------------------------------------------[ STACKTRACE ]"
+            title2: str = (
+                "---------------------------------------------------------------[ STACKTRACE ]"
             )
+            print(f"\n{title2}")
             traceback.print_exc()
+            logger.exception("---------------------------------- EXCEPTION")
 
         sys.exit(1)
