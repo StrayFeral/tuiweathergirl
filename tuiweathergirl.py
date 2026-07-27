@@ -36,7 +36,7 @@ from babel.languages import get_official_languages
 # and don't want to scroll too much to find them
 
 DEBUG_MODE: bool = False
-DEFAULT_VIEW: str = "color"
+DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
 APPVERSION: str = "1.0"
 MAX_CITIES: int = 10  # This includes the home city
@@ -155,6 +155,7 @@ facts_sheet: list[str] = [
     "1985-11-20: Microsoft launches Windows 1.0, its first graphical GUI environment layer for MS-DOS.",
     "1987-12-18: Larry Wall releases Perl 1.0, a powerful text processing and system administration language.",
     "1990-04-01: A committee defines Haskell 1.0, a purely functional programming language named after Curry.",
+    "1990-09-03: Scream Tracker 2.21 released by Sami Tammilehto, a.k.a Psi of Future Crew.",
     "1991-02-20: Guido van Rossum publishes Python 0.9.0, focusing on code readability and clean syntax.",
     "1991-05-01: Microsoft releases Visual Basic 1.0, revolutionizing rapid application GUI development.",
     "1991-09-17: Linus Torvalds uploads the first Linux kernel (version 0.01) to an FTP server.",
@@ -164,6 +165,7 @@ facts_sheet: list[str] = [
     "1993-08-01: Ian Murdock releases Debian 0.90, laying the groundwork for one of Linux's largest distros.",
     "1993-08-01: Ross Ihaka and Robert Gentleman release R, designed for statistical computing and graphics.",
     "1994-11-03: Red Hat Linux 1.0 ('Mother's Day') is released, laying the foundation for RHEL.",
+    "1994-12-06: Scream Tracker 3.21 released by Sami Tammilehto, a.k.a Psi of Future Crew.",
     "1995-06-08: Rasmus Lerdorf releases PHP, initially designed as Personal Home Page Tools for dynamic web.",
     "1995-08-24: Microsoft releases Windows 95, introducing the modern Start menu, Taskbar, and Explorer UI.",
     "1995-12-04: Netscape and Sun announce JavaScript, created in 10 days by Brendan Eich for browsers.",
@@ -268,7 +270,7 @@ class Theme:
         self._last_dim: bool = False
 
     def on(self, win: curses.window, attr: str | int | None, **kwargs) -> None:
-        if attr == None:
+        if attr is None:
             attr = "general"
 
         dim: bool = kwargs.get("dim", False)
@@ -830,7 +832,7 @@ class LayoutManager:
 
         If width is None, it will assume the whole remaining width."""
 
-        if width == None:
+        if width is None:
             width = self.layout.maxx - self.layout.xmargin * 2
             if len(self.layout.columns) > 0:
                 width = self.layout.maxx - (
@@ -1320,7 +1322,10 @@ class Bulgarian:
                 text: str = event.get("text", "")
                 year: str = event.get("year", "Unknown")
 
-                if int(year) < 681:  # Bulgaria was found in 681AD
+                # Bulgaria was found in 681AD
+                # and was a communist country from 1944 until 1989
+                # so we skip this period
+                if int(year) < 681 or 1944 < int(year) < 1989:
                     continue
 
                 # Check if the event matches our Bulgarian history keywords
@@ -1738,7 +1743,7 @@ class DisasterAdvisor:
             # At this point we have a location of interest
             # but do we monitor this type of disasters?
             label: str = event_types[feature["properties"]["eventtype"]]
-            if not getattr(self, label):
+            if not hasattr(self, label):
                 continue
 
             source: str = feature["properties"]["source"]
@@ -4872,6 +4877,11 @@ class ParseCommandline:
             action="store_true",
             help="Clears the cache, the app log and the warnings log",
         )
+        cli_parser.add_argument(
+            "--requesttimeout",
+            type=int,
+            help=f"Changes the request timeout (default: {REQTIMEOUT})",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
@@ -5045,6 +5055,10 @@ if __name__ == "__main__":
         logger.info(debug_mode_str)
         logger.info("")
 
+        if not cli_arguments["requesttimeout"] is None:
+            REQTIMEOUT = cli_arguments["requesttimeout"]
+        logger.info(f"Request timeout: {REQTIMEOUT} seconds")
+
         view_name: str = cli_arguments.get("view")
 
         if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
@@ -5064,7 +5078,7 @@ if __name__ == "__main__":
                 f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get fires disasters information. Run the app with --help"
             )
 
-        if cli_arguments.get("clearcache"):
+        if cli_arguments["clearcache"]:
             cache: CacheManager = CacheManager()
             cache.delete()
             warnings: WarningsManager = WarningsManager()
@@ -5092,19 +5106,19 @@ if __name__ == "__main__":
         config.load()
 
         # Location management
-        if cli_arguments.get("newcity"):
+        if cli_arguments["newcity"]:
             view_name = "setup"
             location_manager.add_city(
                 cli_arguments["newcity"], cli_arguments["country"], config
             )
             cache = CacheManager()
             cache.delete()
-        if cli_arguments.get("removecity"):
+        if cli_arguments["removecity"]:
             view_name = "setup"
             location_manager.remove_city(cli_arguments["removecity"], config)
             cache = CacheManager()
             cache.delete()
-        if cli_arguments.get("homecity"):
+        if cli_arguments["homecity"]:
             view_name = "setup"
             location_manager.set_home(cli_arguments["homecity"], config)
             cache = CacheManager()
