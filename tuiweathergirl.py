@@ -5009,6 +5009,7 @@ class DashboardView(ColorViews):
                 # Screen labels
                 # About
                 title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
+                title_window.print("-= Weather and Disaster Station =-", align="center")
                 title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
                 # Home location
                 # location_window.print(f" Home: {city}, {province}{country}", theme="home")
