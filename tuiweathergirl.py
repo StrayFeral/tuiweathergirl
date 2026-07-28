@@ -246,6 +246,234 @@ facts_sheet: list[str] = [
     "1521-08-13 Hernán Cortés captured Tenochtitlan after a long siege, ending the Aztec Empire.",
 ]
 
+SEASONAL_DATA: dict[str, dict[int, dict[str, list[str]]]] = {
+    "mediterranean": {
+        1: {
+            "veggies": ["Cabbage", "Kale", "Leeks", "Carrots", "Spinach"],
+            "fruits": ["Oranges", "Mandarins", "Lemons", "Grapefruit"],
+        },
+        2: {
+            "veggies": ["Broccoli", "Cauliflower", "Radishes", "Chard"],
+            "fruits": ["Oranges", "Mandarins", "Lemons"],
+        },
+        3: {
+            "veggies": ["Asparagus", "Artichokes", "Spring Onions", "Peas"],
+            "fruits": ["Strawberries", "Lemons"],
+        },
+        4: {
+            "veggies": ["Asparagus", "Broad Beans", "Lettuce", "Radishes"],
+            "fruits": ["Strawberries", "Loquats"],
+        },
+        5: {
+            "veggies": ["Zucchini", "Cucumbers", "Green Beans", "Fennel"],
+            "fruits": ["Cherries", "Apricots", "Strawberries"],
+        },
+        6: {
+            "veggies": ["Tomatoes", "Zucchini", "Cucumbers", "Bell Peppers"],
+            "fruits": ["Peaches", "Nectarines", "Cherries", "Apricots"],
+        },
+        7: {
+            "veggies": [
+                "Pink Tomatoes",
+                "Cucumbers",
+                "Bell Peppers",
+                "Eggplants",
+                "Zucchini",
+            ],
+            "fruits": ["Watermelon", "Melon", "Peaches", "Plums", "Figs"],
+        },
+        8: {
+            "veggies": [
+                "Tomatoes",
+                "Red Kapiya Peppers",
+                "Eggplants",
+                "Sweet Corn",
+                "Okra",
+            ],
+            "fruits": ["Watermelon", "Figs", "Peaches", "Table Grapes", "Blackberries"],
+        },
+        9: {
+            "veggies": [
+                "Roasting Peppers",
+                "Tomatoes",
+                "Pumpkins",
+                "Green Beans",
+            ],
+            "fruits": ["Grapes", "Fresh Figs", "Plums", "Pears", "Apples"],
+        },
+        10: {
+            "veggies": ["Squash", "Pumpkins", "Beetroot", "Cabbage", "Carrots"],
+            "fruits": ["Apples", "Pears", "Pomegranates", "Persimmons", "Quince"],
+        },
+        11: {
+            "veggies": ["Cauliflower", "Broccoli", "Spinach", "Turnips"],
+            "fruits": ["Pomegranates", "Persimmons", "Oranges", "Clementines"],
+        },
+        12: {
+            "veggies": ["Brussels Sprouts", "Cabbage", "Leeks", "Parsnips"],
+            "fruits": ["Oranges", "Mandarins", "Lemons", "Grapefruit"],
+        },
+    },
+    "temperate": {
+        1: {
+            "veggies": ["Parsnips", "Carrots", "Kale", "Leeks", "Potatoes"],
+            "fruits": ["Stored Apples", "Stored Pears"],
+        },
+        2: {
+            "veggies": ["Brussels Sprouts", "Cabbage", "Parsnips", "Turnips"],
+            "fruits": ["Stored Apples"],
+        },
+        3: {
+            "veggies": ["Forced Rhubarb", "Kale", "Purple Sprouting Broccoli"],
+            "fruits": ["Stored Apples"],
+        },
+        4: {
+            "veggies": ["Asparagus", "Rhubarb", "Radishes", "Spring Lettuce"],
+            "fruits": ["Rhubarb"],
+        },
+        5: {
+            "veggies": ["Asparagus", "Spinach", "Radishes", "Lettuce", "Peas"],
+            "fruits": ["Strawberries"],
+        },
+        6: {
+            "veggies": [
+                "Broad Beans",
+                "Peas",
+                "New Potatoes",
+                "Zucchini",
+                "Lettuce",
+            ],
+            "fruits": ["Strawberries", "Gooseberries", "Cherries"],
+        },
+        7: {
+            "veggies": ["Tomatoes", "Cucumbers", "Green Beans", "Sweet Corn"],
+            "fruits": [
+                "Raspberries",
+                "Blackberries",
+                "Blueberries",
+                "Cherries",
+            ],
+        },
+        8: {
+            "veggies": [
+                "Sweet Corn",
+                "Tomatoes",
+                "Zucchini",
+                "Beetroot",
+                "Carrots",
+            ],
+            "fruits": ["Plums", "Peaches", "Blackberries", "Early Apples"],
+        },
+        9: {
+            "veggies": ["Pumpkins", "Squash", "Carrots", "Onions", "Leeks"],
+            "fruits": ["Apples", "Pears", "Plums", "Grapes"],
+        },
+        10: {
+            "veggies": [
+                "Pumpkins",
+                "Winter Squash",
+                "Wild Mushrooms",
+                "Parsnips",
+            ],
+            "fruits": ["Apples", "Pears", "Cranberries"],
+        },
+        11: {
+            "veggies": ["Kale", "Leeks", "Brussels Sprouts", "Turnips"],
+            "fruits": ["Apples", "Pears"],
+        },
+        12: {
+            "veggies": ["Parsnips", "Cabbage", "Carrots", "Leeks"],
+            "fruits": ["Stored Apples"],
+        },
+    },
+    "tropical": {
+        # Equatorial region produce seasonal availability is driven mainly by wet/dry cycles
+        # Default harvest profile across equatorial zones:
+        month: {
+            "veggies": [
+                "Cassava",
+                "Sweet Potatoes",
+                "Taro Leaf",
+                "Okra",
+                "Watercress",
+            ],
+            "fruits": [
+                "Bananas",
+                "Papaya",
+                "Mangoes",
+                "Pineapple",
+                "Passion Fruit",
+                "Coconuts",
+            ],
+        }
+        for month in range(1, 13)
+    },
+    "arid_semiarid": {
+        # Dry zones (Middle East / North Africa / inland basins)
+        1: {
+            "veggies": ["Onions", "Garlic", "Cabbage"],
+            "fruits": ["Dates", "Citrus"],
+        },
+        2: {
+            "veggies": ["Carrots", "Radishes", "Spinach"],
+            "fruits": ["Citrus"],
+        },
+        3: {
+            "veggies": ["Fava Beans", "Peas"],
+            "fruits": ["Citrus", "Strawberries"],
+        },
+        4: {
+            "veggies": ["Cucumbers", "Zucchini"],
+            "fruits": ["Strawberries", "Early Melons"],
+        },
+        5: {
+            "veggies": ["Tomatoes", "Eggplants"],
+            "fruits": ["Melons", "Watermelon", "Apricots"],
+        },
+        6: {
+            "veggies": ["Peppers", "Eggplants", "Okra"],
+            "fruits": ["Watermelon", "Figs", "Grapes"],
+        },
+        7: {
+            "veggies": ["Okra", "Peppers", "Squash"],
+            "fruits": ["Dates", "Watermelon", "Figs"],
+        },
+        8: {
+            "veggies": ["Eggplants", "Peppers"],
+            "fruits": ["Fresh Dates", "Figs", "Grapes"],
+        },
+        9: {
+            "veggies": ["Tomatoes", "Cucumbers"],
+            "fruits": ["Dates", "Pomegranates"],
+        },
+        10: {
+            "veggies": ["Squash", "Onions"],
+            "fruits": ["Pomegranates", "Citrus"],
+        },
+        11: {
+            "veggies": ["Spinach", "Radishes"],
+            "fruits": ["Citrus", "Olives"],
+        },
+        12: {
+            "veggies": ["Leeks", "Carrots"],
+            "fruits": ["Citrus", "Dates"],
+        },
+    },
+}
+
+HEALTH_MOTIVATION: list[str] = [
+    "Did you hit your 10,000 steps today?",
+    "Drink a full glass of water right now to instantly boost your energy.",
+    "Take 5 deep breaths — let your shoulders drop and relax your posture.",
+    "Choose the stairs over the elevator for a quick mini-workout.",
+    "Stretch for just two minutes to wake up stiff muscles and improve blood flow.",
+    "Get outside for 10 minutes of fresh air and natural sunlight today.",
+    "Swap one sugary snack for a fresh piece of seasonal fruit.",
+    "Stand up and move around for two minutes every hour you sit at your desk.",
+    "Give your eyes a screen break: look 20 feet away for 20 seconds.",
+    "Aim for 7 to 8 hours of restful sleep tonight to let your body recover.",
+]
+
 
 # You probably have even more questions here.
 # Me too.
@@ -253,6 +481,38 @@ def pick_one(stuff: list[str]) -> str:
     if not stuff:
         raise ValueError("Empty source given.")
     return random.choice(stuff)
+
+
+class LocalProduceAdvisor:
+    # 5-degree coarse grid mapping: (snapped_lat, snapped_lon) -> climate_zone
+    COARSE_GRID: dict[tuple[int, int], str] = {
+        (40, 25): "mediterranean",  # Balkans / Greece
+        (45, 10): "mediterranean",  # N. Italy
+        (50, 10): "temperate",  # Central Europe
+        (25, 50): "arid_semiarid",  # Middle East
+        (10, 105): "tropical",  # SE Asia
+    }
+
+    @classmethod
+    def get_zone(cls, lat: float, lon: float) -> str:
+        snapped_lat = round(lat / 5.0) * 5
+        snapped_lon = round(lon / 5.0) * 5
+        return cls.COARSE_GRID.get((snapped_lat, snapped_lon), "temperate")
+
+    @classmethod
+    def get_seasonal_produce(
+        cls, lat: float, lon: float, month: int | None = None
+    ) -> dict[str, list[str]]:
+        if month is None:
+            month = datetime.now().month
+
+        zone = cls.get_zone(lat, lon)
+
+        # Invert months for Southern Hemisphere coordinates
+        if lat < 0:
+            month = (month + 5) % 12 + 1
+
+        return SEASONAL_DATA.get(zone, {}).get(month, {"veggies": [], "fruits": []})
 
 
 class Theme:
@@ -2176,9 +2436,7 @@ class ElectrostaticAdvisor:
                 else:
                     return f"X{flux_value/1e-4:.1f}"
         except Exception:
-            logger.error(
-                "Cannot get the X-ray flux (SWPC NOAA). Will try again later."
-            )
+            logger.error("Cannot get the X-ray flux (SWPC NOAA). Will try again later.")
 
         return "B1.0"  # Default/Quiet background
 
@@ -3046,15 +3304,11 @@ class Locator:
                 "User-Agent": USERAGENT,
                 "Accept-Language": "en",
             }
-            url = (
-                f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
-            )
+            url = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             self.logger.debug(f"URL={url}")
 
             try:
-                response = requests.get(
-                    url, headers=headers, timeout=config.reqtimeout
-                )
+                response = requests.get(url, headers=headers, timeout=config.reqtimeout)
             except Exception:
                 # Just making it more user-friendly
                 raise Exception(
@@ -3456,7 +3710,9 @@ class WeatherForecaster:
             return "Storm"
         return "Precip"
 
-    def __is_daytime(self, lat: str | float, lon: str | float, dt: datetime | None = None) -> bool:
+    def __is_daytime(
+        self, lat: str | float, lon: str | float, dt: datetime | None = None
+    ) -> bool:
         """
         Calculates if it is daytime at a specific coordinate and time
         without using external APIs.
@@ -3758,11 +4014,11 @@ class WeatherForecaster:
             future_motivation = executor.submit(
                 Motivator.get_motivation, self.config.reqtimeout
             )
-            future_fact = executor.submit(
-                bulgarian.get_history_fact,
-                self.config.reqtimeout,
-                additional_fact_country,
-            )
+            # future_fact = executor.submit(
+            #     bulgarian.get_history_fact,
+            #     self.config.reqtimeout,
+            #     additional_fact_country,
+            # )
             future_sun_times = executor.submit(
                 astronomer.get_sun_times,
                 self.config.lat,
@@ -3830,7 +4086,7 @@ class WeatherForecaster:
                 self.config.holidays = new_holidays
                 self.config.save()
 
-            history_fact: str = future_fact.result()
+            # history_fact: str = future_fact.result()
 
             celestial: dict[str, any] = {
                 "sun": future_sun_times.result(),  # dict[str, str]
@@ -3839,14 +4095,14 @@ class WeatherForecaster:
                 "moon": astronomer.get_moon_phase(),  # str
             }
 
-            if history_fact == "":  # More motivation. Because why not?
-                history_fact = f"'{motivation[0]}' //{motivation[1]}"
-            fact_paragraph: TextParagraph = TextParagraph(history_fact)
+            # if history_fact == "":  # More motivation. Because why not?
+            #     history_fact = f"'{motivation[0]}' //{motivation[1]}"
+            # fact_paragraph: TextParagraph = TextParagraph(history_fact)
 
-            history_fact: dict[str, date | TextParagraph] = {
-                "date": date.today(),
-                "text": fact_paragraph,
-            }
+            # history_fact: dict[str, date | TextParagraph] = {
+            #     "date": date.today(),
+            #     "text": fact_paragraph,
+            # }
 
             # Apply data
             # ----------
@@ -3943,9 +4199,17 @@ class WeatherForecaster:
             # Misc
             # ----
             # weather_data.misc_data["motivation"] = motivation
-            weather_data.misc_data["histfact"] = history_fact
+            # weather_data.misc_data["histfact"] = history_fact
             weather_data.misc_data["celestial"] = celestial
             weather_data.misc_data["misc"] = stuff
+            weather_data.misc_data["seasonals"] = (
+                LocalProduceAdvisor.get_seasonal_produce(
+                    lat=float(self.config.lat),
+                    lon=float(self.config.lon),
+                    month=datetime.now().month,
+                )
+            )
+            weather_data.misc_data["health_motivation"] = pick_one(HEALTH_MOTIVATION)
 
             humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
             storm_warning: str = self.get_storm_warning(
@@ -4612,7 +4876,8 @@ class DashboardView(ColorViews):
         title_window_height: int = 3
         forecast_window_height: int = 6
         followcities_window_height: int = 12
-        history_window_height: int = 4
+        # history_window_height: int = 4
+        healthy_window_height: int = 4
         default_text_indent: int = 1
         labels_x: int = default_text_indent
         data_x: int = labels_x + 8
@@ -4709,11 +4974,18 @@ class DashboardView(ColorViews):
                     height=warnings_window_height,
                     border=True,
                 )
-                history_window = layout_manager.add_window(
+                # history_window = layout_manager.add_window(
+                #     column_num=0,
+                #     overlap=2,
+                #     title="On This Day",
+                #     height=history_window_height,
+                #     border=True,
+                # )
+                healthy_window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
-                    title="On This Day",
-                    height=history_window_height,
+                    title="Healthy Living",
+                    height=healthy_window_height,
                     border=True,
                 )
                 celestial_window = layout_manager.add_window(
@@ -5035,15 +5307,15 @@ class DashboardView(ColorViews):
                         ),
                     )
 
-                if "histfact" in self.data.misc_data:
-                    history_window.clear()
-                    history_window.print(
-                        self.data.misc_data["histfact"]["text"],
-                        align="center",
-                        x=0,
-                        y=0,
-                        maxlines=history_window_height - 2,
-                    )
+                # if "histfact" in self.data.misc_data:
+                #     history_window.clear()
+                #     history_window.print(
+                #         self.data.misc_data["histfact"]["text"],
+                #         align="center",
+                #         x=0,
+                #         y=0,
+                #         maxlines=history_window_height - 2,
+                #     )
 
                 if "celestial" in self.data.misc_data:
                     celestial_window.clear()
@@ -5058,6 +5330,24 @@ class DashboardView(ColorViews):
                     misc_window.print(
                         self.data.misc_data["misc"], align="center", x=0, y=0
                     )
+
+                if "seasonals" in self.data.misc_data:
+                    seasonals: dict[str, list[str]] = self.data.misc_data["seasonals"]
+                    veggies: str = ",".join(seasonals["veggies"])
+                    fruits: str = ",".join(seasonals["fruits"])
+
+                    healthy: str = f"SEASONAL FRUITS: {fruits} | VEGETABLES: {veggies}"
+
+                    healthy_window.clear()
+                    healthy_window.print(healthy, align="center", x=0, y=0)
+
+                    if "health_motivation" in self.data.misc_data:
+                        health_motivation: str = self.data.misc_data[
+                            "health_motivation"
+                        ]
+                        healthy_window.print(
+                            f"CHALLENGE: {health_motivation}", align="center", x=0, y=1
+                        )
 
                 force_screen_update = False
 
