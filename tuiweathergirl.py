@@ -46,7 +46,7 @@ DESCRIPTION_HELP: str = (
 EPILOGUE_HELP: str = f"""VIEWS:
     motivate and basic
         Best for barebone terminals (simple STDOUT). Try Motivate!
-    
+
     dashboard
         A colorful ncurses dashboard. Requires terminal size at least 146x38.
 
@@ -69,7 +69,7 @@ USERAGENT: str = (
 )
 TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
-LOGFILENAME: str = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
+LOGFILENAME: Path = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
 REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
@@ -77,6 +77,7 @@ MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 1200  # 20 minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
+LOCKSOCKET: socket.socket | None = None
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -90,13 +91,12 @@ COL_CYANBLACK: int = 7
 
 class InstanceGuard:
     @staticmethod
-    def ensure_single_instance(port=47382):
+    def ensure_single_instance(port: int = 47382) -> None:
         ip: str = "127.0.0.1"
-        global lock_socket
-        lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        LOCKSOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        LOCKSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            lock_socket.bind((ip, port))
+            LOCKSOCKET.bind((ip, port))
         except socket.error:
             raise Exception(
                 "Error: Application is already running. If you suspect another instance stalled, please check applications listening at {ip}:{port}."
@@ -256,7 +256,7 @@ def pick_one(stuff: list[str]) -> str:
 
 
 class Theme:
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: list[int]) -> None:
         self.general: list[int] = kwargs["general"]
         self.border: list[int] = kwargs["border"]
         self.header: list[int] = kwargs["header"]
@@ -265,8 +265,8 @@ class Theme:
         self.warntitle: list[int] = kwargs["warntitle"]
         self.warnborder: list[int] = kwargs["warnborder"]
 
-        self._last_used: int = None
-        self._last_window: curses.window = None
+        self._last_used: int | None = None
+        self._last_window: curses.window | None = None
         self._last_dim: bool = False
 
     def on(self, win: curses.window, attr: str | int | None, **kwargs) -> None:
@@ -279,13 +279,13 @@ class Theme:
         if isinstance(attr, str):
             if not hasattr(self, attr):
                 raise ValueError(f"Theme object does not have attribute '{attr}'.")
-            color = getattr(self, attr, None)
+            color = getattr(self, attr)
             cp, dim = color
 
+        attrs: int = curses.color_pair(cp)
         if dim:
-            win.attron(curses.color_pair(cp) | curses.A_DIM)
-        else:
-            win.attron(curses.color_pair(cp))
+            attrs |= curses.A_DIM
+        win.attron(attrs)
 
         self._last_used = cp
         self._last_window = win
@@ -480,9 +480,9 @@ class TextList:
         self._wrapper.width = actual_width
         i: int = 0
         lines: list[str] = []
-        for item in self.data:
+        for item in self._data:
             i += 1
-            item_lines: list[str] = self._wrapper.wrap(self._data)
+            item_lines: list[str] = self._wrapper.wrap(item)
 
             # Prepending the number if the list is ordered.
             # And no - my use cases involve only lists with up to 20 items,
@@ -524,7 +524,7 @@ class BlockQuote(TextParagraph):
 
 
 class Window:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         theme: Theme | None = kwargs.get("theme", None)
         self.y: int = kwargs.get("y", 0)
         self.x: int = kwargs.get("x", 0)
@@ -586,8 +586,8 @@ class Window:
         border_theme: str = "border"
         title_theme: str = "title"
         if self.title.lower() == "warning" or self.title.lower() == "warnings":
-            border_theme: str = "warnborder"
-            title_theme: str = "warntitle"
+            border_theme = "warnborder"
+            title_theme = "warntitle"
 
         if self.theme:
             self.theme.on(self.borderwin, border_theme)
@@ -719,7 +719,7 @@ class Window:
         length: int = kwargs.get("length")
         theme: str = kwargs.get("theme", "border")
 
-        if not direction in ["horizontal", "vertical", "h", "v"]:
+        if direction not in ["horizontal", "vertical", "h", "v"]:
             raise ValueError("Direction must be either horizontal or vertical.")
 
         if direction in ["horizontal", "h"] and x + length > self.width - x:
@@ -1000,7 +1000,7 @@ class WarningsManager:
 
     RECLEN: int = 6  # The number of fields in the CSV
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.keep_max_days: int = 2
         self._messages: list[list[str]] = []
         self._filename: str = "~/.tuiweathergirl_warnings_log"
@@ -1012,7 +1012,7 @@ class WarningsManager:
             )
 
     def delete(self) -> None:
-        full_path: PosixPath = Path(self._filename).expanduser()
+        full_path: Path = Path(self._filename).expanduser()
         if full_path.exists():
             full_path.unlink()
 
@@ -1039,7 +1039,7 @@ class WarningsManager:
             self._messages = []
 
     def _load(self) -> None:
-        full_path: PosixPath = Path(self._filename).expanduser()
+        full_path: Path = Path(self._filename).expanduser()
         if not full_path.exists():
             return []
 
@@ -1048,7 +1048,7 @@ class WarningsManager:
             self._messages = [row for row in list(reader) if len(row) == self.RECLEN]
 
     def _save(self) -> None:
-        full_path: PosixPath = Path(self._filename).expanduser()
+        full_path: Path = Path(self._filename).expanduser()
         with open(full_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerows(self._messages)
@@ -1072,8 +1072,8 @@ class WarningsManager:
         location: str = "",
         label: str = "general",
         message: str = "No warnings at the moment. All quiet.",
-        ogdate: str = None,
-        ogtime: str = None,
+        ogdate: str | None = None,
+        ogtime: str | None = None,
     ) -> None:
         """Append and save all messages"""
 
@@ -1085,6 +1085,7 @@ class WarningsManager:
             "",
             "***",
             "meh",
+            "error",
         ]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
@@ -1134,7 +1135,7 @@ class Astronomer:
         """Time converter"""
         hours, minutes = map(int, utc_time_str.split(":"))
 
-        utc_dt: datetime.datetime = datetime.now(timezone.utc).replace(
+        utc_dt: datetime = datetime.now(timezone.utc).replace(
             hour=hours, minute=minutes, second=0, microsecond=0
         )
 
@@ -1144,7 +1145,7 @@ class Astronomer:
         return local_dt.strftime("%H:%M")
 
     def get_sun_times(
-        self, lat: float, lon: float, timezone_name: str
+        self, lat: float, lon: float, timezone_name: str, reqtimeout: int
     ) -> dict[str, str]:
         """Fetches sunrise and sunset for today in UTC."""
 
@@ -1153,8 +1154,16 @@ class Astronomer:
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
         logger.debug(f"URL={url}")
 
-        data = requests.get(url, timeout=REQTIMEOUT).json()
+        try:
+            data = requests.get(url, timeout=reqtimeout).json()
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get sun times. Try again in a minute. Request timeout ({reqtimeout})."
+            )
+
         logger.debug(f"JSONDATA={pf(data)}")
+
         if data["status"] == "OK":
             # Format: 2026-05-04T04:12:34+00:00
             sunrise: str = data["results"]["sunrise"][11:16]
@@ -1258,7 +1267,7 @@ class Astronomer:
 
 
 class Bulgarian:
-    def get_history_fact(self, keyword: str = "") -> str:
+    def get_history_fact(self, reqtimeout: int, keyword: str = "") -> str:
         """Checks Wikipedia for major Bulgarian historical events occurring
         today or yesterday.
         """
@@ -1303,10 +1312,18 @@ class Bulgarian:
             )
             logger.debug(f"URL={url}")
 
-            response: requests.Response = requests.get(
-                url, headers=headers, timeout=REQTIMEOUT
-            )
+            try:
+                response: requests.Response = requests.get(
+                    url, headers=headers, timeout=reqtimeout
+                )
+            except Exception:
+                logger.error(
+                    "Cannot get history fact (Wikipedia). Will try again later."
+                )
+                return ""
+
             logger.debug(f"RESPONSE={pf(response)}")
+
             if response.status_code != 200:
                 continue
 
@@ -1341,41 +1358,104 @@ class Bulgarian:
 class AllergyAndUVAdvisor:
     """Pollen (Trees/Grass) and UV (Sun Allergy) advisor"""
 
-    def advise(self, lat: str, lon: str) -> list[str]:
+    def advise(self, lat: str, lon: str, reqtimeout: int) -> list[str]:
         logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
 
-        url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&current=pollen_index_tree,pollen_index_grass,pollen_index_weed,uv_index&timezone=auto"
+        pollen_params: list[str] = [
+            "alder_pollen",
+            "birch_pollen",
+            "olive_pollen",
+            "grass_pollen",
+            "mugwort_pollen",
+            "ragweed_pollen",
+            "uv_index",
+        ]
+
+        url: str = (
+            f"https://air-quality-api.open-meteo.com/v1/air-quality"
+            f"?latitude={lat}&longitude={lon}&current={','.join(pollen_params)}&timezone=auto"
+        )
         logger.debug(f"URL={url}")
 
         warnings: list[str] = []
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
-        logger.debug(f"RESPONSE={pf(response)}")
+        try:
+            response: requests.Response = requests.get(url, timeout=reqtimeout)
+            response.raise_for_status()
+        except Exception:
+            warnings.append(" Cannot get allergy data. Will try again later.")
+            return warnings
+
         if response.status_code != 200:
             return []
 
-        tree_pollen: int = data.get("pollen_index_tree", 0)
-        if tree_pollen >= 3:
-            warnings.append(f"[HIGH RISK] High tree pollen levels: {tree_pollen}/5.")
+        data: dict[str, any] = response.json()
+        logger.debug(f"RESPONSE={pf(data)}")
 
-        grass_pollen: int = data.get("pollen_index_grass", 0)
-        if grass_pollen >= 3:
+        data = data.get("current", {})
+        if not data:
+            return []
+
+        alder: float = data.get("alder_pollen") or 0.0
+        birch: float = data.get("birch_pollen") or 0.0
+        olive: float = data.get("olive_pollen") or 0.0
+        tree_pollen_total: float = alder + birch + olive
+        grass: float = data.get("grass_pollen") or 0.0
+        mugwort: float = data.get("mugwort_pollen") or 0.0
+        ragweed: float = data.get("ragweed_pollen") or 0.0
+        weed_pollen_total: float = mugwort + ragweed
+        uv_index: float = data.get("uv_index") or 0.0
+
+        if tree_pollen_total >= 250:
             warnings.append(
-                f"[RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass_pollen}/5."
+                f"[VERY HIGH RISK] Extremely high tree pollen: {tree_pollen_total:.1f} grains/m3."
+            )
+        elif tree_pollen_total >= 70:
+            warnings.append(
+                f"[HIGH RISK] High tree pollen levels: {tree_pollen_total:.1f} grains/m3."
+            )
+        elif tree_pollen_total >= 10:
+            warnings.append(
+                f"[MODERATE RISK] Moderate tree pollen levels: {tree_pollen_total:.1f} grains/m3."
             )
 
-        uv_index: int = data.get("uv_index", 0)
-        if 6 <= uv_index < 8:
+        if grass >= 150:
             warnings.append(
-                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index}. Limit direct sun exposure! Avoid being out 11:00-16:00!"
+                f"[VERY HIGH RISK][HAY FEVER/RESPIRATORY] Very high grass pollen: {grass:.1f} grains/m3."
             )
-        if 8 <= uv_index < 10:
+        elif grass >= 50:
             warnings.append(
-                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index}. Extra protection needed!"
+                f"[HIGH RISK][HAY FEVER/RESPIRATORY] High grass pollen levels: {grass:.1f} grains/m3."
             )
-        if uv_index >= 10:
+        elif grass >= 20:
             warnings.append(
-                f"[EXTREME RISK][SUN ALLERGY] UV Index: {uv_index}. Avoid exposure!"
+                f"[MODERATE RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass:.1f} grains/m3."
+            )
+
+        if weed_pollen_total >= 80:
+            warnings.append(
+                f"[VERY HIGH RISK] Extremely high weed pollen: {weed_pollen_total:.1f} grains/m3."
+            )
+        elif weed_pollen_total >= 30:
+            warnings.append(
+                f"[HIGH RISK] High weed pollen levels: {weed_pollen_total:.1f} grains/m3."
+            )
+        elif weed_pollen_total >= 10:
+            warnings.append(
+                f"[MODERATE RISK] Moderate weed pollen levels: {weed_pollen_total:.1f} grains/m3."
+            )
+
+        if 6.0 <= uv_index < 8.0:
+            warnings.append(
+                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Limit direct sun exposure! Avoid being out 11:00-16:00!"
+            )
+        elif 8.0 <= uv_index < 11.0:
+            warnings.append(
+                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Extra protection needed!"
+            )
+        elif uv_index >= 11.0:
+            warnings.append(
+                f"[EXTREME RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Avoid exposure!"
             )
 
         return warnings
@@ -1384,10 +1464,11 @@ class AllergyAndUVAdvisor:
 class SpaceWeatherAdvisor:
     """NOAA advisories"""
 
-    def __init__(self) -> None:
+    def __init__(self, reqtimeout: int) -> None:
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
+        self.reqtimeout: int = reqtimeout
 
     def get_geomagnetic_scales(self) -> dict[str, any]:
         """Fetches the active categorical NOAA scales (G, S, R)"""
@@ -1413,8 +1494,12 @@ class SpaceWeatherAdvisor:
         self.logger.debug(f"URL={url}")
 
         try:
-            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            response: requests.Response = requests.get(
+                url,
+                timeout=self.reqtimeout,
+            )
             self.logger.debug(f"RESPONSE={pf(response)}")
+
             if response.status_code == 200:
                 data = response.json()
 
@@ -1443,7 +1528,9 @@ class SpaceWeatherAdvisor:
                     # "TimeStamp": latest_obs.get("TimeStamp", ""),
                 }
         except Exception:
-            pass
+            self.logger.error(
+                "Cannot geomagnetic scales (SWPC NOAA). Will try again later."
+            )
 
         return fallback
 
@@ -1456,8 +1543,12 @@ class SpaceWeatherAdvisor:
         url: str = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
         self.logger.debug(f"URL={url}")
         try:
-            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            response: requests.Response = requests.get(
+                url,
+                timeout=self.reqtimeout,
+            )
             self.logger.debug(f"RESPONSE={pf(response)}")
+
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -1469,12 +1560,12 @@ class SpaceWeatherAdvisor:
                     if kp_val is not None:
                         return float(kp_val)
         except Exception:
-            pass
+            self.logger.error("Cannot get planetary Kp-index. Will try again later.")
 
         return 0.0
 
     def _get_geomagnetic_warning(
-        self, kp_index: float, g_scale: list[int] = None
+        self, kp_index: float, g_scale: list[int] | None = None
     ) -> str:
         """Evaluates current space weather data to produce biomechanical alerts.
         Warns individuals with high electrosensitivity or barometric/magnetic sensitivity.
@@ -1659,8 +1750,11 @@ class DisasterAdvisor:
             if param in kwargs:
                 setattr(self, params[param], kwargs[param])
 
+        self.reqtimeout: int = kwargs["reqtimeout"]
+
     def _haversine(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Calculates distance in km between two points. Implementation of the haversine formula for the planet Earth."""
+
         R: int = 6371  # Earth mean radius
         dlat: float = math.radians(lat2 - lat1)
         dlon: float = math.radians(lon2 - lon1)
@@ -1670,6 +1764,7 @@ class DisasterAdvisor:
             * math.cos(math.radians(lat2))
             * math.sin(dlon / 2) ** 2
         )
+
         return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     def _get_affected_provinces(self, url: str) -> list[str]:
@@ -1677,7 +1772,18 @@ class DisasterAdvisor:
 
         provinces: list[str] = []
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response: requests.Response = requests.get(
+                url,
+                timeout=self.reqtimeout,
+            )
+        except Exception:
+            # Just making it more user-friendly
+            self.logger.error(
+                "Cannot get disaster affected provinces. Will try again later."
+            )
+            return []
+
         if response.status_code != 200:
             return []
 
@@ -1709,8 +1815,25 @@ class DisasterAdvisor:
         url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest"
         self.logger.debug(f"URL={url}")
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response: requests.Response = requests.get(
+                url,
+                timeout=self.reqtimeout,
+            )
+        except Exception:
+            # raise Exception(f"Cannot get disasters (GDACS). Try again in a minute. Request timeout ({self.reqtimeout}).")
+            disasters.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get disasters (GDACS). Will try again later.",
+                ]
+            )
+            return disasters
+
         self.logger.debug(f"RESPONSE={pf(response)}")
+
         if response.status_code != 200:
             return []
 
@@ -1719,7 +1842,7 @@ class DisasterAdvisor:
         for feature in data["features"]:
             now: datetime = datetime.now()
             todate: datetime = datetime.fromisoformat(feature["properties"]["todate"])
-            old: datetime = now - todate
+            old: timedelta = now - todate
 
             if (
                 old.days > 2
@@ -1752,9 +1875,23 @@ class DisasterAdvisor:
             # Getting the details
             provinces: list[str] = []
             details_url: str = feature["properties"]["url"]["details"]
-            details_response: requests.Response = requests.get(
-                details_url, timeout=REQTIMEOUT
-            )
+
+            try:
+                details_response: requests.Response = requests.get(
+                    details_url,
+                    timeout=self.reqtimeout,
+                )
+            except Exception:
+                # raise Exception(f"Cannot get disaster details (GDACS). Try again in a minute. Request timeout ({self.reqtimeout}).")
+                disasters.append(
+                    [
+                        "ERROR",
+                        "ALL",
+                        "ERROR",
+                        " Cannot get disaster details (GDACS). Will try again later.",
+                    ]
+                )
+                return disasters
 
             if details_response.status_code == 200:
                 details_data = details_response.json()
@@ -1775,7 +1912,7 @@ class DisasterAdvisor:
                     disasters.append(["DISASTER", location, label, message])
                 else:
                     for province in provinces:
-                        message: str = f"[{province}] {severity} ({source})"
+                        message = f"[{province}] {severity} ({source})"
                         disasters.append(["DISASTER", location, label, message])
 
         return disasters
@@ -1789,14 +1926,28 @@ class DisasterAdvisor:
 
         latt: float = float(lat)
         lonn: float = float(lon)
-        fire_list: list[str] = []
+        fire_list: list[list[str]] = []
 
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{apikey}/VIIRS_NOAA21_NRT/{lonn-1},{latt-1},{lonn+1},{latt+1}/1"
         self.logger.debug(f"URL={url}")
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT).text.split(
-            "\n"
-        )
+        try:
+            response: requests.Response = requests.get(
+                url,
+                timeout=self.reqtimeout,
+            ).text.split("\n")
+        except Exception:
+            # raise Exception(f"Cannot get wildfire data (FIRMS). Try again in a minute. Request timeout ({self.reqtimeout}).")
+            fire_list.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get wildfire data (FIRMS). Will try again later.",
+                ]
+            )
+            return fire_list
+
         self.logger.debug(f"RESPONSE={pf(response)}")
 
         for line in response[1:]:  # Skipping the CSV header
@@ -1878,7 +2029,20 @@ class DisasterAdvisor:
         url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}&maxradiuskm=200&minmagnitude=2.5"
         self.logger.debug(f"URL={url}")
 
-        response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response = requests.get(url, timeout=self.reqtimeout)
+        except Exception:
+            # raise Exception(f"Cannot get earthquakes data (USGS). Try again in a minute. Request timeout ({self.reqtimeout}).")
+            quakes.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get earthquakes (USGS). Will try again later.",
+                ]
+            )
+            return quakes
+
         self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
@@ -1904,7 +2068,7 @@ class DisasterAdvisor:
             if mmi < min_mmi:
                 continue
 
-            location: str = f"***"
+            location: str = "***"
             message: str = (
                 f"[{magnitude}][{alert.upper()}][{plane}]{tsunami_str} {place}"
             )
@@ -1915,6 +2079,8 @@ class DisasterAdvisor:
     def get_fireballs(self) -> list[list[str]]:
         """Querying NASA Fireballs"""
 
+        fireballs: list[list[str]] = []
+
         start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -1924,7 +2090,20 @@ class DisasterAdvisor:
         )
         self.logger.debug(f"URL={url}")
 
-        response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response = requests.get(url, timeout=self.reqtimeout)
+        except Exception:
+            # raise Exception(f"Cannot get space falling objects data (FIREBALLS). Try again in a minute. Request timeout ({self.reqtimeout}).")
+            fireballs.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get space falling objects data (FIREBALLS). Will try again later.",
+                ]
+            )
+            return fireballs
+
         self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
             return []
@@ -1934,12 +2113,10 @@ class DisasterAdvisor:
         if data["count"] == "0":
             return []
 
-        fireballs: list[list[str]] = []
-
         f: list[str] = data["fields"]
         for datum in data["data"]:
             date: str = datum[f.index["date"]]
-            energy: str = datum[f.index["energy"]]
+            # energy: str = datum[f.index["energy"]]
             impacte: float = float(datum[f.index["impact-e"]])
             altitude: str = datum[f.index["alt"]]
             velocity: str = datum[f.index["vel"]]
@@ -1967,7 +2144,7 @@ class DisasterAdvisor:
 
 
 class ElectrostaticAdvisor:
-    def get_xray_flux(self) -> str:
+    def get_xray_flux(self, reqtimeout: int) -> str:
         """Fetches the current Solar X-ray flux class (e.g., 'B2.1', 'M5.0').
         Source: NOAA GOES Primary X-ray Flux
         """
@@ -1978,7 +2155,7 @@ class ElectrostaticAdvisor:
         url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
         logger.debug(f"URL={url}")
         try:
-            response = requests.get(url, timeout=REQTIMEOUT)
+            response = requests.get(url, timeout=reqtimeout)
             logger.debug(f"RESPONSE={pf(response)}")
             if response.status_code == 200:
                 data: requests.Response = response.json()
@@ -1999,7 +2176,10 @@ class ElectrostaticAdvisor:
                 else:
                     return f"X{flux_value/1e-4:.1f}"
         except Exception:
-            pass
+            logger.error(
+                "Cannot get the X-ray flux (SWPC NOAA). Will try again later."
+            )
+
         return "B1.0"  # Default/Quiet background
 
     def get_electrostatic_warning(self, xray_flux: str) -> str:
@@ -2027,7 +2207,9 @@ class HolidaysManager:
             return True
         return False
 
-    def update(self, holidays: dict[str, str], country_code2: str) -> dict[str, str]:
+    def update(
+        self, holidays: dict[str, str], country_code2: str, reqtimeout: int
+    ) -> dict[str, str]:
         """Method to update the holidays data.
 
         However no update would be needed if the holidays year is the same as
@@ -2056,7 +2238,15 @@ class HolidaysManager:
 
         url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code2.upper()}"
         logger.debug(f"URL={url}")
-        data = requests.get(url, timeout=REQTIMEOUT).json()
+
+        try:
+            data = requests.get(url, timeout=reqtimeout).json()
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get public holidays. Try again in a minute. Request timeout ({reqtimeout})."
+            )
+
         logger.debug(f"JSONDATA={pf(data)}")
         for holiday in data:
             new_holidays[holiday["date"]] = (
@@ -2076,7 +2266,7 @@ class CacheManager:
             Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
         )
         self.loaded: bool = False
-        self._data: dict[str, Any] = {}
+        self._data: dict[str, any] = {}
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
@@ -2138,7 +2328,7 @@ class CacheManager:
         cachefile: Path = Path(self.filename)
         cachefile.unlink(missing_ok=True)
 
-        payload: dict[str, Any] = {
+        payload: dict[str, any] = {
             name: instance for name, instance in self._data.items()
         }
         with open(cachefile, "wb") as f:
@@ -2173,6 +2363,7 @@ class Configuration:
         self.date_format_length: str = "medium"
         self.view: str = DEFAULT_VIEW
         self.theme: str = DEFAULT_THEME
+        self.reqtimeout: int = REQTIMEOUT
 
         self.followcities: list[dict[str | int]] = []
 
@@ -2235,12 +2426,12 @@ Postal code: {self.postal_code}
 Coordinates: {self.lat},{self.lon}
 Primary language: {self.language}
 Timezone: {self.timezone}"""
-        s += f"Time: 24h\n" if self.time24 else f"Time: 12h\n"
-        s += f"Speed units: Metric\n" if self.metric else f"Speed units: Imperial\n"
+        s += "Time: 24h\n" if self.time24 else "Time: 12h\n"
+        s += "Speed units: Metric\n" if self.metric else "Speed units: Imperial\n"
         s += (
-            f"Temperature units: Celsius\n"
+            "Temperature units: Celsius\n"
             if self.celsius
-            else f"Temperature units: Fahrenheit\n"
+            else "Temperature units: Fahrenheit\n"
         )
         s += f"Date format length: {self.date_format_length}\n"
         s += f"Default view: {self.view}\n"
@@ -2289,6 +2480,7 @@ Timezone: {self.timezone}"""
             # "date_format_length": self.date_format_length,
             "view": self.view,
             "theme": self.theme,
+            "requesttimeout": self.reqtimeout,
         }
 
         config["HOLIDAYS"] = self.holidays
@@ -2339,6 +2531,7 @@ Timezone: {self.timezone}"""
         # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
         self.theme = config["PREFERENCES"]["theme"]
+        self.reqtimeout = int(config["PREFERENCES"]["requesttimeout"])
 
         self.holidays = dict(config["HOLIDAYS"])
 
@@ -2807,7 +3000,16 @@ class Locator:
             )
             self.logger.debug(f"URL={url}")
 
-            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            try:
+                response: requests.Response = requests.get(
+                    url, timeout=config.reqtimeout
+                )
+            except Exception:
+                # Just making it more user-friendly
+                raise Exception(
+                    f"Cannot get computer location. Try again in a minute. Request timeout ({config.reqtimeout})."
+                )
+
             self.logger.debug(f"RESPONSE={pf(response)}")
 
             if not response:
@@ -2844,14 +3046,21 @@ class Locator:
                 "User-Agent": USERAGENT,
                 "Accept-Language": "en",
             }
-            url: str = (
+            url = (
                 f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
             )
             self.logger.debug(f"URL={url}")
 
-            response: requests.Response = requests.get(
-                url, headers=headers, timeout=REQTIMEOUT
-            )
+            try:
+                response = requests.get(
+                    url, headers=headers, timeout=config.reqtimeout
+                )
+            except Exception:
+                # Just making it more user-friendly
+                raise Exception(
+                    f"Cannot get information for city '{city}/{country}'. Try again in a minute. Request timeout ({config.reqtimeout})."
+                )
+
             self.logger.debug(f"RESPONSE={pf(response)}")
 
             if not response.ok:
@@ -2882,7 +3091,16 @@ class Locator:
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
             self.logger.debug(f"URL={url}")
 
-            response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+            try:
+                response: requests.Response = requests.get(
+                    url, timeout=config.reqtimeout
+                )
+            except Exception:
+                # Just making it more user-friendly
+                raise Exception(
+                    f"Cannot get timezone data. Try again in a minute. Request timeout ({config.reqtimeout})."
+                )
+
             self.logger.debug(f"RESPONSE={pf(response)}")
             self.tzapi_calls += 1
 
@@ -2899,9 +3117,9 @@ class Locator:
             response = response.json()
 
             if response.get("status") == "FAILED":
-                raise Exception(f"Timezone request failed. Try again later.")
+                raise Exception("Timezone request failed. Try again later.")
 
-            city_entry: dict[str | int] = {
+            city_entry: dict[str, str | int] = {
                 "city": location.get("name", "").title(),
                 "country": addr.get("country", "").title(),
                 "country_code2": addr.get("country_code", "").upper(),
@@ -2970,22 +3188,26 @@ class Motivator:
     r"""Daily motivator"""
 
     @staticmethod
-    def get_motivation() -> list[str]:
+    def get_motivation(reqtimeout: int) -> list[str]:
         r"""Fetches a random inspirational quote from Quotable API."""
 
-        logger = logging.getLogger(f"{__class__.__qualname__}")
+        logger = logging.getLogger("Motivator.get_motivation")
 
         try:
             url: str = "https://zenquotes.io/api/random"
             logger.debug(f"URL={url}")
-            response = requests.get(url, timeout=REQTIMEOUT)
+
+            response = requests.get(url, timeout=reqtimeout)
             logger.debug(f"RESPONSE={pf(response)}")
+
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
                     return [data[0].get("q"), data[0].get("a")]
         except Exception:
-            pass
+            logger.error(
+                "Cannot get motivation, but I am super hyped and will try again later."
+            )
 
         # Fallback quote in case the internet is slow or API is down
         return [
@@ -3073,7 +3295,7 @@ class WeatherForecaster:
         )
 
     def __get_wind_direction(self, degrees: float) -> str:
-        dirs = [
+        dirs: list[str] = [
             "N",
             "NNE",
             "NE",
@@ -3095,7 +3317,7 @@ class WeatherForecaster:
         return dirs[ix % 16]
 
     def __get_wind_direction_long(self, winddir: str) -> str:
-        dirs: dict(str, str) = {
+        dirs: dict[str, str] = {
             "N": "North",
             "NNE": "North-Northeast",
             "NE": "Northeast",
@@ -3234,7 +3456,7 @@ class WeatherForecaster:
             return "Storm"
         return "Precip"
 
-    def __is_daytime(self, lat: str, lon: str, dt: datetime = None) -> bool:
+    def __is_daytime(self, lat: str | float, lon: str | float, dt: datetime | None = None) -> bool:
         """
         Calculates if it is daytime at a specific coordinate and time
         without using external APIs.
@@ -3247,7 +3469,7 @@ class WeatherForecaster:
         lat = float(lat)
         lon = float(lon)
 
-        zenith = 96.0
+        zenith: float = 96.0
         day_of_year = dt.timetuple().tm_yday
 
         # Convert longitude to hour offset and calculate approximate sunrise/sunset
@@ -3351,7 +3573,16 @@ class WeatherForecaster:
         )
         self.logger.debug(f"URL={url}")
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response: requests.Response = requests.get(
+                url, timeout=self.config.reqtimeout
+            )
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get home weather data. Try again in a minute. Request timeout ({self.config.reqtimeout})."
+            )
+
         self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
@@ -3376,12 +3607,21 @@ class WeatherForecaster:
         )
         self.logger.debug(f"URL={url}")
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response: requests.Response = requests.get(
+                url, timeout=self.config.reqtimeout
+            )
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get weather data for the followed cities. Try again in a minute. Request timeout ({self.config.reqtimeout})."
+            )
+
         self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
             raise Exception(
-                f"Cannot obtain weather data. Error {response.status_code}: {APIIssues.get_api_problem(reponse.status_code)}"
+                f"Cannot obtain weather data. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
             )
 
         return response.json()
@@ -3396,7 +3636,16 @@ class WeatherForecaster:
         )
         self.logger.debug(f"URL={url}")
 
-        response: requests.Response = requests.get(url, timeout=REQTIMEOUT)
+        try:
+            response: requests.Response = requests.get(
+                url, timeout=self.config.reqtimeout
+            )
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get air quality. Try again in a minute. Request timeout ({self.config.reqtimeout})."
+            )
+
         self.logger.debug(f"RESPONSE={pf(response)}")
 
         if not response:
@@ -3471,9 +3720,13 @@ class WeatherForecaster:
         astronomer: Astronomer = Astronomer()
         holidays_manager: HolidaysManager = HolidaysManager()
         allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
-        spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor()
+        spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor(
+            self.config.reqtimeout
+        )
         electrostatic_advisor: ElectrostaticAdvisor = ElectrostaticAdvisor()
-        disaster_advisor: DisasterAdvisor = DisasterAdvisor()
+        disaster_advisor: DisasterAdvisor = DisasterAdvisor(
+            reqtimeout=self.config.reqtimeout,
+        )
 
         # Ok, let's be a bit more nicer
         additional_fact_country: str = ""
@@ -3502,24 +3755,36 @@ class WeatherForecaster:
                 ",".join([e["timezone"] for e in self.config.followcities]),
                 tunit,
             )
-            future_motivation = executor.submit(Motivator.get_motivation)
+            future_motivation = executor.submit(
+                Motivator.get_motivation, self.config.reqtimeout
+            )
             future_fact = executor.submit(
-                bulgarian.get_history_fact, additional_fact_country
+                bulgarian.get_history_fact,
+                self.config.reqtimeout,
+                additional_fact_country,
             )
             future_sun_times = executor.submit(
                 astronomer.get_sun_times,
                 self.config.lat,
                 self.config.lon,
                 self.config.timezone,
+                self.config.reqtimeout,
             )
             future_holidays = executor.submit(
-                holidays_manager.update, self.config.holidays, self.config.country_code2
+                holidays_manager.update,
+                self.config.holidays,
+                self.config.country_code2,
+                self.config.reqtimeout,
             )
             future_allergies_uv = executor.submit(
-                allergy_uv_advisor.advise, self.config.lat, self.config.lon
+                allergy_uv_advisor.advise,
+                self.config.lat,
+                self.config.lon,
+                self.config.reqtimeout,
             )
             future_electrostatic_xray_flux = executor.submit(
-                electrostatic_advisor.get_xray_flux
+                electrostatic_advisor.get_xray_flux,
+                self.config.reqtimeout,
             )
             future_disasters = executor.submit(
                 disaster_advisor.get_disasters, self.config.countries_of_interest
@@ -3587,8 +3852,8 @@ class WeatherForecaster:
             # ----------
 
             # Extract Data
-            current: dict[str] = weather_result["current"]
-            daily: dict[str] = weather_result["daily"]
+            current: dict[str, str] = weather_result["current"]
+            daily: dict[str, str] = weather_result["daily"]
             aqi: str = aq_result["current"]["us_aqi"]
 
             # Fill the object with data
@@ -3667,11 +3932,20 @@ class WeatherForecaster:
             )
             weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
 
+            now: datetime = datetime.now()
+            date_str: str = now.strftime("%Y-%m-%d")
+            stuff: str = pick_one(facts_sheet)
+            stuff = f"FACT: {stuff}"
+            if date_str in self.config.holidays:
+                stuff = self.config.holidays[date_str].split("#")[1]
+                stuff = f"NATIONAL HOLIDAY: {stuff}"
+
             # Misc
             # ----
             # weather_data.misc_data["motivation"] = motivation
             weather_data.misc_data["histfact"] = history_fact
             weather_data.misc_data["celestial"] = celestial
+            weather_data.misc_data["misc"] = stuff
 
             humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
             storm_warning: str = self.get_storm_warning(
@@ -3870,7 +4144,8 @@ class ColorViews(Views):
             "disaster",
             "",
             "***",
-            "meh",
+            "meh",  # Nope. Don't ask.
+            "error",
         ]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
@@ -3919,6 +4194,9 @@ class ColorViews(Views):
             "fireball",
         ]
 
+        # First priority
+        if homeremote.lower() == "error":
+            return COL_YELOWBLACK
         # Severities
         if homeremote.lower() == "home" and "extreme risk" in message.lower():
             return COL_YELOWRED
@@ -4475,7 +4753,7 @@ class DashboardView(ColorViews):
                     f"Auto-refresh: {self.weather_refresh_interval // 60}min   [q] Quit",
                     align="right",
                 )
-                lastrefresh_window.print(f"Last refresh: **none**", x=1, y=0)
+                lastrefresh_window.print("Last refresh: **none**", x=1, y=0)
 
                 # Get initial additional data
                 # self.get_data()
@@ -4485,13 +4763,6 @@ class DashboardView(ColorViews):
             current_time: datetime = datetime.now()
             elapsed: timedelta = current_time - start_time
 
-            # Data update
-            if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
-                self.forecaster.get_data(self.data)
-                last_refresh = f"Last refresh: {datenow} {timenow}       "
-                lastrefresh_window.print(last_refresh, x=1, y=0)
-                force_screen_update = True
-
             # ------------------------------------------------- REFRESH DATA
             # Data to display
             timenow: str = self.presconf.update_time()
@@ -4499,6 +4770,13 @@ class DashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
+
+            # Data update
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
+                self.forecaster.get_data(self.data)
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
+                lastrefresh_window.print(last_refresh, x=1, y=0)
+                force_screen_update = True
 
             # Technically we do not need this, but filling up the addstr()s
             # later would be more messy without it
@@ -4775,17 +5053,11 @@ class DashboardView(ColorViews):
                     )
                     celestial_window.print(s, align="center", y=0)
 
-                now: datetime = datetime.now()
-                date_str: str = now.strftime("%Y-%m-%d")
-
-                stuff: str = pick_one(facts_sheet)
-                stuff = f"FACT: {stuff}"
-                if date_str in self.config.holidays:
-                    stuff = self.config.holidays[date_str].split("#")[1]
-                    stuff = f"NATIONAL HOLIDAY: {stuff}"
-
-                misc_window.clear()
-                misc_window.print(stuff, align="center", x=0, y=0)
+                if "misc" in self.data.misc_data:
+                    misc_window.clear()
+                    misc_window.print(
+                        self.data.misc_data["misc"], align="center", x=0, y=0
+                    )
 
                 force_screen_update = False
 
@@ -5055,10 +5327,6 @@ if __name__ == "__main__":
         logger.info(debug_mode_str)
         logger.info("")
 
-        if not cli_arguments["requesttimeout"] is None:
-            REQTIMEOUT = cli_arguments["requesttimeout"]
-        logger.info(f"Request timeout: {REQTIMEOUT} seconds")
-
         view_name: str = cli_arguments.get("view")
 
         if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
@@ -5104,6 +5372,23 @@ if __name__ == "__main__":
             config.save()
 
         config.load()
+
+        if cli_arguments["requesttimeout"]:
+            REQTIMEOUT = int(cli_arguments["requesttimeout"])
+            config.reqtimeout = REQTIMEOUT
+            config.save()
+        logger.info(f"Request timeout: {config.reqtimeout} seconds")
+
+        # Just in case let's check what's in the config, in case
+        # the user set manually some insane values
+        if config.reqtimeout < 5:
+            raise ValueError(
+                "Too small value for request timeout ({config.reqtimeout}). Better set values of 5 or larger."
+            )
+        if config.reqtimeout > 30:
+            raise ValueError(
+                "Very large value for request timeout ({config.reqtimeout}). Better set values of 5 to 10."
+            )
 
         # Location management
         if cli_arguments["newcity"]:
