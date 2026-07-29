@@ -2545,7 +2545,7 @@ class CacheManager:
         now: datetime = datetime.now().astimezone()
 
         # Modified less than 5 mins ago:
-        return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL // 60)
+        return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL)
 
     @property
     def saved(self) -> bool:
