@@ -7,6 +7,7 @@ import argparse
 import concurrent.futures
 import configparser
 import csv
+import ctypes
 import curses
 import logging
 import math
@@ -75,7 +76,7 @@ MIN_COLS: int = 79
 MIN_LINES: int = 22
 MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
-REFRESH_INTERVAL: int = 1200  # 20 minutes
+REFRESH_INTERVAL: int = 20  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 LOCKSOCKET: socket.socket | None = None
 
@@ -5019,11 +5020,11 @@ class DashboardView(ColorViews):
 
                 # Misc
                 # brief_window.print(
-                #     f"Auto-refresh: {self.weather_refresh_interval // 60}min                    [q] Quit",
+                #     f"Auto-refresh: {self.weather_refresh_interval}min                    [q] Quit",
                 #     x=1,
                 # )
                 lastrefresh_window.print(
-                    f"Auto-refresh: {self.weather_refresh_interval // 60}min   [q] Quit",
+                    f"Auto-refresh: {self.weather_refresh_interval}min   [q] Quit",
                     align="right",
                 )
                 lastrefresh_window.print("Last refresh: **none**", x=1, y=0)
@@ -5045,7 +5046,7 @@ class DashboardView(ColorViews):
             dstmark: str = "*" if self.config.dst else ""
 
             # Data update
-            if elapsed >= timedelta(minutes=self.weather_refresh_interval // 60):
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval):
                 self.forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
@@ -5602,6 +5603,12 @@ if __name__ == "__main__":
             LOGLEVEL = logging.DEBUG
             debug_mode_str = "*** DEBUG MODE ENABLED ***"
 
+        if sys.platform == "win32":
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 3)
+                time.sleep(1)
+
         logging.basicConfig(
             filename=LOGFILENAME,
             level=LOGLEVEL,
@@ -5643,8 +5650,13 @@ if __name__ == "__main__":
             warnings: WarningsManager = WarningsManager()
             warnings.delete()
             if LOGFILENAME.exists():
-                LOGFILENAME.unlink()
-                LOGFILENAME.touch()
+                # LOGFILENAME.unlink()
+                # LOGFILENAME.touch()
+                try:
+                    with open(LOGFILENAME, "w") as f:
+                        f.truncate(0)
+                except Exception as e:
+                    print(f"Could not reset logfile: {e}")
             print("Cache deleted, warnings log deleted, logfile reset.")
             sys.exit(0)
 
