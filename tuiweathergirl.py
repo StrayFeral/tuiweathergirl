@@ -78,7 +78,7 @@ MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 20  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
-LOCKSOCKET: socket.socket | None = None
+# LOCKSOCKET: socket.socket | None = None
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -93,6 +93,7 @@ COL_CYANBLACK: int = 7
 class InstanceGuard:
     @staticmethod
     def ensure_single_instance(port: int = 47382) -> None:
+        global LOCKSOCKET
         ip: str = "127.0.0.1"
         LOCKSOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         LOCKSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -232,7 +233,7 @@ facts_sheet: list[str] = [
     "1953-07-18: Elvis recorded his first demo at Sun Studio as a gift for his mother.",
     "1954-07-05: Elvis recorded 'That's All Right,' launching his professional music career.",
     "1955-11-21: Elvis signed with RCA Records, greatly expanding his national fame.",
-    "1956-01-01: Carl Perkins released 'Blue Suede Shoes,' a major early rockabilly hit.",
+    "1956-01-01: Carl Perkins released 'Blue Suede Shoes', a major early rockabilly hit.",
     "1956-01-27: Elvis released 'Heartbreak Hotel,' his first No. 1 pop hit.",
     "1956-01-30: Elvis recorded 'Blue Suede Shoes' at RCA Studios in New York.",
     "1956-03-23: Elvis released debut album 'Elvis Presley' featuring 'Blue Suede Shoes.'",
@@ -814,7 +815,7 @@ class TextList:
         self.bullet: str = kwargs.get("bullet", "*")
         self.number_separator: str = kwargs.get("numberseparator", ".")
         self.ordered: bool = kwargs.get("ordered", False)
-        self.bullet_space: int = kwargs.get("belowspacing", self.bullet_space)
+        self.bullet_space: int = kwargs.get("bulletspace", self.style.bullet_space)
 
         first_line_prepend: str = self.number_separator + " " * self.bullet_space
         other_lines_prepend: str = " " * (
@@ -1369,7 +1370,7 @@ class WarningsManager:
     RECLEN: int = 6  # The number of fields in the CSV
 
     def __init__(self) -> None:
-        self.keep_max_days: int = 2
+        self.keep_max_days: int = 1
         self._messages: list[list[str]] = []
         self._filename: str = "~/.tuiweathergirl_warnings_log"
         self.home_location: str = ""
@@ -1385,11 +1386,18 @@ class WarningsManager:
             full_path.unlink()
 
     def _is_old(self, message_date: str) -> bool:
-        cutoff = datetime.now() - timedelta(days=self.keep_max_days)
+        # cutoff = datetime.now() - timedelta(days=self.keep_max_days)
+        # mdate = datetime.strptime(message_date, "%Y-%m-%d")
+        # if mdate >= cutoff:
+        #     return False
+        # return True
+
+        today_midnight = datetime.now().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        cutoff_date = today_midnight - timedelta(days=self.keep_max_days)
         mdate = datetime.strptime(message_date, "%Y-%m-%d")
-        if mdate >= cutoff:
-            return False
-        return True
+        return mdate < cutoff_date
 
     def _cleanup(self) -> None:
         # sublist[0] contains the message date
@@ -1409,7 +1417,7 @@ class WarningsManager:
     def _load(self) -> None:
         full_path: Path = Path(self._filename).expanduser()
         if not full_path.exists():
-            return []
+            return
 
         with open(full_path, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
@@ -1457,6 +1465,9 @@ class WarningsManager:
         ]:
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
+        if len(self._messages) == 0:
+            self._load()
+
         if len(location) == 0:
             location = self.home_location
 
@@ -1479,16 +1490,22 @@ class WarningsManager:
             message_entry[1] = ogtime
 
         # Appending, if not a duplicate or if no previous messages
-        if len(self._messages) == 0 or (
-            len(self._messages) > 0
-            and (
-                message_entry[-1].lower() != self._messages[-1][-1].lower()
-                or message_entry[0].lower() != self._messages[-1][0].lower()
-            )
-        ):
-            self._cleanup()
-            self._messages.append(message_entry)
-            self._save()
+        # if len(self._messages) == 0 or (
+        #    len(self._messages) > 0
+        #    and (
+        #        message_entry[-1].lower() != self._messages[-1][-1].lower()
+        #        or message_entry[0].lower() != self._messages[-1][0].lower()
+        #    )
+        # ):
+
+        # Duplicate check: same date, same message
+        for m in self._messages:
+            if message_entry[0] == m[0] and message_entry[-1].lower() == m[-1].lower():
+                return
+
+        self._cleanup()
+        self._messages.append(message_entry)
+        self._save()
 
     def apply_format(self, message_list) -> str:
         dates, times, homeremote, location, label, message = message_list
@@ -2421,8 +2438,11 @@ class DisasterAdvisor:
             magnitude: float = float(feature["properties"]["mag"])
             place: str = feature["properties"]["place"]
             alert: str = feature["properties"]["alert"]
-            tsunami: int = feature["properties"]["tsunami"]
-            mmi: float = float(feature["properties"]["tsunami"])
+            # tsunami: int = feature["properties"]["tsunami"]
+            # mmi: float = float(feature["properties"]["tsunami"])
+            tsunami: int = feature["properties"].get("tsunami") or 0
+            mmi_raw = feature["properties"].get("mmi")
+            mmi: float = float(mmi_raw) if mmi_raw is not None else 0.0
             depth: float = float(feature["geometry"]["coordinates"][-1])
             plane: str = "EARTH"
 
@@ -2494,9 +2514,9 @@ class DisasterAdvisor:
 
             size: str = "MINOR FIREBALL"
             homeremote: str = "REMOTE"
-            if 0.1 >= impacte <= 1:
+            if 0.1 <= impacte <= 1:
                 size = "MODERATE BOLIDE"
-            elif 1.1 >= impacte <= 10:
+            elif 1.1 <= impacte <= 10:
                 size = "SEVERE AIRBURST"
                 homeremote = "EMERGENCY"
             elif impacte > 10:
@@ -2651,7 +2671,6 @@ class CacheManager:
         last_modified_date = datetime.fromtimestamp(mtime).astimezone()
         now: datetime = datetime.now().astimezone()
 
-        # Modified less than 5 mins ago:
         return now - last_modified_date < timedelta(minutes=REFRESH_INTERVAL)
 
     @property
@@ -3637,7 +3656,7 @@ class WeatherData:
         self.wind_direction_long: str = ""
         self.baropressure: float = 0
 
-        self.warnings: list[str] = []
+        # self.warnings: list[list[str]] = []
         self.week: list[BriefDailyForecast] = []
         self.cities_data: list[list[str | int]] = []
 
@@ -4073,14 +4092,14 @@ class WeatherForecaster:
         cache = CacheManager()
         cache.register("weather_data", weather_data)
 
-        if not cache.loaded and cache.too_soon:
+        if cache.too_soon and not cache.loaded:
             cache.load()
             return
 
         warnings: WarningsManager = WarningsManager()
         warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
 
-        bulgarian: Bulgarian = Bulgarian()
+        # bulgarian: Bulgarian = Bulgarian()
         astronomer: Astronomer = Astronomer()
         holidays_manager: HolidaysManager = HolidaysManager()
         allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
@@ -4093,9 +4112,9 @@ class WeatherForecaster:
         )
 
         # Ok, let's be a bit more nicer
-        additional_fact_country: str = ""
-        if self.config.country != "Bulgaria":
-            additional_fact_country = self.config.country
+        # additional_fact_country: str = ""
+        # if self.config.country != "Bulgaria":
+        #     additional_fact_country = self.config.country
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
 
@@ -5030,6 +5049,8 @@ class DashboardView(ColorViews):
             if not layout_manager or self.test_terminal_resized(
                 stdscr, view_required_lines, view_required_columns
             ):
+                self.logger.info("Drawing the windows...")
+
                 layout_manager = LayoutManager(stdscr=stdscr, theme=theme)
                 # layout_manager.set_three_columns()
                 layout_manager.add_column(first_two_windows_width)
@@ -5154,6 +5175,8 @@ class DashboardView(ColorViews):
 
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval):
+                self.logger.info("--------------------------- DATA REFRESH")
+                start_time: datetime = datetime.now()
                 self.forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
@@ -5184,7 +5207,7 @@ class DashboardView(ColorViews):
             humidity: str = self.data.humidity
             wind_direction_long: str = self.data.wind_direction_long
             # ---
-            warnings: list[str] = self.data.warnings
+            # warnings: list[list[str]] = self.data.warnings
             week: list[BriefDailyForecast] = self.data.week
             follow_cities: list = self.data.cities_data
 
@@ -5217,6 +5240,9 @@ class DashboardView(ColorViews):
                 followcities_window.print(city_time, x=city_wx, y=city_cnt)
 
             if force_screen_update:
+                self.logger.info("------------------- SCREEN UPDATE")
+                force_screen_update = False
+
                 # Current sky, temperature and temperature range
                 currently_window.clear()
                 currently_window.print("Sky   :", x=labels_x, y=0)
@@ -5458,7 +5484,7 @@ class DashboardView(ColorViews):
                             f"CHALLENGE: {health_motivation}", align="center", x=0, y=1
                         )
 
-                force_screen_update = False
+                # force_screen_update = False
 
             # Pushing the changes
             layout_manager.refresh_screen()
