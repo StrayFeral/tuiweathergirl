@@ -78,7 +78,6 @@ MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
 REFRESH_INTERVAL: int = 20  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
-# LOCKSOCKET: socket.socket | None = None
 
 # Color indexes
 COL_YELOWRED: int = 1
@@ -1230,7 +1229,7 @@ class LayoutManager:
         width_last: int = width
 
         # Just in case check:
-        # The third column would be decreased if the total width exceeds maxx.
+        # The last column would be decreased if the total width exceeds maxx.
         # Seriously - no idea if such thing would ever happen, but as I said:
         # I am doing this right here just in case.
         width_last -= maxx - (width * 2 + width_last)
@@ -1247,7 +1246,7 @@ class LayoutManager:
         width_last: int = width
 
         # Just in case check:
-        # The third column would be decreased if the total width exceeds maxx.
+        # The last column would be decreased if the total width exceeds maxx.
         # Seriously - no idea if such thing would ever happen, but as I said:
         # I am doing this right here just in case.
         width_last -= maxx - (width * 3 + width_last)
@@ -1386,12 +1385,6 @@ class WarningsManager:
             full_path.unlink()
 
     def _is_old(self, message_date: str) -> bool:
-        # cutoff = datetime.now() - timedelta(days=self.keep_max_days)
-        # mdate = datetime.strptime(message_date, "%Y-%m-%d")
-        # if mdate >= cutoff:
-        #     return False
-        # return True
-
         today_midnight = datetime.now().replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -1488,15 +1481,6 @@ class WarningsManager:
         if ogdate and ogtime:
             message_entry[0] = ogdate
             message_entry[1] = ogtime
-
-        # Appending, if not a duplicate or if no previous messages
-        # if len(self._messages) == 0 or (
-        #    len(self._messages) > 0
-        #    and (
-        #        message_entry[-1].lower() != self._messages[-1][-1].lower()
-        #        or message_entry[0].lower() != self._messages[-1][0].lower()
-        #    )
-        # ):
 
         # Duplicate check: same date, same message
         for m in self._messages:
@@ -2438,8 +2422,6 @@ class DisasterAdvisor:
             magnitude: float = float(feature["properties"]["mag"])
             place: str = feature["properties"]["place"]
             alert: str = feature["properties"]["alert"]
-            # tsunami: int = feature["properties"]["tsunami"]
-            # mmi: float = float(feature["properties"]["tsunami"])
             tsunami: int = feature["properties"].get("tsunami") or 0
             mmi_raw = feature["properties"].get("mmi")
             mmi: float = float(mmi_raw) if mmi_raw is not None else 0.0
@@ -5175,7 +5157,7 @@ class DashboardView(ColorViews):
 
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval):
-                self.logger.info("--------------------------- DATA REFRESH")
+                self.logger.info("--- DATA REFRESH ---")
                 start_time: datetime = datetime.now()
                 self.forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
@@ -5240,7 +5222,7 @@ class DashboardView(ColorViews):
                 followcities_window.print(city_time, x=city_wx, y=city_cnt)
 
             if force_screen_update:
-                self.logger.info("------------------- SCREEN UPDATE")
+                self.logger.info("--- screen update ---")
                 force_screen_update = False
 
                 # Current sky, temperature and temperature range
@@ -5688,14 +5670,8 @@ class LocationManager:
                 f"City must be a number between 1 and {len(config.followcities)}."
             )
 
-        # city: str = config.followcities[citynum - 1]["city"]
-        # country: str = config.followcities[citynum - 1]["country"]
         del config.followcities[citynum - 1]
-
         config.save()  # Update config
-        # print(f"Removed city: {city}, {country}")
-        # sys.exit(0)
-
         self.logger.info(f"City {citynum} is unfollowed")
 
     def add_city(self, city: str, country: str, config: Configuration) -> None:
@@ -5745,7 +5721,6 @@ if __name__ == "__main__":
         logging.basicConfig(
             filename=LOGFILENAME,
             level=LOGLEVEL,
-            # format="[%(asctime)s][%(levelname)s][%(funcName)s]%(message)s",
             format="[%(asctime)s][%(levelname)s][%(name)s][%(funcName)s] %(message)s",
         )
 
@@ -5783,8 +5758,6 @@ if __name__ == "__main__":
             warnings: WarningsManager = WarningsManager()
             warnings.delete()
             if LOGFILENAME.exists():
-                # LOGFILENAME.unlink()
-                # LOGFILENAME.touch()
                 try:
                     with open(LOGFILENAME, "w") as f:
                         f.truncate(0)
