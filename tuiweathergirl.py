@@ -46,10 +46,13 @@ DESCRIPTION_HELP: str = (
 )
 EPILOGUE_HELP: str = f"""VIEWS:
     motivate and basic
-        Best for barebone terminals (simple STDOUT). Try Motivate!
+        Best for barebone terminals/tty (simple STDOUT). Try Motivate!
+    
+    ttydashboard
+        A colorful ncurses dashboard, made for pure virtual console of 106x33.
 
     dashboard
-        A colorful ncurses dashboard. Requires terminal size at least 146x38.
+        MAIN DASHBOARD - tons of information. Requires terminal size at least 146x38.
 
     setup
         Prints the currently set cities.
@@ -5012,6 +5015,7 @@ class DashboardView(ColorViews):
         theme: Theme = theme_palette.get_theme(self.config.theme)
         self.init_screen(stdscr)
 
+        # Defining the required terminal size
         view_required_lines: int = 38
         view_required_columns: int = 146
 
@@ -5046,18 +5050,8 @@ class DashboardView(ColorViews):
         elif len(province1) > 0:
             province1 = f", {province1}"
 
-        layout_manager: LayoutManager | None = None
-
-        title_window: Window | None = None
-        location_window: Window | None = None
-        currently_window: Window | None = None
-        airquality_window: Window | None = None
-        forecast_window: Window | None = None
-        warnings_window: Window | None = None
-        brief_window: Window | None = None
-        lastrefresh_window: Window | None = None
-
         force_screen_update: bool = False
+        layout_manager: LayoutManager | None = None
 
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
@@ -5084,75 +5078,75 @@ class DashboardView(ColorViews):
                 # This one will assume the remaining width
                 layout_manager.add_column()
 
-                title_window = layout_manager.add_window(
+                title_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
                     title="About",
                     height=title_window_height,
                     border=True,
                 )
-                location_window = layout_manager.add_window(
+                location_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
                     title="Location",
                     height=minimum_window_height,
                 )
-                currently_window = layout_manager.add_window(
+                currently_window: Window = layout_manager.add_window(
                     column_num=0,
                     title="Currently",
                     height=main_layout_columns_height,
                     border=True,
                 )
-                airquality_window = layout_manager.add_window(
+                airquality_window: Window = layout_manager.add_window(
                     column_num=1,
                     title="Air & Conditions",
                     height=main_layout_columns_height,
                     border=True,
                 )
-                forecast_window = layout_manager.add_window(
+                forecast_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=1,
                     title="7 Day Forecast",
                     height=forecast_window_height,
                     border=True,
                 )
-                followcities_window = layout_manager.add_window(
+                followcities_window: Window = layout_manager.add_window(
                     column_num=2,
                     title="Followed cities",
                     height=followcities_window_height,
                     border=True,
                 )
-                warnings_window = layout_manager.add_window(
+                warnings_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
                     title="Warnings",
                     height=warnings_window_height,
                     border=True,
                 )
-                # history_window = layout_manager.add_window(
+                # history_window: Window = layout_manager.add_window(
                 #     column_num=0,
                 #     overlap=2,
                 #     title="On This Day",
                 #     height=history_window_height,
                 #     border=True,
                 # )
-                healthy_window = layout_manager.add_window(
+                healthy_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
                     title="Healthy Living",
                     height=healthy_window_height,
                     border=True,
                 )
-                celestial_window = layout_manager.add_window(
+                celestial_window: Window = layout_manager.add_window(
                     column_num=0, overlap=2, title="Celestial", height=3, border=True
                 )
-                misc_window = layout_manager.add_window(
+                misc_window: Window = layout_manager.add_window(
                     column_num=0, overlap=2, title="Misc", height=3, border=True
                 )
                 # brief_window = layout_manager.add_window(
                 #     column_num=0, overlap=2, title="Brief", height=minimum_window_height
                 # )
-                lastrefresh_window = layout_manager.add_window(
+                lastrefresh_window: Window = layout_manager.add_window(
                     column_num=0,
                     overlap=2,
                     title="Last Refresh",
@@ -5385,7 +5379,7 @@ class DashboardView(ColorViews):
                 )
                 for day_cnt, day in enumerate(week):
                     wy: int = day_cnt % 4
-                    wx: int = 1 if day_cnt < 4 else first_two_windows_width + 1
+                    wx: int = labels_x if day_cnt < 4 else first_two_windows_width + 1
                     data_x2: int = wx + 5
                     precip_x: int = data_x2 + 10
 
@@ -5473,7 +5467,7 @@ class DashboardView(ColorViews):
                 # last line. I have a safeguard to make it happen.
                 for msgy, warning in enumerate(warnings):
                     warnings_window.print(
-                        self.warnings.apply_format(warning),
+                        self.warnings.apply_format(warning)[:view_required_columns - 4],
                         x=0,
                         y=msgy,
                         newline=True,
@@ -5526,12 +5520,424 @@ class DashboardView(ColorViews):
                             f"CHALLENGE: {health_motivation}", align="center", x=0, y=1
                         )
 
-                # force_screen_update = False
+            # Pushing the changes
+            layout_manager.refresh_screen()
+            self.update_screen()
+
+    def display(self) -> None:
+        curses.wrapper(self.screen)
+        
+
+class TTYDashboardView(ColorViews):
+    """A dashboard color view for the most basic virtual console (TTY).
+    
+    This view has been specifically created for barebone
+    virtual consoles (TTYs), for linux boxes without
+    any desktop environment installed, such as my own
+    PROJECT DEW (Debian Terminal-Only Remix).
+    """
+
+    def init_screen(self, stdscr: curses.window) -> None:
+        # Global settings
+        stdscr.erase()
+        # stdscr.nodelay(True)
+        curses.curs_set(False)  # Hide cursor
+        stdscr.timeout(1000)  # Wait 1 second
+        stdscr.keypad(True)  # Allow extended keyboard codes
+
+    def screen(self, stdscr: curses.window) -> None:  # DEBUG:
+        self.logger.info("View is running")
+
+        self.forecaster.get_data()
+
+        theme_palette: ThemePalette = ThemePalette()
+        theme_palette.init_colors()
+        theme: Theme = theme_palette.get_theme(self.config.theme)
+        self.init_screen(stdscr)
+
+        # Defining the required terminal size
+        view_required_lines: int = 33
+        view_required_columns: int = 106
+
+        # Initial test for the size and to save the initial width and height
+        self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
+
+        last_refresh: str = ""
+
+        # Global layout settings for this view
+        first_two_windows_width: int = 53
+        minimum_window_height: int = 1
+        general_window_height: int = 4
+        warnings_window_height: int = 11
+        main_layout_columns_height: int = 6
+        title_window_height: int = 3
+        forecast_window_height: int = 6
+        followcities_window_height: int = 12
+        # history_window_height: int = 4
+        healthy_window_height: int = 4
+        default_text_indent: int = 1
+        labels_x: int = 4
+        data_x: int = labels_x + 12
+
+        # Data which won't change
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+
+        province1: str = province
+        if province1.isdigit():
+            province1 = ""
+        elif len(province1) > 0:
+            province1 = f", {province1}"
+
+        force_screen_update: bool = False
+        layout_manager: LayoutManager | None = None
+
+        # -------------------------------------------------- VIEW MAIN LOOP
+        start_time: datetime = datetime.now()
+        while True:
+            # User input
+            keypressed: int = stdscr.getch()
+
+            # Exit view and application
+            if self.test_exit_conditions(keypressed):
+                break
+
+            # ------------------------------------------------- DEFINE LAYOUT
+            # Application just started or Terminal was resized
+            # keypressed == curses.KEY_RESIZE
+            if not layout_manager or self.test_terminal_resized(
+                stdscr, view_required_lines, view_required_columns
+            ):
+                self.logger.info("Drawing the windows...")
+
+                layout_manager = LayoutManager(stdscr=stdscr, theme=theme)
+                layout_manager.set_two_columns()
+
+                title_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=1,
+                    title="About",
+                    height=title_window_height,
+                    border=True,
+                )
+                location_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=1,
+                    title="Location",
+                    height=minimum_window_height,
+                )
+                currently_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    title="Currently",
+                    height=main_layout_columns_height,
+                    border=True,
+                )
+                airquality_window: Window = layout_manager.add_window(
+                    column_num=1,
+                    title="Air & Conditions",
+                    height=main_layout_columns_height,
+                    border=True,
+                )
+                forecast_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=1,
+                    title="7 Day Forecast",
+                    height=forecast_window_height,
+                    border=True,
+                )
+                warnings_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=1,
+                    title="Warnings",
+                    height=warnings_window_height,
+                    border=True,
+                )
+                celestial_window: Window = layout_manager.add_window(
+                    column_num=0, overlap=1, title="Celestial", height=3, border=True
+                )
+                lastrefresh_window: Window = layout_manager.add_window(
+                    column_num=0,
+                    overlap=1,
+                    title="Last Refresh",
+                    height=minimum_window_height,
+                )
+
+                layout_manager.draw_windows()
+
+                # Screen labels
+                # About
+                title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
+                title_window.print("-= Weather and Disaster Station =-", align="center")
+                title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
+                # Home location
+                location_window.print(
+                    f" Home: {city}{province1}, {country}", theme="home"
+                )
+
+                lastrefresh_window.print(
+                    f"Auto-refresh: {self.weather_refresh_interval}min   [q] Quit",
+                    align="right",
+                )
+                lastrefresh_window.print("Last refresh: **none**", x=1, y=0)
+
+                force_screen_update = True
+
+            current_time: datetime = datetime.now()
+            elapsed: timedelta = current_time - start_time
+
+            # ------------------------------------------------- REFRESH DATA
+            # Data to display
+            timenow: str = self.presconf.update_time()
+            datenow: str = self.presconf.date
+            dow: str = self.presconf.dow
+            season: str = self.presconf.season
+            dstmark: str = "*" if self.config.dst else ""
+
+            # Data update
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval):
+                self.logger.info("--- DATA REFRESH ---")
+                self.forecaster.get_data()
+                start_time: datetime = datetime.now()
+                last_refresh = f"Last refresh: {datenow} {timenow}       "
+                lastrefresh_window.print(last_refresh, x=1, y=0)
+                force_screen_update = True
+
+            # Technically we do not need this, but filling up the addstr()s
+            # later would be more messy without it
+            sky: str = self.forecaster.data.sky
+            temperature: int = self.forecaster.data.temperature
+            tmin: int = self.forecaster.data.min
+            tmax: int = self.forecaster.data.max
+            hmin: int = self.forecaster.data.hmin
+            hmax: int = self.forecaster.data.hmax
+            hcur: int = self.forecaster.data.hcur
+            baropressure: float = self.forecaster.data.baropressure
+            tsuffix: str = self.presconf.tsuffix
+            wunit: str = self.presconf.wunit
+            wind: int = self.forecaster.data.wind
+            winddir: str = self.forecaster.data.wind_direction
+            aqi: int = self.forecaster.data.aqi
+            airquality: str = self.forecaster.data.air_quality
+            precipitation: int = self.forecaster.data.precipitation
+            is_day: bool = self.forecaster.data.is_day
+            wind_type: str = self.forecaster.data.wind_type
+            # precipitation_type: str = self.forecaster.data.precipitation_type
+            humidity_level_min: str = self.forecaster.data.humidity_level_min
+            humidity_level_max: str = self.forecaster.data.humidity_level_max
+            humidity: str = self.forecaster.data.humidity
+            wind_direction_long: str = self.forecaster.data.wind_direction_long
+            # ---
+            # warnings: list[list[str]] = self.forecaster.data.warnings
+            week: list[BriefDailyForecast] = self.forecaster.data.week
+            follow_cities: list = self.forecaster.data.cities_data
+
+            home_day: str = "night"
+            if is_day:
+                home_day = "day"
+
+            # ----------------------------------------- Screen update
+            # Today's date and time - we need this to refresh more often
+            location_window.print(
+                f"Today: {datenow} {timenow}{dstmark}",
+                x=-len(home_day) - 3,
+                align="right",
+                theme="home",
+            )
+            location_window.print(
+                f"({home_day})", align="right", theme=self._get_daynight_cp(is_day)
+            )
+
+            if force_screen_update:
+                self.logger.info("--- screen update ---")
+                force_screen_update = False
+
+                # Current sky, temperature and temperature range
+                currently_window.clear()
+                currently_window.print("Sky   :", x=labels_x, y=0)
+                currently_window.print("Temp  :", x=labels_x, y=1)
+                currently_window.print("Range :", x=labels_x, y=2)
+                currently_window.print("Humidt:", x=labels_x, y=3)
+                currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
+                currently_window.print(
+                    f"{temperature}°{tsuffix}",
+                    x=data_x,
+                    y=1,
+                    theme=self._get_temp_cp(temperature),
+                )
+
+                currently_window.print(
+                    f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin)
+                )
+                currently_window.print("/", x=data_x + 4, y=2)
+                currently_window.print(
+                    f"{tmax}°{tsuffix}",
+                    x=data_x + 5,
+                    y=2,
+                    theme=self._get_temp_cp(tmax),
+                )
+
+                # Wind, air quality and precipitation labels
+                airquality_window.clear()
+                airquality_window.print("Wind  :", x=labels_x, y=0)
+                airquality_window.print("Air Q :", x=labels_x, y=1)
+                airquality_window.print(
+                    self.forecaster.data.precipitation_type,
+                    x=labels_x,
+                    y=2,
+                    theme=self._get_precipitation_type_cp(
+                        self.forecaster.data.precipitation_type
+                    ),
+                )
+                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                airquality_window.print("Humidt:", x=labels_x, y=3)
+
+                currently_window.print(
+                    f"{self.forecaster.data.hcur}% ({humidity})",
+                    x=data_x,
+                    y=3,
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hcur), int(temperature)
+                    ),
+                )
+                # Wind, air quality and precipitation
+                airquality_window.print(
+                    f"{wind_type}, {winddir} {wind}{wunit}",
+                    x=data_x,
+                    y=0,
+                    theme=self._get_wind_cp(wind, wunit),
+                )
+                airquality_window.print(
+                    self.forecaster.data.precipitation_type,
+                    x=labels_x,
+                    y=2,
+                    theme=self._get_precipitation_type_cp(
+                        self.forecaster.data.precipitation_type
+                    ),
+                )
+                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                airquality_window.print(
+                    f"{airquality} ({aqi})",
+                    x=data_x,
+                    y=1,
+                    theme=self._get_aqistr_cp(airquality),
+                )
+                airquality_window.print("[", x=data_x, y=2, theme="border")
+                airquality_window.print(
+                    self.prog_bar(precipitation),
+                    x=data_x + 1,
+                    y=2,
+                    theme=self._get_progbar_cp(precipitation),
+                )
+                airquality_window.print("]", x=data_x + 10, y=2, theme="border")
+                airquality_window.print(
+                    f"{precipitation}%  ",
+                    x=data_x + 12,
+                    y=2,
+                    theme=self._get_progbar_cp(precipitation),
+                )
+                humidity_str: str = (
+                    f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
+                )
+                airquality_window.print(
+                    humidity_str,
+                    x=data_x,
+                    y=3,
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hmin), int(temperature)
+                    ),
+                )
+                airquality_window.print("/", x=data_x + len(humidity_str), y=3)
+                airquality_window.print(
+                    f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
+                    x=data_x + len(humidity_str) + 1,
+                    y=3,
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hmax), int(temperature)
+                    ),
+                )
+
+                # 7 day forecast
+                forecast_window.clear()
+                forecast_window.draw_line(
+                    x=first_two_windows_width - 2,
+                    y=0,
+                    direction="vertical",
+                    length=4,
+                    theme="border",
+                )
+                for day_cnt, day in enumerate(week):
+                    wy: int = day_cnt % 4
+                    wx: int = labels_x if day_cnt < 4 else first_two_windows_width + 4
+                    data_x2: int = wx + 5
+                    precip_x: int = data_x2 + 10
+
+                    dmin: int = day.min
+                    dmax: int = day.max
+                    dprecip: int = day.precip
+                    dow: str = day.dow
+
+                    forecast_window.print(f"{dow}:", x=wx, y=wy)
+                    forecast_window.print(
+                        f"{dmin}°{tsuffix}",
+                        x=data_x2,
+                        y=wy,
+                        theme=self._get_temp_cp(dmin),
+                    )
+                    forecast_window.print("/", x=data_x2 + 4, y=wy)
+                    forecast_window.print(
+                        f"{dmax}°{tsuffix}",
+                        x=data_x2 + 5,
+                        y=wy,
+                        theme=self._get_temp_cp(dmax),
+                    )
+
+                    forecast_window.print("[", x=precip_x, y=wy, theme="border")
+                    forecast_window.print(
+                        self.prog_bar(dprecip),
+                        x=precip_x + 1,
+                        y=wy,
+                        theme=self._get_progbar_cp(dprecip),
+                    )
+                    forecast_window.print("]", x=precip_x + 10, y=wy, theme="border")
+                    forecast_window.print(
+                        f"{dprecip}%  ",
+                        x=precip_x + 12,
+                        y=wy,
+                        theme=self._get_progbar_cp(dprecip),
+                    )
+
+                # WARNINGS
+                warnings_window.clear()
+                warnings: list[list[str]] = self.warnings.get_warnings(
+                    warnings_window_height - 2
+                )
+
+                # Sure, the window is not 99 lines high.
+                # Printing on a greater line will simply make it print on the
+                # last line. I have a safeguard to make it happen.
+                for msgy, warning in enumerate(warnings):
+                    warnings_window.print(
+                        self.warnings.apply_format(warning)[:view_required_columns - 4],
+                        x=0,
+                        y=msgy,
+                        newline=True,
+                        theme=self._get_warnings_cp(
+                            warning[2], warning[4], warning[-1]
+                        ),
+                    )
+
+                if "celestial" in self.forecaster.data.misc_data:
+                    celestial_window.clear()
+                    spc: str = f"{" " * 2}|{" " * 2}"  # Spacer
+                    s: str = (
+                        f"Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}"
+                    )
+                    celestial_window.print(s, align="center", y=0)
 
             # Pushing the changes
             layout_manager.refresh_screen()
             self.update_screen()
-            # time.sleep(1)  # Prevent 100% CPU usage
 
     def display(self) -> None:
         curses.wrapper(self.screen)
@@ -5549,6 +5955,7 @@ class WeatherGirl:
             "basic": BasicView(config, present_config),
             "motivate": MotivationalView(config, present_config),
             "dashboard": DashboardView(config, present_config),
+            "ttydashboard": TTYDashboardView(config, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -5573,7 +5980,7 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "basic", "motivate", "dashboard"],
+            choices=["setup", "basic", "motivate", "dashboard", "ttydashboard"],
             default="",
             help="Select the view",
         )
