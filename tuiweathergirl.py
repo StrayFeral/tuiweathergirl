@@ -1423,15 +1423,14 @@ class WarningsManager:
             writer.writerows(self._messages)
 
     def get_warnings(self, number_of_messages: int) -> list[list[str]]:
-        if len(self._messages) == 0:
-            self._load()
-            self._cleanup()
-            self._save()
+        self._load()
+        self._cleanup()
+        self._save()
 
-            # This will append a status message saying there are no
-            # warnings at the moment
-            if len(self._messages) == 0 and len(self.home_location) > 0:
-                self.append("***")
+        # This will append a status message saying there are no
+        # warnings at the moment
+        if len(self._messages) == 0 and len(self.home_location) > 0:
+            self.append("***")
 
         return self._messages[-number_of_messages:]
 
