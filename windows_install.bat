@@ -21,8 +21,11 @@ if %ERRORLEVEL% neq 0 (
 echo Installing python components...
 pip install windows-curses Babel tzdata requests
 
-echo Installing app...
-copy tuiweathergirl.py "%LOCALAPPDATA%\Microsoft\WindowsApps\tuiweathergirl.py"
+rem echo Installing app...
+rem copy tuiweathergirl.py "%LOCALAPPDATA%\Microsoft\WindowsApps\tuiweathergirl.py"
+
+echo Creating Windows10 application shortcut...
+call create_win10shortcut.bat
 
 echo .
 echo DONE.
