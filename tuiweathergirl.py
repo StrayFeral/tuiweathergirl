@@ -1519,6 +1519,7 @@ class Astronomer:
         """Fetches sunrise and sunset for today in UTC."""
 
         logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger.info("** Querying Sunrise-Sunset **")
 
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
         logger.debug(f"URL={url}")
@@ -1671,6 +1672,8 @@ class Bulgarian:
 
         # We check today first, then yesterday
         for date_obj, label in [(now, "today"), (yesterday, "yesterday")]:
+            logger.info("** Querying Wikipedia **")
+
             # Wikipedia On This Day API expects month/day WITHOUT leading zeros (e.g. '3' instead of '03')
             month: str = str(int(date_obj.strftime("%m")))
             day: str = str(int(date_obj.strftime("%d")))
@@ -1729,6 +1732,7 @@ class AllergyAndUVAdvisor:
 
     def advise(self, lat: str, lon: str, reqtimeout: int) -> list[str]:
         logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger.info("** Querying Open-Meteo (pollen) **")
 
         pollen_params: list[str] = [
             "alder_pollen",
@@ -1857,6 +1861,8 @@ class SpaceWeatherAdvisor:
         # Caused by: coronal mass ejections, high-speed solar winds
         # AFFECTED: Power grids, satellites, migratory life, bio-sensitives
 
+        self.logger.info("** Querying SWPC NOAA (scales) **")
+
         url: str = "https://services.swpc.noaa.gov/products/noaa-scales.json"
         # fallback: dict = {"G": 0, "S": 0, "R": 0, "DateStamp": "", "TimeStamp": ""}
         fallback: dict = {"G": [0, 0], "S": [0, 0], "R": [0, 0]}
@@ -1905,6 +1911,8 @@ class SpaceWeatherAdvisor:
 
     def get_kp_index(self) -> float:
         """Fetches the current planetary Kp-index"""
+
+        self.logger.info("** Querying SWPC NOAA (Kp-index) **")
 
         # NOTE: The Kp-index goes before the G-scale of geomagnetic anomalies
         # at least to my understanding
@@ -2170,6 +2178,8 @@ class DisasterAdvisor:
         return provinces
 
     def get_disasters(self, countries_list: list[str]) -> list[list[str]]:
+        self.logger.info("** Querying GDACS **")
+
         event_types: dict[str, str] = {
             "DR": "DROUGHT",
             "EQ": "EARTHQUAKE",
@@ -2289,6 +2299,8 @@ class DisasterAdvisor:
     def get_detailed_fires(self, lat: str, lon: str, timezone: str) -> list[list[str]]:
         """This time pulling from NASA FIRMS if the API key is available"""
 
+        self.logger.info("** Querying NASA FIRMS **")
+
         apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
         if not apikey:
             return []
@@ -2387,6 +2399,8 @@ class DisasterAdvisor:
     def get_detailed_quakes(self, lat: str, lon: str) -> list[list[str]]:
         """USGS query"""
 
+        self.logger.info("** Querying USGS **")
+
         min_mmi: float = 2  # I'm not interested in weaker ones
 
         start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(
@@ -2448,6 +2462,8 @@ class DisasterAdvisor:
 
     def get_fireballs(self) -> list[list[str]]:
         """Querying NASA Fireballs"""
+
+        self.logger.info("** Querying NASA JPL **")
 
         fireballs: list[list[str]] = []
 
@@ -2520,6 +2536,7 @@ class ElectrostaticAdvisor:
         """
 
         logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger.info("** Querying SWPC NOAA (x-rays) **")
 
         # This endpoint provides the 1-minute data for the last 24 hours
         url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
@@ -2586,6 +2603,7 @@ class HolidaysManager:
         """
 
         logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger.info("** Querying Holidays **")
 
         new_holidays: dict[str, str] = {}
 
@@ -3361,6 +3379,8 @@ class Locator:
         if city == "" or country == "":
             # Attempt auto-location
 
+            logger.info("** Querying IP-API **")
+
             url: str = (
                 "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
                 "&lang=en"
@@ -3402,6 +3422,8 @@ class Locator:
             config.continent_code = response.get("continentCode")
         else:
             # Attempt to get information for the city and the country
+
+            self.logger.info("** Querying OpenStreetMap **")
 
             city = city.title()
             country = country.title()
@@ -3451,6 +3473,9 @@ class Locator:
 
             if self.tzapi_calls > 0:
                 time.sleep(1)  # API limit
+
+            self.logger.info("** Querying TimezoneDB **")
+
             url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
             self.logger.debug(f"URL={url}")
 
@@ -3551,10 +3576,11 @@ class Motivator:
     r"""Daily motivator"""
 
     @staticmethod
-    def get_motivation(reqtimeout: int) -> list[str]:
+    def get_motivation(reqtimeout: int = REQTIMEOUT) -> list[str]:
         r"""Fetches a random inspirational quote from Quotable API."""
 
         logger = logging.getLogger("Motivator.get_motivation")
+        logger.info("** Querying motivator **")
 
         try:
             url: str = "https://zenquotes.io/api/random"
@@ -3648,7 +3674,9 @@ class WeatherData:
 
 
 class WeatherForecaster:
-    r"""Gets the weather forecast"""
+    r"""Gets the weather forecast
+
+    This is the Model component."""
 
     def __init__(self, config: Configuration) -> None:
         self.config = config
@@ -3656,6 +3684,9 @@ class WeatherForecaster:
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
+        self.cache = CacheManager()
+        self.data = WeatherData()
+        self._data_collection_counter: int = 0
 
     def __get_wind_direction(self, degrees: float) -> str:
         dirs: list[str] = [
@@ -3926,6 +3957,8 @@ class WeatherForecaster:
     ) -> requests.Response:
         r"""Gets various weather data for the main location"""
 
+        self.logger.info("** Querying Open-Meteo (home weather) **")
+
         #  &timezone=auto # current
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
@@ -3962,6 +3995,8 @@ class WeatherForecaster:
     ) -> requests.Response:
         r"""Gets only current temperatures for a given location"""
 
+        self.logger.info("** Querying Open-Meteo briefly **")
+
         #  &timezone=auto # current
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
@@ -3993,6 +4028,8 @@ class WeatherForecaster:
 
     def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
         r"""Gets only AQI data for the given location"""
+
+        self.logger.info("** Querying Open-Meteo (AQI) **")
 
         # Air Quality API (Separate endpoint but same coordinates)
         url = (
@@ -4063,7 +4100,7 @@ class WeatherForecaster:
 
         return f"[{humidity}%][HIGH RISK] People with resp. condt.: Labored breathing!"
 
-    def get_data(self, weather_data: WeatherData) -> None:
+    def get_data(self) -> None:
         # Build the API URL with your config preferences
         tunit = "celsius" if self.config.celsius else "fahrenheit"
         wunit = "kmh" if self.config.metric else "mph"
@@ -4071,11 +4108,9 @@ class WeatherForecaster:
         # Format Date and Time
         now: datetime = datetime.now(ZoneInfo(self.config.timezone))
 
-        cache = CacheManager()
-        cache.register("weather_data", weather_data)
-
-        if cache.too_soon and not cache.loaded:
-            cache.load()
+        self.cache.register("self.data", self.data)
+        if self.cache.too_soon and not self.cache.loaded:
+            self.cache.load()
             return
 
         warnings: WarningsManager = WarningsManager()
@@ -4222,29 +4257,29 @@ class WeatherForecaster:
             aqi: str = aq_result["current"]["us_aqi"]
 
             # Fill the object with data
-            # weather_data.is_day = True if current["is_day"] == "1" else False
-            weather_data.sky = self.__get_weather_description(current["weather_code"])
-            weather_data.temperature = round(float(current["temperature_2m"]))
-            weather_data.min = round(float(daily["temperature_2m_min"][0]))
-            weather_data.max = round(float(daily["temperature_2m_max"][0]))
-            weather_data.hmin = round(float(daily["relative_humidity_2m_min"][0]))
-            weather_data.hmax = round(float(daily["relative_humidity_2m_max"][0]))
-            weather_data.hcur = round(float(current["relative_humidity_2m"]))
-            weather_data.baropressure = round(float(current["pressure_msl"]))
-            weather_data.aqi = int(aqi)
-            weather_data.air_quality = self.__get_air_quality_assessment(aqi)
-            weather_data.precipitation = daily["precipitation_probability_max"][0]
-            weather_data.weather_code = current["weather_code"]
-            weather_data.wind = int(current["wind_speed_10m"])
-            weather_data.wind_direction = self.__get_wind_direction(
+            # self.data.is_day = True if current["is_day"] == "1" else False
+            self.data.sky = self.__get_weather_description(current["weather_code"])
+            self.data.temperature = round(float(current["temperature_2m"]))
+            self.data.min = round(float(daily["temperature_2m_min"][0]))
+            self.data.max = round(float(daily["temperature_2m_max"][0]))
+            self.data.hmin = round(float(daily["relative_humidity_2m_min"][0]))
+            self.data.hmax = round(float(daily["relative_humidity_2m_max"][0]))
+            self.data.hcur = round(float(current["relative_humidity_2m"]))
+            self.data.baropressure = round(float(current["pressure_msl"]))
+            self.data.aqi = int(aqi)
+            self.data.air_quality = self.__get_air_quality_assessment(aqi)
+            self.data.precipitation = daily["precipitation_probability_max"][0]
+            self.data.weather_code = current["weather_code"]
+            self.data.wind = int(current["wind_speed_10m"])
+            self.data.wind_direction = self.__get_wind_direction(
                 current["wind_direction_10m"]
             )
 
-            weather_data.week = []
+            self.data.week = []
 
             # followcities_result[i]["current"]["temperature_2m"]
             # followcities_result[i]["current"]["is_day"]
-            weather_data.cities_data = []
+            self.data.cities_data = []
             if isinstance(followcities_result, dict):
                 city_data: dict = {
                     "temperature": round(
@@ -4255,7 +4290,7 @@ class WeatherForecaster:
                     "country_code2": self.config.followcities[-1]["country_code2"],
                     "province": self.config.followcities[-1]["province"],
                 }
-                weather_data.cities_data = [city_data]
+                self.data.cities_data = [city_data]
             if isinstance(followcities_result, list):
                 # followcities_result = followcities_result
                 for combodata in zip(self.config.followcities, followcities_result):
@@ -4268,7 +4303,7 @@ class WeatherForecaster:
                         "country_code2": combodata[0]["country_code2"],
                         "province": combodata[0]["province"],
                     }
-                    weather_data.cities_data.append(city_data)
+                    self.data.cities_data.append(city_data)
 
             # 7 day forecast
             for i in range(1, 8):
@@ -4277,25 +4312,25 @@ class WeatherForecaster:
                 day.max = round(float(daily["temperature_2m_max"][i]))
                 day.precip = round(float(daily["precipitation_probability_max"][i]))
                 day.dow = (now + timedelta(days=i)).strftime("%a")
-                weather_data.week.append(day)
+                self.data.week.append(day)
 
-            weather_data.wind_type = self.__get_wind_type(weather_data.wind, wunit)
-            weather_data.precipitation_type = self.__get_precipitation_type(
-                weather_data.weather_code
+            self.data.wind_type = self.__get_wind_type(self.data.wind, wunit)
+            self.data.precipitation_type = self.__get_precipitation_type(
+                self.data.weather_code
             )  # Rain, Snow, Storm, Precip
-            weather_data.humidity_level_min = self.__get_humidity_assessment(
-                weather_data.hmin, weather_data.temperature
+            self.data.humidity_level_min = self.__get_humidity_assessment(
+                self.data.hmin, self.data.temperature
             )
-            weather_data.humidity_level_max = self.__get_humidity_assessment(
-                weather_data.hmax, weather_data.temperature
+            self.data.humidity_level_max = self.__get_humidity_assessment(
+                self.data.hmax, self.data.temperature
             )
-            weather_data.humidity = self.__get_humidity_assessment(
-                weather_data.hcur, weather_data.temperature
+            self.data.humidity = self.__get_humidity_assessment(
+                self.data.hcur, self.data.temperature
             )
-            weather_data.wind_direction_long = self.__get_wind_direction_long(
-                weather_data.wind_direction
+            self.data.wind_direction_long = self.__get_wind_direction_long(
+                self.data.wind_direction
             )
-            weather_data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
+            self.data.is_day = self.__is_daytime(self.config.lat, self.config.lon)
 
             now: datetime = datetime.now()
             date_str: str = now.strftime("%Y-%m-%d")
@@ -4307,25 +4342,23 @@ class WeatherForecaster:
 
             # Misc
             # ----
-            # weather_data.misc_data["motivation"] = motivation
-            # weather_data.misc_data["histfact"] = history_fact
-            weather_data.misc_data["celestial"] = celestial
-            weather_data.misc_data["misc"] = stuff
-            weather_data.misc_data["seasonals"] = (
-                LocalProduceAdvisor.get_seasonal_produce(
-                    lat=float(self.config.lat),
-                    lon=float(self.config.lon),
-                    month=datetime.now().month,
-                )
+            # self.data.misc_data["motivation"] = motivation
+            # self.data.misc_data["histfact"] = history_fact
+            self.data.misc_data["celestial"] = celestial
+            self.data.misc_data["misc"] = stuff
+            self.data.misc_data["seasonals"] = LocalProduceAdvisor.get_seasonal_produce(
+                lat=float(self.config.lat),
+                lon=float(self.config.lon),
+                month=datetime.now().month,
             )
-            weather_data.misc_data["health_motivation"] = pick_one(HEALTH_MOTIVATION)
+            self.data.misc_data["health_motivation"] = pick_one(HEALTH_MOTIVATION)
 
-            humidity_risk: str = self.get_humidity_risk(weather_data.hcur)
+            humidity_risk: str = self.get_humidity_risk(self.data.hcur)
             storm_warning: str = self.get_storm_warning(
-                weather_data.weather_code, weather_data.wind
+                self.data.weather_code, self.data.wind
             )
             baropressure_warning: str = self.get_baropressure_warning(
-                weather_data.baropressure
+                self.data.baropressure
             )
 
             # WARNINGS
@@ -4351,7 +4384,7 @@ class WeatherForecaster:
             for message in allergy_uv_warnings:
                 warnings.append("home", "", "ALLERGY", message)
 
-            cache.save()
+            self.cache.save()
 
 
 class PresentationConfiguration:
@@ -4441,17 +4474,16 @@ class Views:
     def __init__(
         self,
         config: Configuration,
-        data: WeatherData,
         present_config: PresentationConfiguration,
     ) -> None:
         self.config: Configuration = config
-        self.data: WeatherData = data
         self.warnings: WarningsManager = WarningsManager()
         self.warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
         self.height: int | None = None
         self.width: int | None = None
+        self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
 
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
@@ -4749,6 +4781,8 @@ class SetupView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
+        # self.forecaster.get_data()
+
         # Data to display
         city: str = self.config.city
         province: str = self.presconf.province
@@ -4780,6 +4814,8 @@ class BasicView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
+        self.forecaster.get_data()
+
         # Data to display
         timenow: str = self.presconf.update_time()
         datenow: str = self.presconf.date
@@ -4790,32 +4826,32 @@ class BasicView(Views):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-        sky: str = self.data.sky
-        temperature: int = self.data.temperature
-        tmin: int = self.data.min
-        tmax: int = self.data.max
-        hmin: int = self.data.hmin
-        hmax: int = self.data.hmax
-        baropressure: float = self.data.baropressure
-        hcur: int = self.data.hcur
+        sky: str = self.forecaster.data.sky
+        temperature: int = self.forecaster.data.temperature
+        tmin: int = self.forecaster.data.min
+        tmax: int = self.forecaster.data.max
+        hmin: int = self.forecaster.data.hmin
+        hmax: int = self.forecaster.data.hmax
+        baropressure: float = self.forecaster.data.baropressure
+        hcur: int = self.forecaster.data.hcur
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
-        wind: int = self.data.wind
-        winddir: str = self.data.wind_direction
-        aqi: int = self.data.aqi
-        airquality: str = self.data.air_quality
-        precipitation: int = self.data.precipitation
-        is_day: bool = self.data.is_day
-        wind_type: str = self.data.wind_type
-        precipitation_type: str = self.data.precipitation_type
-        humidity_level_min: str = self.data.humidity_level_min
-        humidity_level_max: str = self.data.humidity_level_max
-        humidity: str = self.data.humidity
-        wind_direction_long: str = self.data.wind_direction_long
+        wind: int = self.forecaster.data.wind
+        winddir: str = self.forecaster.data.wind_direction
+        aqi: int = self.forecaster.data.aqi
+        airquality: str = self.forecaster.data.air_quality
+        precipitation: int = self.forecaster.data.precipitation
+        is_day: bool = self.forecaster.data.is_day
+        wind_type: str = self.forecaster.data.wind_type
+        precipitation_type: str = self.forecaster.data.precipitation_type
+        humidity_level_min: str = self.forecaster.data.humidity_level_min
+        humidity_level_max: str = self.forecaster.data.humidity_level_max
+        humidity: str = self.forecaster.data.humidity
+        wind_direction_long: str = self.forecaster.data.wind_direction_long
         # ---
-        # warnings: list[str] = self.data.warnings
-        week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list = self.data.cities_data
+        # warnings: list[str] = self.forecaster.data.warnings
+        week: list[BriefDailyForecast] = self.forecaster.data.week
+        follow_cities: list = self.forecaster.data.cities_data
 
         day: str = "day" if is_day else "night"
 
@@ -4851,17 +4887,14 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         # print("\nTry: tuiweathergirl --help")
         print("\n")
 
-        # Saving the cache
-        cache = CacheManager()
-        cache.register("weather_data", self.data)
-        cache.save()
-
 
 class MotivationalView(Views):
     r"""Just prints"""
 
     def display(self) -> None:
         self.logger.info("View is running")
+
+        self.forecaster.get_data()
 
         # Data to display
         timenow: str = self.presconf.update_time()
@@ -4873,32 +4906,32 @@ class MotivationalView(Views):
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-        sky: str = self.data.sky
-        temperature: int = self.data.temperature
-        tmin: int = self.data.min
-        tmax: int = self.data.max
-        hmin: int = self.data.hmin
-        hmax: int = self.data.hmax
-        hcur: int = self.data.hcur
-        baropressure: float = self.data.baropressure
+        sky: str = self.forecaster.data.sky
+        temperature: int = self.forecaster.data.temperature
+        tmin: int = self.forecaster.data.min
+        tmax: int = self.forecaster.data.max
+        hmin: int = self.forecaster.data.hmin
+        hmax: int = self.forecaster.data.hmax
+        hcur: int = self.forecaster.data.hcur
+        baropressure: float = self.forecaster.data.baropressure
         tsuffix: str = self.presconf.tsuffix
         wunit: str = self.presconf.wunit
-        wind: int = self.data.wind
-        winddir: str = self.data.wind_direction
-        aqi: int = self.data.aqi
-        airquality: str = self.data.air_quality
-        precipitation: int = self.data.precipitation
-        is_day: bool = self.data.is_day
-        wind_type: str = self.data.wind_type
-        precipitation_type: str = self.data.precipitation_type
-        humidity_level_min: str = self.data.humidity_level_min
-        humidity_level_max: str = self.data.humidity_level_max
-        humidity: str = self.data.humidity
-        wind_direction_long: str = self.data.wind_direction_long
+        wind: int = self.forecaster.data.wind
+        winddir: str = self.forecaster.data.wind_direction
+        aqi: int = self.forecaster.data.aqi
+        airquality: str = self.forecaster.data.air_quality
+        precipitation: int = self.forecaster.data.precipitation
+        is_day: bool = self.forecaster.data.is_day
+        wind_type: str = self.forecaster.data.wind_type
+        precipitation_type: str = self.forecaster.data.precipitation_type
+        humidity_level_min: str = self.forecaster.data.humidity_level_min
+        humidity_level_max: str = self.forecaster.data.humidity_level_max
+        humidity: str = self.forecaster.data.humidity
+        wind_direction_long: str = self.forecaster.data.wind_direction_long
         # ---
-        # warnings: list[str] = self.data.warnings
-        week: list[BriefDailyForecast] = self.data.week
-        follow_cities: list = self.data.cities_data
+        # warnings: list[str] = self.forecaster.data.warnings
+        week: list[BriefDailyForecast] = self.forecaster.data.week
+        follow_cities: list = self.forecaster.data.cities_data
 
         day: str = "day" if is_day else "night"
 
@@ -4943,11 +4976,6 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
         # print("\nTry: tuiweathergirl --help")
         print("\n")
 
-        # Saving the cache
-        cache = CacheManager()
-        cache.register("weather_data", self.data)
-        cache.save()
-
 
 class DashboardView(ColorViews):
     """A dashboard color view"""
@@ -4962,6 +4990,8 @@ class DashboardView(ColorViews):
     def screen(self, stdscr: curses.window) -> None:  # DEBUG:
         self.logger.info("View is running")
 
+        self.forecaster.get_data()
+
         theme_palette: ThemePalette = ThemePalette()
         theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
@@ -4973,7 +5003,6 @@ class DashboardView(ColorViews):
         # Initial test for the size and to save the initial width and height
         self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
 
-        self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
         last_refresh: str = ""
 
         # Global layout settings for this view
@@ -5158,44 +5187,44 @@ class DashboardView(ColorViews):
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval):
                 self.logger.info("--- DATA REFRESH ---")
+                self.forecaster.get_data()
                 start_time: datetime = datetime.now()
-                self.forecaster.get_data(self.data)
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
 
             # Technically we do not need this, but filling up the addstr()s
             # later would be more messy without it
-            sky: str = self.data.sky
-            temperature: int = self.data.temperature
-            tmin: int = self.data.min
-            tmax: int = self.data.max
-            hmin: int = self.data.hmin
-            hmax: int = self.data.hmax
-            hcur: int = self.data.hcur
-            baropressure: float = self.data.baropressure
+            sky: str = self.forecaster.data.sky
+            temperature: int = self.forecaster.data.temperature
+            tmin: int = self.forecaster.data.min
+            tmax: int = self.forecaster.data.max
+            hmin: int = self.forecaster.data.hmin
+            hmax: int = self.forecaster.data.hmax
+            hcur: int = self.forecaster.data.hcur
+            baropressure: float = self.forecaster.data.baropressure
             tsuffix: str = self.presconf.tsuffix
             wunit: str = self.presconf.wunit
-            wind: int = self.data.wind
-            winddir: str = self.data.wind_direction
-            aqi: int = self.data.aqi
-            airquality: str = self.data.air_quality
-            precipitation: int = self.data.precipitation
-            is_day: bool = self.data.is_day
-            wind_type: str = self.data.wind_type
-            # precipitation_type: str = self.data.precipitation_type
-            humidity_level_min: str = self.data.humidity_level_min
-            humidity_level_max: str = self.data.humidity_level_max
-            humidity: str = self.data.humidity
-            wind_direction_long: str = self.data.wind_direction_long
+            wind: int = self.forecaster.data.wind
+            winddir: str = self.forecaster.data.wind_direction
+            aqi: int = self.forecaster.data.aqi
+            airquality: str = self.forecaster.data.air_quality
+            precipitation: int = self.forecaster.data.precipitation
+            is_day: bool = self.forecaster.data.is_day
+            wind_type: str = self.forecaster.data.wind_type
+            # precipitation_type: str = self.forecaster.data.precipitation_type
+            humidity_level_min: str = self.forecaster.data.humidity_level_min
+            humidity_level_max: str = self.forecaster.data.humidity_level_max
+            humidity: str = self.forecaster.data.humidity
+            wind_direction_long: str = self.forecaster.data.wind_direction_long
             # ---
-            # warnings: list[list[str]] = self.data.warnings
-            week: list[BriefDailyForecast] = self.data.week
-            follow_cities: list = self.data.cities_data
+            # warnings: list[list[str]] = self.forecaster.data.warnings
+            week: list[BriefDailyForecast] = self.forecaster.data.week
+            follow_cities: list = self.forecaster.data.cities_data
 
             # Saving the cache
             cache = CacheManager()
-            cache.register("weather_data", self.data)
+            cache.register("weather_data", self.forecaster.data)
             cache.save()
 
             home_day: str = "night"
@@ -5255,19 +5284,23 @@ class DashboardView(ColorViews):
                 airquality_window.print("Wind  :", x=labels_x, y=0)
                 airquality_window.print("Air Q :", x=labels_x, y=1)
                 airquality_window.print(
-                    self.data.precipitation_type,
+                    self.forecaster.data.precipitation_type,
                     x=labels_x,
                     y=2,
-                    theme=self._get_precipitation_type_cp(self.data.precipitation_type),
+                    theme=self._get_precipitation_type_cp(
+                        self.forecaster.data.precipitation_type
+                    ),
                 )
                 airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                 airquality_window.print("Humidt:", x=labels_x, y=3)
 
                 currently_window.print(
-                    f"{self.data.hcur}% ({humidity})",
+                    f"{self.forecaster.data.hcur}% ({humidity})",
                     x=data_x,
                     y=3,
-                    theme=self._get_humidity_cp(int(self.data.hcur), int(temperature)),
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hcur), int(temperature)
+                    ),
                 )
                 # Wind, air quality and precipitation
                 airquality_window.print(
@@ -5277,10 +5310,12 @@ class DashboardView(ColorViews):
                     theme=self._get_wind_cp(wind, wunit),
                 )
                 airquality_window.print(
-                    self.data.precipitation_type,
+                    self.forecaster.data.precipitation_type,
                     x=labels_x,
                     y=2,
-                    theme=self._get_precipitation_type_cp(self.data.precipitation_type),
+                    theme=self._get_precipitation_type_cp(
+                        self.forecaster.data.precipitation_type
+                    ),
                 )
                 airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                 airquality_window.print(
@@ -5303,19 +5338,25 @@ class DashboardView(ColorViews):
                     y=2,
                     theme=self._get_progbar_cp(precipitation),
                 )
-                humidity_str: str = f"{self.data.hmin}%({humidity_level_min:.7})"
+                humidity_str: str = (
+                    f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
+                )
                 airquality_window.print(
                     humidity_str,
                     x=data_x,
                     y=3,
-                    theme=self._get_humidity_cp(int(self.data.hmin), int(temperature)),
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hmin), int(temperature)
+                    ),
                 )
                 airquality_window.print("/", x=data_x + len(humidity_str), y=3)
                 airquality_window.print(
-                    f"{self.data.hmax}%({humidity_level_max:.7})",
+                    f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
                     x=data_x + len(humidity_str) + 1,
                     y=3,
-                    theme=self._get_humidity_cp(int(self.data.hmax), int(temperature)),
+                    theme=self._get_humidity_cp(
+                        int(self.forecaster.data.hmax), int(temperature)
+                    ),
                 )
 
                 # 7 day forecast
@@ -5424,32 +5465,34 @@ class DashboardView(ColorViews):
                         ),
                     )
 
-                # if "histfact" in self.data.misc_data:
+                # if "histfact" in self.forecaster.data.misc_data:
                 #     history_window.clear()
                 #     history_window.print(
-                #         self.data.misc_data["histfact"]["text"],
+                #         self.forecaster.data.misc_data["histfact"]["text"],
                 #         align="center",
                 #         x=0,
                 #         y=0,
                 #         maxlines=history_window_height - 2,
                 #     )
 
-                if "celestial" in self.data.misc_data:
+                if "celestial" in self.forecaster.data.misc_data:
                     celestial_window.clear()
                     spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
                     s: str = (
-                        f"Sunrise: {self.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.data.misc_data["celestial"]["moon"]}"
+                        f"Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}"
                     )
                     celestial_window.print(s, align="center", y=0)
 
-                if "misc" in self.data.misc_data:
+                if "misc" in self.forecaster.data.misc_data:
                     misc_window.clear()
                     misc_window.print(
-                        self.data.misc_data["misc"], align="center", x=0, y=0
+                        self.forecaster.data.misc_data["misc"], align="center", x=0, y=0
                     )
 
-                if "seasonals" in self.data.misc_data:
-                    seasonals: dict[str, list[str]] = self.data.misc_data["seasonals"]
+                if "seasonals" in self.forecaster.data.misc_data:
+                    seasonals: dict[str, list[str]] = self.forecaster.data.misc_data[
+                        "seasonals"
+                    ]
                     veggies: str = ",".join(seasonals["veggies"])
                     fruits: str = ",".join(seasonals["fruits"])
 
@@ -5458,8 +5501,8 @@ class DashboardView(ColorViews):
                     healthy_window.clear()
                     healthy_window.print(healthy, align="center", x=0, y=0)
 
-                    if "health_motivation" in self.data.misc_data:
-                        health_motivation: str = self.data.misc_data[
+                    if "health_motivation" in self.forecaster.data.misc_data:
+                        health_motivation: str = self.forecaster.data.misc_data[
                             "health_motivation"
                         ]
                         healthy_window.print(
@@ -5480,14 +5523,15 @@ class DashboardView(ColorViews):
 class WeatherGirl:
     r"""Your daily weather girl"""
 
-    def __init__(self, config: Configuration, data: WeatherData) -> None:
+    def __init__(self, config: Configuration) -> None:
         self.view: str = config.view
         present_config: PresentationConfiguration = PresentationConfiguration(config)
+
         self.views: dict[str, Views] = {
-            "setup": SetupView(config, data, present_config),
-            "basic": BasicView(config, data, present_config),
-            "motivate": MotivationalView(config, data, present_config),
-            "dashboard": DashboardView(config, data, present_config),
+            "setup": SetupView(config, present_config),
+            "basic": BasicView(config, present_config),
+            "motivate": MotivationalView(config, present_config),
+            "dashboard": DashboardView(config, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -5818,11 +5862,7 @@ if __name__ == "__main__":
             cache = CacheManager()
             cache.delete()
 
-        forecaster: WeatherForecaster = WeatherForecaster(config)
-        weather_data: WeatherData = WeatherData()
-        forecaster.get_data(weather_data)
-
-        weather_girl: WeatherGirl = WeatherGirl(config, weather_data)
+        weather_girl: WeatherGirl = WeatherGirl(config)
         weather_girl.present(view_name)
 
         print(
