@@ -57,8 +57,8 @@ EPILOGUE_HELP: str = f"""VIEWS:
 NOTE: --addcity and --country must be passed together
 
 HOW DOES TUIWEATHERGIRL WORKS:
-    - The app would auto-configure. Config file: ~/.tuiweathergirlrc
-    - You may edit it, but if you mess-it up, better delete it and run the app again
+    - The app would auto-configure. You may edit the config, but if you mess it up - delete it.
+    - You may edit the config, but if you mess-it up, better run the app with --clearcache
     - You may add up to {MAX_CITIES - 1} additional cities, but not every view will show them
 
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
@@ -71,6 +71,7 @@ USERAGENT: str = (
 TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 LOGFILENAME: Path = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
+LOGFILENAME = LOGFILENAME.expanduser()
 REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
@@ -1371,18 +1372,20 @@ class WarningsManager:
     def __init__(self) -> None:
         self.keep_max_days: int = 1
         self._messages: list[list[str]] = []
-        self._filename: str = "~/.tuiweathergirl_warnings_log"
+        self.filename: Path = Path.home() / ".tuiweathergirl_warnings_log"
         self.home_location: str = ""
 
+        # No dot in the filename
         if os.name == "nt":
-            self.filename: PosixPath = (
-                Path(tempfile.gettempdir()) / "tuiweathergirl_warnings.log"
+            self.filename: Path = (
+                Path.home() / "tuiweathergirl_warnings.log"
             )
+        
+        self.filename = self.filename.expanduser()
 
     def delete(self) -> None:
-        full_path: Path = Path(self._filename).expanduser()
-        if full_path.exists():
-            full_path.unlink()
+        if self.filename.exists():
+            self.filename.unlink()
 
     def _is_old(self, message_date: str) -> bool:
         today_midnight = datetime.now().replace(
@@ -1408,17 +1411,15 @@ class WarningsManager:
             self._messages = []
 
     def _load(self) -> None:
-        full_path: Path = Path(self._filename).expanduser()
-        if not full_path.exists():
+        if not self.filename.exists():
             return
 
-        with open(full_path, "r", newline="", encoding="utf-8") as f:
+        with open(self.filename, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             self._messages = [row for row in list(reader) if len(row) == self.RECLEN]
 
     def _save(self) -> None:
-        full_path: Path = Path(self._filename).expanduser()
-        with open(full_path, "w", newline="", encoding="utf-8") as f:
+        with open(self.filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerows(self._messages)
 
@@ -2647,9 +2648,10 @@ class CacheManager:
     """
 
     def __init__(self) -> None:
-        self.filename: PosixPath = (
+        self.filename: Path = (
             Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
         )
+        self.filename = self.filename.expanduser()
         self.loaded: bool = False
         self._data: dict[str, any] = {}
         self.logger = logging.getLogger(
@@ -2662,11 +2664,10 @@ class CacheManager:
 
     @property
     def too_soon(self):
-        cache_path = Path(self.filename).expanduser()
-        if not cache_path.exists():
+        if not self.filename.exists():
             return False
 
-        mtime = cache_path.stat().st_mtime
+        mtime = self.filename.stat().st_mtime
         last_modified_date = datetime.fromtimestamp(mtime).astimezone()
         now: datetime = datetime.now().astimezone()
 
@@ -2674,8 +2675,7 @@ class CacheManager:
 
     @property
     def saved(self) -> bool:
-        cache_path = Path(self.filename).expanduser()
-        return cache_path.exists()
+        return self.filename.exists()
 
     def load(self) -> None:
         r"""Reads the cache"""
@@ -2685,8 +2685,7 @@ class CacheManager:
         if not self.saved:
             raise Exception("Tried to load unsaved cache.")
 
-        full_path = Path(self.filename).expanduser()
-        with open(full_path, "rb") as f:
+        with open(self.filename, "rb") as f:
             payload: dict[str, any] = pickle.load(f)
 
         for name, cached in payload.items():
@@ -2709,13 +2708,12 @@ class CacheManager:
             return
 
         # I don't care of a previous cache
-        cachefile: Path = Path(self.filename)
-        cachefile.unlink(missing_ok=True)
+        self.filename.unlink(missing_ok=True)
 
         payload: dict[str, any] = {
             name: instance for name, instance in self._data.items()
         }
-        with open(cachefile, "wb") as f:
+        with open(self.filename, "wb") as f:
             pickle.dump(payload, f)
 
         self.logger.info("Cache saved")
@@ -2753,10 +2751,12 @@ class Configuration:
 
         self.holidays: dict[str, str] = {}
 
-        self.filename = "~/.tuiweathergirlrc"
+        self.filename: str | Path = Path.home() / ".tuiweathergirlrc"
 
         if os.name == "nt":
-            self.filename = "~/tuiweathergirl.ini"
+            self.filename = Path.home() / "tuiweathergirl.ini"
+        
+        self.filename = self.filename.expanduser()
 
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
@@ -2837,7 +2837,7 @@ Timezone: {self.timezone}"""
 
     @property
     def saved(self) -> bool:
-        return Path(self.filename).expanduser().exists()
+        return self.filename.exists()
 
     def save(self) -> None:
         r"""Write the configuration to the config file"""
@@ -2883,8 +2883,7 @@ Timezone: {self.timezone}"""
             }
 
         # Write to a file
-        full_path = Path(self.filename).expanduser()
-        with open(full_path, "w") as configfile:
+        with open(self.filename, "w") as configfile:
             config.write(configfile)
 
         self.logger.info("Config saved")
@@ -2896,8 +2895,7 @@ Timezone: {self.timezone}"""
             raise Exception("Tried to load unsaved configuration.")
 
         config = configparser.ConfigParser()
-        full_path = Path(self.filename).expanduser()
-        config.read(full_path)
+        config.read(self.filename)
 
         self.country = config["HOME"]["country"]
         self.country_code2 = config["HOME"]["country_code2"]
@@ -3994,7 +3992,10 @@ class WeatherForecaster:
     ) -> requests.Response:
         r"""Gets only current temperatures for a given location"""
 
-        self.logger.info("** Querying Open-Meteo briefly **")
+        self.logger.info("** Querying Open-Meteo for the folowed cities **")
+        if not self.config.followcities:
+            self.logger.info("No cities of interest. Exiting.")
+            return {}
 
         #  &timezone=auto # current
         url = (
@@ -4018,11 +4019,13 @@ class WeatherForecaster:
 
         self.logger.debug(f"RESPONSE={pf(response)}")
 
-        if not response:
+        if not response.ok or not response.text.strip():
             raise Exception(
                 f"Cannot obtain weather data. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
             )
 
+        # self.logger.debug(f"STATUS={response.status_code} HEADERS={dict(response.headers)}")
+        # self.logger.debug(f"BODY_LEN={len(response.text)} BODY={response.text[:200]!r}")
         return response.json()
 
     def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
@@ -4147,13 +4150,14 @@ class WeatherForecaster:
             future_aq = executor.submit(
                 self._get_aqi_data, self.config.lat, self.config.lon
             )
-            future_followcities = executor.submit(
-                self._get_brief_weather_data,
-                ",".join([e["lat"] for e in self.config.followcities]),
-                ",".join([e["lon"] for e in self.config.followcities]),
-                ",".join([e["timezone"] for e in self.config.followcities]),
-                tunit,
-            )
+            if self.config.followcities:
+                future_followcities = executor.submit(
+                    self._get_brief_weather_data,
+                    ",".join([e["lat"] for e in self.config.followcities]),
+                    ",".join([e["lon"] for e in self.config.followcities]),
+                    ",".join([e["timezone"] for e in self.config.followcities]),
+                    tunit,
+                )
             future_motivation = executor.submit(
                 Motivator.get_motivation, self.config.reqtimeout
             )
@@ -4207,7 +4211,8 @@ class WeatherForecaster:
             # -----------------
             weather_result: dict = future_weather.result()
             aq_result: dict = future_aq.result()
-            followcities_result: dict | list = future_followcities.result()
+            if self.config.followcities:
+                followcities_result: dict | list = future_followcities.result()
             fireballs: list[list[str]] = future_fireballs.result()
             quakes: list[list[str]] = future_quakes.result()
             wildfires: list[list[str]] = future_wildfires.result()
@@ -4278,31 +4283,32 @@ class WeatherForecaster:
 
             # followcities_result[i]["current"]["temperature_2m"]
             # followcities_result[i]["current"]["is_day"]
-            self.data.cities_data = []
-            if isinstance(followcities_result, dict):
-                city_data: dict = {
-                    "temperature": round(
-                        float(followcities_result["current"]["temperature_2m"])
-                    ),
-                    "is_day": followcities_result["current"]["is_day"],
-                    "city": self.config.followcities[-1]["city"],
-                    "country_code2": self.config.followcities[-1]["country_code2"],
-                    "province": self.config.followcities[-1]["province"],
-                }
-                self.data.cities_data = [city_data]
-            if isinstance(followcities_result, list):
-                # followcities_result = followcities_result
-                for combodata in zip(self.config.followcities, followcities_result):
+            if self.config.followcities:
+                self.data.cities_data = []
+                if isinstance(followcities_result, dict):
                     city_data: dict = {
                         "temperature": round(
-                            float(combodata[1]["current"]["temperature_2m"])
+                            float(followcities_result["current"]["temperature_2m"])
                         ),
-                        "is_day": combodata[1]["current"]["is_day"],
-                        "city": combodata[0]["city"],
-                        "country_code2": combodata[0]["country_code2"],
-                        "province": combodata[0]["province"],
+                        "is_day": followcities_result["current"]["is_day"],
+                        "city": self.config.followcities[-1]["city"],
+                        "country_code2": self.config.followcities[-1]["country_code2"],
+                        "province": self.config.followcities[-1]["province"],
                     }
-                    self.data.cities_data.append(city_data)
+                    self.data.cities_data = [city_data]
+                if isinstance(followcities_result, list):
+                    # followcities_result = followcities_result
+                    for combodata in zip(self.config.followcities, followcities_result):
+                        city_data: dict = {
+                            "temperature": round(
+                                float(combodata[1]["current"]["temperature_2m"])
+                            ),
+                            "is_day": combodata[1]["current"]["is_day"],
+                            "city": combodata[0]["city"],
+                            "country_code2": combodata[0]["country_code2"],
+                            "province": combodata[0]["province"],
+                        }
+                        self.data.cities_data.append(city_data)
 
             # 7 day forecast
             for i in range(1, 8):
@@ -4985,6 +4991,7 @@ class DashboardView(ColorViews):
         # stdscr.nodelay(True)
         curses.curs_set(False)  # Hide cursor
         stdscr.timeout(1000)  # Wait 1 second
+        stdscr.keypad(True)  # Allow extended keyboard codes
 
     def screen(self, stdscr: curses.window) -> None:  # DEBUG:
         self.logger.info("View is running")
@@ -5443,6 +5450,8 @@ class DashboardView(ColorViews):
                         y=wy,
                         theme=self._get_daynight_cp(city_data["is_day"]),
                     )
+                if not self.config.followcities:
+                    followcities_window.print("No cities of interest", x=1, y=0)
 
                 # WARNINGS
                 warnings_window.clear()
@@ -5604,6 +5613,11 @@ class ParseCommandline:
             type=int,
             help=f"Changes the request timeout (default: {REQTIMEOUT})",
         )
+        cli_parser.add_argument(
+            "--listfiles",
+            action="store_true",
+            help="List all the application files: LOG, config etc.",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
@@ -5755,6 +5769,7 @@ if __name__ == "__main__":
             LOGLEVEL = logging.DEBUG
             debug_mode_str = "*** DEBUG MODE ENABLED ***"
 
+        # Forcing the Windows terminal to maximize
         if sys.platform == "win32":
             hwnd = ctypes.windll.kernel32.GetConsoleWindow()
             if hwnd:
@@ -5792,7 +5807,7 @@ if __name__ == "__main__":
         nasafirms_apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
         if not nasafirms_apikey:
             print(
-                f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get fires disasters information. Run the app with --help"
+                f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get wildfires detailed information. Run the app with --help"
             )
 
         if cli_arguments["clearcache"]:
@@ -5807,6 +5822,19 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(f"Could not reset logfile: {e}")
             print("Cache deleted, warnings log deleted, logfile reset.")
+            sys.exit(0)
+        
+        if cli_arguments["listfiles"]:
+            cache: CacheManager = CacheManager()
+            warnings: WarningsManager = WarningsManager()
+            config: Configuration = Configuration()
+            print(f"Application | This is what you are running       | {Path(__file__).expanduser()}")
+            print(f"Config      | You may edit it, but no much need  | {config.filename}")
+            print(f"Warnings    | Don't edit this one!               | {warnings.filename}")
+            print(f"Cache       | Not human readable, don't edit it! | {cache.filename}")
+            print(f"LOG         | You may want to check this out     | {LOGFILENAME}")
+            print("")
+            print("In case you mess-up something, just run the application with --clearcache")
             sys.exit(0)
 
         print("\nPlease wait while loading... (might take a while)\n")
