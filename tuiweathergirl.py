@@ -4108,7 +4108,7 @@ class WeatherForecaster:
         # Format Date and Time
         now: datetime = datetime.now(ZoneInfo(self.config.timezone))
 
-        self.cache.register("self.data", self.data)
+        self.cache.register("weather_data", self.data)
         if self.cache.too_soon and not self.cache.loaded:
             self.cache.load()
             return
@@ -5223,9 +5223,9 @@ class DashboardView(ColorViews):
             follow_cities: list = self.forecaster.data.cities_data
 
             # Saving the cache
-            cache = CacheManager()
-            cache.register("weather_data", self.forecaster.data)
-            cache.save()
+            #cache = CacheManager()
+            #cache.register("weather_data", self.forecaster.data)
+            #cache.save()
 
             home_day: str = "night"
             if is_day:
