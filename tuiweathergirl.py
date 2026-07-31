@@ -1066,10 +1066,19 @@ class Window:
         if newline:
             self.cursor_x = 0
             self.cursor_y += 1
+        # if self.cursor_y >= self.inner_height:
+        #     self.win.scroll(self.cursor_y - self.inner_height)
+        #     self.cursor_x = 0
+        #     self.cursor_y = self.inner_height - 1
         if self.cursor_y >= self.inner_height:
-            self.win.scroll(self.cursor_y - self.inner_height)
+            if self.borderwin is not None:
+                # PDCurses (Windows) can't reliably scroll derwin()s; just clamp instead
+                self.cursor_y = self.inner_height - 1
+            else:
+                if self.cursor_y - self.inner_height > 0:
+                    self.win.scroll(self.cursor_y - self.inner_height)
+                self.cursor_y = self.inner_height - 1
             self.cursor_x = 0
-            self.cursor_y = self.inner_height - 1
 
     def refresh(self) -> None:
         if self.borderwin:
