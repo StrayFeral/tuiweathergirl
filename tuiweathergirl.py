@@ -1389,10 +1389,8 @@ class WarningsManager:
 
         # No dot in the filename
         if os.name == "nt":
-            self.filename: Path = (
-                Path.home() / "tuiweathergirl_warnings.log"
-            )
-        
+            self.filename: Path = Path.home() / "tuiweathergirl_warnings.log"
+
         self.filename = self.filename.expanduser()
 
     def delete(self) -> None:
@@ -2660,9 +2658,7 @@ class CacheManager:
     """
 
     def __init__(self) -> None:
-        self.filename: Path = (
-            Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
-        )
+        self.filename: Path = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
         self.filename = self.filename.expanduser()
         self.loaded: bool = False
         self._data: dict[str, any] = {}
@@ -2767,7 +2763,7 @@ class Configuration:
 
         if os.name == "nt":
             self.filename = Path.home() / "tuiweathergirl.ini"
-        
+
         self.filename = self.filename.expanduser()
 
         self.logger = logging.getLogger(
@@ -5232,9 +5228,9 @@ class DashboardView(ColorViews):
             follow_cities: list = self.forecaster.data.cities_data
 
             # Saving the cache
-            #cache = CacheManager()
-            #cache.register("weather_data", self.forecaster.data)
-            #cache.save()
+            # cache = CacheManager()
+            # cache.register("weather_data", self.forecaster.data)
+            # cache.save()
 
             home_day: str = "night"
             if is_day:
@@ -5467,7 +5463,9 @@ class DashboardView(ColorViews):
                 # last line. I have a safeguard to make it happen.
                 for msgy, warning in enumerate(warnings):
                     warnings_window.print(
-                        self.warnings.apply_format(warning)[:view_required_columns - 4],
+                        self.warnings.apply_format(warning)[
+                            : view_required_columns - 4
+                        ],
                         x=0,
                         y=msgy,
                         newline=True,
@@ -5526,11 +5524,11 @@ class DashboardView(ColorViews):
 
     def display(self) -> None:
         curses.wrapper(self.screen)
-        
+
 
 class TTYDashboardView(ColorViews):
     """A dashboard color view for the most basic virtual console (TTY).
-    
+
     This view has been specifically created for barebone
     virtual consoles (TTYs), for linux boxes without
     any desktop environment installed, such as my own
@@ -5918,7 +5916,9 @@ class TTYDashboardView(ColorViews):
                 # last line. I have a safeguard to make it happen.
                 for msgy, warning in enumerate(warnings):
                     warnings_window.print(
-                        self.warnings.apply_format(warning)[:view_required_columns - 4],
+                        self.warnings.apply_format(warning)[
+                            : view_required_columns - 4
+                        ],
                         x=0,
                         y=msgy,
                         newline=True,
@@ -6239,18 +6239,28 @@ if __name__ == "__main__":
                     print(f"Could not reset logfile: {e}")
             print("Cache deleted, warnings log deleted, logfile reset.")
             sys.exit(0)
-        
+
         if cli_arguments["listfiles"]:
             cache: CacheManager = CacheManager()
             warnings: WarningsManager = WarningsManager()
             config: Configuration = Configuration()
-            print(f"Application | This is what you are running       | {Path(__file__).expanduser()}")
-            print(f"Config      | You may edit it, but no much need  | {config.filename}")
-            print(f"Warnings    | Don't edit this one!               | {warnings.filename}")
-            print(f"Cache       | Not human readable, don't edit it! | {cache.filename}")
+            print(
+                f"Application | This is what you are running       | {Path(__file__).expanduser()}"
+            )
+            print(
+                f"Config      | You may edit it, but no much need  | {config.filename}"
+            )
+            print(
+                f"Warnings    | Don't edit this one!               | {warnings.filename}"
+            )
+            print(
+                f"Cache       | Not human readable, don't edit it! | {cache.filename}"
+            )
             print(f"LOG         | You may want to check this out     | {LOGFILENAME}")
             print("")
-            print("In case you mess-up something, just run the application with --clearcache")
+            print(
+                "In case you mess-up something, just run the application with --clearcache"
+            )
             sys.exit(0)
 
         print("\nPlease wait while loading... (might take a while)\n")
