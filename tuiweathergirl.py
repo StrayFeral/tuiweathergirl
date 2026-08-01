@@ -629,10 +629,11 @@ class LocalProduceAdvisor:
 
 class TerminalSize:
     """Defines a terminal/tty size.
-    
+
     Initially a view's size was independent, but I decided to tie it to the
     terminal size for which it was created.
     """
+
     def __init__(self, **kwargs: list[int]) -> None:
         self.rows: int = kwargs["rows"]
         self.columns: int = kwargs["columns"]
@@ -640,6 +641,7 @@ class TerminalSize:
 
 class DefaultTerminal(TerminalSize):
     """My own terminal size"""
+
     def __init__(self) -> None:
         super().__init__(
             **{
@@ -651,6 +653,7 @@ class DefaultTerminal(TerminalSize):
 
 class TTYTerminal(TerminalSize):
     """Barebone linux virtual console (TTY) size"""
+
     def __init__(self) -> None:
         super().__init__(
             **{
@@ -5992,19 +5995,17 @@ class WeatherGirl:
         }
 
     def present(self, view: str = "") -> None:
-        logger = logging.getLogger(
-            f"{self.__module__}.{self.__class__.__qualname__}"
-        )
-        
+        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+
         if len(view) > 0 and view not in self.views:
             raise ValueError(f"View not defined '{view}'. Run with --help for help.")
-        
+
         # Updating the user preferences
         if view and view != self.view:
             self.config.view = view
             self.config.save()
             logger.info(f"Default view chnaged: {view}")
-            
+
         self.views[view or self.view].display()
 
 
