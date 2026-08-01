@@ -5413,7 +5413,7 @@ class DashboardView(ColorViews):
                 theme="home",
             )
             location_window.print(
-                f"({home_day})", align="right", theme=self._get_daynight_cp(is_day)
+                f"({home_day}) {season}", align="right", theme=self._get_daynight_cp(is_day)
             )
 
             # The followed cities
@@ -5909,7 +5909,7 @@ class TTYDashboardView(ColorViews):
                 theme="home",
             )
             location_window.print(
-                f"({home_day})", align="right", theme=self._get_daynight_cp(is_day)
+                f"({home_day}) {season}", align="right", theme=self._get_daynight_cp(is_day)
             )
 
             if force_screen_update:
