@@ -1,6 +1,6 @@
 # TUIWEATHERGIRL: Your daily terminal weathergirl
 
-![Screenshot](screenshots/thumbnail.jpg)
+![Screenshot](screenshots/thumbnail.gif)
 
 ## DESCRIPTION
 
@@ -81,6 +81,10 @@ MANDATORY ACQUISITION OF TIMEZONEDB API KEY:
 If you want detailed wildfire information provided, please consider getting a *free* API key from NASA FIRMS:
 1. Go to https://firms.modaps.eosdis.nasa.gov/api/map_key and follow the steps to get the *free* API key
 2. Create an environment variable called NASAFIRMSAPIKEY and set the API key as a value
+
+If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
+
+[📥 Download TUIWEATHERGIRL (.zip)](https://github.com/StrayFeral/REPOSITORY/releases/latest/download/tuiweathergirl.zip)
 
 ### LINUX/UNIX
 

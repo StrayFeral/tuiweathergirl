@@ -1,0 +1,27 @@
+name: Package Single Zip
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers whenever you push a tag like v1.0, v1.0.0, etc.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Zip with 5 files
+        run: |
+          # Zip only the specific 5 files from the root directory
+          zip tuiweathergirl.zip Makefile README.md tuiweathergirl.py windows_install.bat
+
+      - name: Create GitHub Release and Upload Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: tuiweathergirl.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
