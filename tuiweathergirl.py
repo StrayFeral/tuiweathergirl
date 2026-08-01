@@ -84,8 +84,8 @@ REFRESH_INTERVAL: int = 20  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 
 # Color indexes
-COL_YELOWRED: int = 1
-COL_YELOWBLACK: int = 2
+COL_YELLOWRED: int = 1
+COL_YELLOWBLACK: int = 2
 COL_WHITEBLACK: int = 3
 COL_BLUEBLACK: int = 4
 COL_REDBLACK: int = 5
@@ -665,6 +665,7 @@ class TTYTerminal(TerminalSize):
 
 class Theme:
     def __init__(self, **kwargs: list[int]) -> None:
+        # Interface elements
         self.general: list[int] = kwargs["general"]
         self.border: list[int] = kwargs["border"]
         self.header: list[int] = kwargs["header"]
@@ -673,6 +674,16 @@ class Theme:
         self.warntitle: list[int] = kwargs["warntitle"]
         self.warnborder: list[int] = kwargs["warnborder"]
 
+        # Text elements
+        self.regular: list[int] = kwargs["regular"]
+        self.normal: list[int] = kwargs["normal"]
+        self.water: list[int] = kwargs["water"]
+        self.good: list[int] = kwargs["good"]
+        self.important: list[int] = kwargs["important"]
+        self.error: list[int] = kwargs["error"]
+        self.emergency: list[int] = kwargs["emergency"]
+
+        # Misc
         self._last_used: int | None = None
         self._last_window: curses.window | None = None
         self._last_dim: bool = False
@@ -717,13 +728,91 @@ class MainTheme(Theme):
                 "title": [COL_CYANBLACK, False],
                 "warntitle": [COL_WHITEBLACK, False],
                 "warnborder": [COL_REDBLACK, False],
+                "regular": [COL_BLUEBLACK, False],
+                "normal": [COL_WHITEBLACK, False],
+                "water": [COL_CYANBLACK, False],
+                "good": [COL_GREENBLACK, False],
+                "important": [COL_YELLOWBLACK, False],
+                "error": [COL_REDBLACK, False],
+                "emergency": [COL_YELLOWRED, False],
+            }
+        )
+
+
+class MonoTheme(Theme):
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "general": [COL_WHITEBLACK, True],
+                "border": [COL_WHITEBLACK, True],
+                "header": [COL_WHITEBLACK, True],
+                "home": [COL_WHITEBLACK, True],
+                "title": [COL_WHITEBLACK, True],
+                "warntitle": [COL_WHITEBLACK, False],
+                "warnborder": [COL_WHITEBLACK, False],
+                "regular": [COL_WHITEBLACK, True],
+                "normal": [COL_WHITEBLACK, True],
+                "water": [COL_WHITEBLACK, True],
+                "good": [COL_WHITEBLACK, True],
+                "important": [COL_WHITEBLACK, False],
+                "error": [COL_WHITEBLACK, False],
+                "emergency": [COL_WHITEBLACK, False],
+            }
+        )
+
+
+class LemonTheme(Theme):
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "general": [COL_WHITEBLACK, True],
+                "border": [COL_WHITEBLACK, True],
+                "header": [COL_WHITEBLACK, True],
+                "home": [COL_WHITEBLACK, True],
+                "title": [COL_WHITEBLACK, True],
+                "warntitle": [COL_WHITEBLACK, False],
+                "warnborder": [COL_WHITEBLACK, False],
+                "regular": [COL_YELLOWBLACK, True],
+                "normal": [COL_YELLOWBLACK, True],
+                "water": [COL_YELLOWBLACK, True],
+                "good": [COL_YELLOWBLACK, True],
+                "important": [COL_YELLOWBLACK, False],
+                "error": [COL_YELLOWBLACK, False],
+                "emergency": [COL_YELLOWBLACK, False],
+            }
+        )
+
+
+class ArcticTheme(Theme):
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "general": [COL_CYANBLACK, True],
+                "border": [COL_CYANBLACK, True],
+                "header": [COL_CYANBLACK, True],
+                "home": [COL_CYANBLACK, True],
+                "title": [COL_WHITEBLACK, True],
+                "warntitle": [COL_CYANBLACK, False],
+                "warnborder": [COL_CYANBLACK, False],
+                "regular": [COL_YELLOWBLACK, True],
+                "normal": [COL_CYANBLACK, False],
+                "water": [COL_CYANBLACK, False],
+                "good": [COL_CYANBLACK, False],
+                "important": [COL_YELLOWBLACK, False],
+                "error": [COL_YELLOWBLACK, False],
+                "emergency": [COL_YELLOWRED, False],
             }
         )
 
 
 class ThemePalette:
     def __init__(self) -> None:
-        self.palette: dict[str, Theme] = {"main": MainTheme()}
+        self.palette: dict[str, Theme] = {
+            "main": MainTheme(),
+            "mono": MonoTheme(),
+            "lemon": LemonTheme(),
+            "arctic": ArcticTheme(),
+        }
         self.logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
@@ -738,10 +827,10 @@ class ThemePalette:
         # Color definitions
         curses.start_color()
         curses.init_pair(
-            COL_YELOWRED, curses.COLOR_YELLOW, curses.COLOR_RED
+            COL_YELLOWRED, curses.COLOR_YELLOW, curses.COLOR_RED
         )  # Warnings
         curses.init_pair(
-            COL_YELOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK
+            COL_YELLOWBLACK, curses.COLOR_YELLOW, curses.COLOR_BLACK
         )  # Sunny
         curses.init_pair(
             COL_WHITEBLACK, curses.COLOR_WHITE, curses.COLOR_BLACK
@@ -4604,35 +4693,35 @@ class ColorViews(Views):
             raise ValueError(f"Invalid value '{homeremote}' for homeremote.")
 
         homeremotes: dict[str, int | str] = {
-            "home": COL_WHITEBLACK,
+            "home": "normal",
             "remote": "general",
-            "emergency": COL_YELOWRED,
-            "disaster": COL_YELOWRED,
+            "emergency": "emergency",
+            "disaster": "emergency",
         }
         labels: dict[str, int | str] = {
-            "fire": COL_YELOWRED,
-            "wildfire": COL_YELOWRED,
-            "flood": COL_CYANBLACK,
-            "tsunami": COL_CYANBLACK,
-            "earthquake": COL_WHITEBLACK,
+            "fire": "emergency",
+            "wildfire": "emergency",
+            "flood": "water",
+            "tsunami": "water",
+            "earthquake": "normal",
             "radioblackout": "general",
-            "emergency": COL_YELOWRED,
-            "disaster": COL_YELOWRED,
+            "emergency": "emergency",
+            "disaster": "emergency",
             "humidity": "general",
-            "amber": COL_YELOWRED,
+            "amber": "emergency",
             "allergy": "general",
-            "uv": COL_YELOWBLACK,
-            "xray": COL_WHITEBLACK,
+            "uv": "important",
+            "xray": "normal",
             "geomagnetic": "general",
             "electrostatic": "general",
             "solarradiation": "general",
             "fireball": "general",
             "space": "general",
-            "air": COL_YELOWBLACK,
-            "baropressure": COL_WHITEBLACK,
-            "storm": COL_YELOWRED,
-            "volcano": COL_YELOWRED,
-            "drought": COL_WHITEBLACK,
+            "air": "important",
+            "baropressure": "normal",
+            "storm": "emergency",
+            "volcano": "emergency",
+            "drought": "normal",
         }
 
         # List of labels which does not apply for the majority of population
@@ -4650,16 +4739,16 @@ class ColorViews(Views):
 
         # First priority
         if homeremote.lower() == "error":
-            return COL_YELOWBLACK
+            return "important"
         # Severities
         if homeremote.lower() == "home" and "extreme risk" in message.lower():
-            return COL_YELOWRED
+            return "emergency"
         if (
             homeremote.lower() == "home"
             and label.lower() in generics
             and "high risk" in message.lower()
         ):
-            return COL_WHITEBLACK
+            return "normal"
 
         # if homeremote.lower() in ["home", "disaster"] and label.lower() in labels:
         if homeremote.lower() == "home" and label.lower() in labels:
@@ -4668,83 +4757,83 @@ class ColorViews(Views):
         if homeremote.lower() in homeremotes:
             return homeremotes[homeremote.lower()]
 
-        return COL_BLUEBLACK
+        return "regular"
 
     def _get_humidity_cp(self, humidity: int, temperature: int) -> int:
         r"""Get the humidity color pair"""
 
         if humidity >= 70 and temperature > 30:
-            return COL_YELOWBLACK
+            return "important"
         if humidity >= 80 and 27 <= temperature <= 31:
-            return COL_YELOWBLACK
+            return "important"
         if humidity >= 50 and 32 <= temperature <= 34:
-            return COL_YELOWBLACK
+            return "important"
         if humidity >= 40 and 35 <= temperature <= 37:
-            return COL_YELOWBLACK
+            return "important"
         if humidity >= 35 and temperature > 38:
-            return COL_YELOWRED
+            return "emergency"
 
         if humidity < 15:
-            return COL_YELOWRED
+            return "emergency"
         if humidity < 30:
-            return COL_YELOWBLACK
+            return "important"
         if humidity <= 60:
-            return COL_GREENBLACK
+            return "good"
 
-        return COL_CYANBLACK
+        return "water"
 
     def _get_daynight_cp(self, is_day: bool) -> int:
         r"""Get the day or night color pair"""
         if is_day:
-            return COL_WHITEBLACK
-        return COL_BLUEBLACK
+            return "normal"
+        return "regular"
 
     def _get_temp_cp(self, t: int) -> int:
         r"""Get the appropriate temperature color pair"""
 
         if t < 11:
-            return COL_CYANBLACK
+            return "water"
         if 11 <= t <= 20:
-            return COL_GREENBLACK
+            return "good"
         if 21 <= t <= 38:
-            return COL_YELOWBLACK
+            return "important"
         if 39 <= t <= 44:
-            return COL_REDBLACK
-        return COL_YELOWRED
+            return "error"
+        return "emergency"
 
     def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
         r"""Beaufort Scale"""
 
         scale: dict[str, dict[int, int]] = {
-            "kmh": {50: COL_WHITEBLACK, 89: COL_YELOWBLACK, 117: COL_REDBLACK},
-            "mph": {32: COL_WHITEBLACK, 55: COL_YELOWBLACK, 72: COL_REDBLACK},
+            "kmh": {50: "normal", 89: "important", 117: "error"},
+            "mph": {32: "normal", 55: "important", 72: "error"},
         }
 
         for treshold in scale[unit].keys():
             if wind_speed < treshold:
                 return scale[unit][treshold]
 
-        return COL_YELOWRED  # Extreme (Hurricane)
+        return "emergency"  # Extreme (Hurricane)
 
     def _get_sky_cp(self, sky: str) -> int:
         r"""Get the appropriate sky color pair"""
 
         d: dict[str, int] = {
             # -------------------- nice
-            "Clear": COL_YELOWBLACK,
-            "Mainly Clear": COL_YELOWBLACK,
+            "Clear": "important",
+            "Mainly Clear": "important",
             # -------------------- clouds
-            "Partly Cloudy": COL_WHITEBLACK,
-            "Overcast": COL_WHITEBLACK,
-            "Foggy": COL_WHITEBLACK,
-            "Rime Fog": COL_WHITEBLACK,
-            "Cloudy": COL_WHITEBLACK,
+            "Partly Cloudy": "normal",
+            "Overcast": "normal",
+            "Foggy": "normal",
+            "Rime Fog": "normal",
+            "Cloudy": "normal",
             # -------------------- rains
-            "Drizzle": COL_CYANBLACK,
-            "Rain": COL_CYANBLACK,
-            "Snow": COL_WHITEBLACK,
-            "Rain Showers": COL_CYANBLACK,
-            "Thunderstorm": COL_REDBLACK,
+            "Drizzle": "water",
+            "Rain": "water",
+            "Snow": "normal",
+            "Rain Showers": "water",
+            "Thunderstorm": "error",
         }
         if sky not in d:
             raise ValueError(f"Invalid sky value '{sky}'.")
@@ -4754,9 +4843,9 @@ class ColorViews(Views):
         r"""Get the appropriate precipitation type color pair"""
 
         d: dict[str, int] = {
-            "Rain": COL_CYANBLACK,
-            "Snow": COL_WHITEBLACK,
-            "Storm": COL_YELOWRED,
+            "Rain": "water",
+            "Snow": "normal",
+            "Storm": "emergency",
         }
         if precip_type in d:
             return d[precip_type]
@@ -4768,14 +4857,14 @@ class ColorViews(Views):
 
         d: dict[str, int] = {
             # -------------------- green
-            "Good": COL_GREENBLACK,
+            "Good": "good",
             # -------------------- yellow
-            "Moderate": COL_YELOWBLACK,
-            "Unhealthy for Sensitive Groups": COL_YELOWBLACK,
+            "Moderate": "important",
+            "Unhealthy for Sensitive Groups": "important",
             # -------------------- red
-            "Unhealthy": COL_REDBLACK,
-            "Very Unhealthy": COL_REDBLACK,
-            "Hazardous": COL_REDBLACK,
+            "Unhealthy": "error",
+            "Very Unhealthy": "error",
+            "Hazardous": "error",
         }
         if aqistr not in d:
             raise ValueError(f"Invalid AQI value '{aqistr}'.")
@@ -4783,8 +4872,8 @@ class ColorViews(Views):
 
     def _get_progbar_cp(self, p: int) -> int:
         if p < 40:
-            return COL_BLUEBLACK
-        return COL_CYANBLACK
+            return "regular"
+        return "water"
 
     def update_screen(self) -> None:
         r"""Pushes all changes to screen at once"""
@@ -6031,7 +6120,7 @@ class ParseCommandline:
         )
         cli_parser.add_argument(
             "--theme",
-            choices=["main"],
+            choices=["main", "mono", "lemon", "arctic"],
             default="",
             help="Select the application color scheme",
         )
@@ -6324,6 +6413,10 @@ if __name__ == "__main__":
 
         config.load()
 
+        if cli_arguments["theme"]:
+            config.theme = cli_arguments["theme"]
+            config.save()
+            logger.info(f"Theme changed to: {config.theme}")
         if cli_arguments["requesttimeout"]:
             REQTIMEOUT = int(cli_arguments["requesttimeout"])
             config.reqtimeout = REQTIMEOUT
