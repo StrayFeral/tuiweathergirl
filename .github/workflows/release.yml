@@ -17,7 +17,7 @@ jobs:
       - name: Create Zip with 5 files
         run: |
           # Zip only the specific 5 files from the root directory
-          zip tuiweathergirl.zip Makefile README.md tuiweathergirl.py windows_install.bat
+          zip tuiweathergirl.zip Makefile README.md tuiweathergirl.py windows_install.bat create_win10shortcut.bat
 
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v1

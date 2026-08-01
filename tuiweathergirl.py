@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.0"
+APPVERSION: str = "1.0.1"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -80,7 +80,7 @@ MIN_COLS: int = 79
 MIN_LINES: int = 22
 MAXSTRINGLEN: int = 140
 SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
-REFRESH_INTERVAL: int = 20  # minutes
+REFRESH_INTERVAL: int = 30  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 
 # Color indexes
