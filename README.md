@@ -1,4 +1,4 @@
-# TUIWEATHERGIRL: Your daily terminal weathergirl
+# TUIWEATHERGIRL: Weather and Disaster Station
 
 ![Screenshot](screenshots/thumbnail.gif)
 
