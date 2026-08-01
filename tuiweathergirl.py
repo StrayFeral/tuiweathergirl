@@ -4986,9 +4986,11 @@ class BasicView(Views):
         humidity: str = self.forecaster.data.humidity
         wind_direction_long: str = self.forecaster.data.wind_direction_long
         # ---
-        # warnings: list[str] = self.forecaster.data.warnings
         week: list[BriefDailyForecast] = self.forecaster.data.week
         follow_cities: list = self.forecaster.data.cities_data
+
+        # Getting the last 10 warnings
+        warnings: list[list[str]] = self.warnings.get_warnings(12)
 
         day: str = "day" if is_day else "night"
 
@@ -5018,10 +5020,50 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             temperatures = f"{dmin:>2} deg /{dmax:>2} deg {tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
-        # for warning in warnings:
-        #     print(f"\n{warning}")
+        print("\nWARNINGS")
+        print(hr)
+        for warning in warnings:
+            print(self.warnings.apply_format(warning))
 
-        # print("\nTry: tuiweathergirl --help")
+        print("\nCELESTIAL")
+        print(hr)
+        print(
+            f"Sunrise | {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}"
+        )
+        print(
+            f"Sunset  | {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}"
+        )
+        print(f"Moon    | {self.forecaster.data.misc_data["celestial"]["moon"]}")
+        print(f"Zodiac  | {self.forecaster.data.misc_data["celestial"]["zodiac"]}")
+        print(f"Chinese | {self.forecaster.data.misc_data["celestial"]["chinese"]}")
+
+        print("\nCITIES OF INTEREST")
+        print(hr)
+
+        for city_cnt, city_data in enumerate(follow_cities):
+            day: str = "night"
+            if city_data["is_day"]:
+                day = "day"
+            temp: int = city_data["temperature"]
+            city2: str = self.config.followcities[city_cnt]["city"]
+            province2: str = self.config.followcities[city_cnt]["province"]
+            country2: str = self.config.followcities[city_cnt]["country"]
+            citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+            city_time: str = self.presconf.get_time_for_timezone(citytimezone)
+
+            if province2.isdigit():
+                province2 = ""
+            elif len(province2) > 0:
+                province2 = f", {province2}"
+
+            s: str = (
+                f"{city_cnt+1}. {city_time} {city2}{province2}, {country2} {temp}°{tsuffix} ({day})"
+            )
+            print(s)
+
+        if not self.config.followcities:
+            print("None")
+
         print("\n")
 
 
