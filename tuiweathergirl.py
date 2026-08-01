@@ -627,6 +627,39 @@ class LocalProduceAdvisor:
         return SEASONAL_DATA.get(zone, {}).get(month, {"veggies": [], "fruits": []})
 
 
+class TerminalSize:
+    """Defines a terminal/tty size.
+    
+    Initially a view's size was independent, but I decided to tie it to the
+    terminal size for which it was created.
+    """
+    def __init__(self, **kwargs: list[int]) -> None:
+        self.rows: int = kwargs["rows"]
+        self.columns: int = kwargs["columns"]
+
+
+class DefaultTerminal(TerminalSize):
+    """My own terminal size"""
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "rows": 38,
+                "columns": 146,
+            }
+        )
+
+
+class TTYTerminal(TerminalSize):
+    """Barebone linux virtual console (TTY) size"""
+    def __init__(self) -> None:
+        super().__init__(
+            **{
+                "rows": 33,
+                "columns": 106,
+            }
+        )
+
+
 class Theme:
     def __init__(self, **kwargs: list[int]) -> None:
         self.general: list[int] = kwargs["general"]
@@ -4518,18 +4551,18 @@ class Views:
         return bar
 
     def test_terminal_resized(
-        self, stdscr: curses.window, min_height: int, min_width: int
+        self, stdscr: curses.window, terminal_size: TerminalSize
     ) -> bool:
         """Test if terminal was resized. Also if terminal is the minimum size required."""
 
-        height, width = stdscr.getmaxyx()
-        if height < min_height or width < min_width:
+        rows, columns = stdscr.getmaxyx()
+        if rows < terminal_size.rows or columns < terminal_size.columns:
             raise Exception(
-                f"Current terminal size ({width}x{height}) is smaller than the required minimum terminal size ({min_width}x{min_height}) for this view. You might try another view. Run with --help"
+                f"Current terminal size ({columns}x{height}) is smaller than the required minimum terminal size ({terminal_size.columns}x{terminal_size.rows}) for this view. You might try another view. Run with --help"
             )
-        if (width, height) != (self.width, self.height):
-            self.width = width
-            self.height = height
+        if (columns, rows) != (self.width, self.height):
+            self.width = columns
+            self.height = rows
             return True
 
         return False
@@ -4794,8 +4827,6 @@ class SetupView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
-        # self.forecaster.get_data()
-
         # Data to display
         city: str = self.config.city
         province: str = self.presconf.province
@@ -4827,6 +4858,7 @@ class BasicView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
+        # Initial data collection
         self.forecaster.get_data()
 
         # Data to display
@@ -4907,6 +4939,7 @@ class MotivationalView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
+        # Initial data collection
         self.forecaster.get_data()
 
         # Data to display
@@ -5004,6 +5037,7 @@ class DashboardView(ColorViews):
     def screen(self, stdscr: curses.window) -> None:  # DEBUG:
         self.logger.info("View is running")
 
+        # Initial data collection
         self.forecaster.get_data()
 
         theme_palette: ThemePalette = ThemePalette()
@@ -5012,11 +5046,11 @@ class DashboardView(ColorViews):
         self.init_screen(stdscr)
 
         # Defining the required terminal size
-        view_required_lines: int = 38
-        view_required_columns: int = 146
+        # My own terminal size
+        required_terminal_size: TerminalSize = DefaultTerminal()
 
         # Initial test for the size and to save the initial width and height
-        self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
+        self.test_terminal_resized(stdscr, required_terminal_size)
 
         last_refresh: str = ""
 
@@ -5063,7 +5097,7 @@ class DashboardView(ColorViews):
             # Application just started or Terminal was resized
             # keypressed == curses.KEY_RESIZE
             if not layout_manager or self.test_terminal_resized(
-                stdscr, view_required_lines, view_required_columns
+                stdscr, required_terminal_size
             ):
                 self.logger.info("Drawing the windows...")
 
@@ -5464,7 +5498,7 @@ class DashboardView(ColorViews):
                 for msgy, warning in enumerate(warnings):
                     warnings_window.print(
                         self.warnings.apply_format(warning)[
-                            : view_required_columns - 4
+                            : required_terminal_size.columns - 4
                         ],
                         x=0,
                         y=msgy,
@@ -5546,19 +5580,17 @@ class TTYDashboardView(ColorViews):
     def screen(self, stdscr: curses.window) -> None:  # DEBUG:
         self.logger.info("View is running")
 
+        # Initial data collection
         self.forecaster.get_data()
 
         theme_palette: ThemePalette = ThemePalette()
         theme_palette.init_colors()
         theme: Theme = theme_palette.get_theme(self.config.theme)
         self.init_screen(stdscr)
-
-        # Defining the required terminal size
-        view_required_lines: int = 33
-        view_required_columns: int = 106
+        required_terminal_size: TerminalSize = TTYTerminal()
 
         # Initial test for the size and to save the initial width and height
-        self.test_terminal_resized(stdscr, view_required_lines, view_required_columns)
+        self.test_terminal_resized(stdscr, required_terminal_size)
 
         last_refresh: str = ""
 
@@ -5605,7 +5637,7 @@ class TTYDashboardView(ColorViews):
             # Application just started or Terminal was resized
             # keypressed == curses.KEY_RESIZE
             if not layout_manager or self.test_terminal_resized(
-                stdscr, view_required_lines, view_required_columns
+                stdscr, required_terminal_size
             ):
                 self.logger.info("Drawing the windows...")
 
@@ -5917,7 +5949,7 @@ class TTYDashboardView(ColorViews):
                 for msgy, warning in enumerate(warnings):
                     warnings_window.print(
                         self.warnings.apply_format(warning)[
-                            : view_required_columns - 4
+                            : required_terminal_size.columns - 4
                         ],
                         x=0,
                         y=msgy,
