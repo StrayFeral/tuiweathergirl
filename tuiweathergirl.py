@@ -5949,6 +5949,7 @@ class WeatherGirl:
     def __init__(self, config: Configuration) -> None:
         self.view: str = config.view
         present_config: PresentationConfiguration = PresentationConfiguration(config)
+        self.config: Configuration = config
 
         self.views: dict[str, Views] = {
             "setup": SetupView(config, present_config),
@@ -5959,8 +5960,19 @@ class WeatherGirl:
         }
 
     def present(self, view: str = "") -> None:
+        logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+        
         if len(view) > 0 and view not in self.views:
             raise ValueError(f"View not defined '{view}'. Run with --help for help.")
+        
+        # Updating the user preferences
+        if view and view != self.view:
+            self.config.view = view
+            self.config.save()
+            logger.info(f"Default view chnaged: {view}")
+            
         self.views[view or self.view].display()
 
 
