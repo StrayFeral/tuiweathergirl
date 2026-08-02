@@ -5612,7 +5612,7 @@ class DashboardView(ColorViews):
                         theme=self._get_temp_cp(temp),
                     )
                     followcities_window.print(
-                        f"({day})",
+                        f"({day})".ljust(7),
                         x=data_x2,
                         y=wy,
                         theme=self._get_daynight_cp(city_data["is_day"]),
