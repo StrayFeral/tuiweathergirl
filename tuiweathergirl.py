@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.1"
+APPVERSION: str = "1.0.2"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -2109,7 +2109,7 @@ class SpaceWeatherAdvisor:
             }
             storm_label = storm_descriptions.get(observed, f"Storm (G{observed})")
 
-            return f"[Kp {kp_index:.2f}] {storm_label} storm. Risk: Blood pressure, headaches, insomnia, sev.joing pain (Predicted:G{predicted})."
+            return f"[Kp {kp_index:.2f}] {storm_label} storm. Risk: Blood pressure, headaches, insomnia, sev.joint pain (Predicted:G{predicted})."
 
         return ""
 
@@ -4650,7 +4650,7 @@ class Views:
         rows, columns = stdscr.getmaxyx()
         if rows < terminal_size.rows or columns < terminal_size.columns:
             raise Exception(
-                f"Current terminal size ({columns}x{height}) is smaller than the required minimum terminal size ({terminal_size.columns}x{terminal_size.rows}) for this view. You might try another view. Run with --help"
+                f"Current terminal size ({columns}x{rows}) is smaller than the required minimum terminal size ({terminal_size.columns}x{terminal_size.rows}) for this view. You might try another view. Run with --help"
             )
         if (columns, rows) != (self.width, self.height):
             self.width = columns
@@ -5406,14 +5406,15 @@ class DashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
+            day_season: str = f"({home_day}) {season}"
             location_window.print(
                 f"Today: {datenow} {timenow}{dstmark}",
-                x=-len(home_day) - 3,
+                x=-len(day_season) - 1,
                 align="right",
                 theme="home",
             )
             location_window.print(
-                f"({home_day}) {season}", align="right", theme=self._get_daynight_cp(is_day)
+                day_season, align="right", theme=self._get_daynight_cp(is_day)
             )
 
             # The followed cities
@@ -5902,14 +5903,15 @@ class TTYDashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
+            day_season: str = f"({home_day}) {season}"
             location_window.print(
                 f"Today: {datenow} {timenow}{dstmark}",
-                x=-len(home_day) - 3,
+                x=-len(day_season) - 1,
                 align="right",
                 theme="home",
             )
             location_window.print(
-                f"({home_day}) {season}", align="right", theme=self._get_daynight_cp(is_day)
+                day_season, align="right", theme=self._get_daynight_cp(is_day)
             )
 
             if force_screen_update:
