@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.2"
+APPVERSION: str = "1.0.3"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -6518,13 +6518,11 @@ if __name__ == "__main__":
         print(e)
 
         logger = logging.getLogger(__name__)
-
-        if DEBUG_MODE:
-            title2: str = (
-                "---------------------------------------------------------------[ STACKTRACE ]"
-            )
-            print(f"\n{title2}")
-            traceback.print_exc()
-            logger.exception("---------------------------------- EXCEPTION")
+        title2: str = (
+            "---------------------------------------------------------------[ STACKTRACE ]"
+        )
+        print(f"\n{title2}")
+        traceback.print_exc()
+        logger.exception("---------------------------------- EXCEPTION")
 
         sys.exit(1)
