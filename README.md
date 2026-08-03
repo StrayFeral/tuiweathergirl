@@ -16,6 +16,10 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 > Not vibe-coded.
 
+## WHAT'S NEW (CHANGELOG)
+
+2026-08-03 v.1.0.3: Exception stacktrack is now always logged in the log file, so in case of found bug, just paste me the log.
+
 ## TESTED ON
 
 1. Lubuntu 24.04.4 LTS x86_64 linux
