@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.6"
+APPVERSION: str = "1.0.7"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -2450,10 +2450,10 @@ class DisasterAdvisor:
         self.logger.debug(f"URL={url}")
 
         try:
-            response: requests.Response = requests.get(
+            response: requests.Response | list[str] = requests.get(
                 url,
                 timeout=self.reqtimeout,
-            ).text.split("\n")
+            )
         except Exception:
             # raise Exception(f"Cannot get wildfire data (FIRMS). Try again in a minute. Request timeout ({self.reqtimeout}).")
             fire_list.append(
@@ -2479,8 +2479,9 @@ class DisasterAdvisor:
                 ]
             )
             return fire_list
-        
-        text = response.text.strip()
+
+        text = response.text.strip()        
+        response = response.text.split("\n")
         
         if text.startswith("<!DOCTYPE") or text.startswith("<html"):
             self.logger.error(f"NASA FIRMS ERROR: Not a CSV: {response.text}")
