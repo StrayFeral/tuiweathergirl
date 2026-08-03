@@ -105,6 +105,8 @@ windows_install.bat
 
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
 
+In case of difficulties, check my Windows 10 installation video: https://www.youtube.com/watch?v=G3Ure96hpJM
+
 ### MACOS
 
 > Please keep in mind this app was never tested on MacOS. Please do let me know if you had any installation issues and how you solved them. Thanks!
