@@ -22,7 +22,7 @@ import textwrap
 import time
 import traceback
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path, PosixPath
+from pathlib import Path
 from pprint import pformat as pf
 from pprint import pprint as pp
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.4"
+APPVERSION: str = "1.0.5"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -6134,7 +6134,7 @@ class WeatherGirl:
             raise ValueError(f"View not defined '{view}'. Run with --help for help.")
 
         # Updating the user preferences
-        if view and view != self.view:
+        if view and view != "setup" and view != self.view:
             self.config.view = view
             self.config.save()
             logger.info(f"Default view chnaged: {view}")
