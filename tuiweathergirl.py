@@ -39,7 +39,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.5"
+APPVERSION: str = "1.0.6"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -2434,6 +2434,8 @@ class DisasterAdvisor:
     def get_detailed_fires(self, lat: str, lon: str, timezone: str) -> list[list[str]]:
         """This time pulling from NASA FIRMS if the API key is available"""
 
+        expected_columns: int = 14
+
         self.logger.info("** Querying NASA FIRMS **")
 
         apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
@@ -2463,13 +2465,94 @@ class DisasterAdvisor:
                 ]
             )
             return fire_list
-
+        
         self.logger.debug(f"RESPONSE={pf(response)}")
+        
+        if response.status_code != 200:
+            self.logger.error(f"NASA FIRMS ERROR: HTTP {response.status_code}: {response.text}")
+            fire_list.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get wildfire data (FIRMS): HTTP Err {response.status_code}: {response.text}",
+                ]
+            )
+            return fire_list
+        
+        text = response.text.strip()
+        
+        if text.startswith("<!DOCTYPE") or text.startswith("<html"):
+            self.logger.error(f"NASA FIRMS ERROR: Not a CSV: {response.text}")
+            fire_list.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get wildfire data (FIRMS): Not a CSV: {response.text}",
+                ]
+            )
+            return fire_list
 
-        for line in response[1:]:  # Skipping the CSV header
+        if "unauthorized" in text.lower() or "rate limit" in text.lower() or "bad request" in text.lower():
+            self.logger.error(f"NASA FIRMS ERROR: {text}")
+            fire_list.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get wildfire data (FIRMS): {text}",
+                ]
+            )
+            return fire_list
+        
+        headers: bool = True
+        for line in response:  # Skipping the CSV header
+            fields: list[str] = line.split(",")
+
+            if headers:
+                if not line:
+                    fire_list.append(
+                        [
+                            "ERROR",
+                            "ALL",
+                            "ERROR",
+                            " Cannot get wildfire data (FIRMS). Will try again later.",
+                        ]
+                    )
+                    return fire_list
+                
+                if len(fields) != expected_columns:
+                    fire_list.append(
+                        [
+                            "ERROR",
+                            "ALL",
+                            "ERROR",
+                            f" Cannot get wildfire data (FIRMS): {line}",
+                        ]
+                    )
+                    return fire_list
+                
+                # Ok, we got the headers, let's move on
+                headers = False
+                continue
+            
+            # No fires detected in the area
             if not line:
                 continue
 
+            if len(fields) != expected_columns:
+                self.logger.error(f"Unexpected FIRMS response line: {line!r}")
+                fire_list.append(
+                    [
+                        "ERROR",
+                        "ALL",
+                        "ERROR",
+                        f" Cannot get wildfire data (FIRMS): {line}",
+                    ]
+                )
+                return fire_list
+            
             (
                 f_lat,
                 f_lon,
@@ -2485,7 +2568,7 @@ class DisasterAdvisor:
                 ti5,
                 frp,
                 daynight,
-            ) = line.split(",")
+            ) = fields
             f_lat = float(f_lat)
             f_lon = float(f_lon)
             ti4 = float(ti4)

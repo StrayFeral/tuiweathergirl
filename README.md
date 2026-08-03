@@ -18,6 +18,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-03 v.1.0.6: More defensive parsing of the NASA FIRMS response
 - 2026-08-03 v.1.0.5: Now the "setup" view is not saved in the config, so your actual default view is preserved.
 - 2026-08-03 v.1.0.4: Fixed how the exception stacktrace is being printed.
 - 2026-08-03 v.1.0.3: Exception stacktrace is now always logged in the log file, so in case of found bug, just paste me the log.
