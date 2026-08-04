@@ -240,7 +240,7 @@ facts_sheet: list[str] = [
     "1956-01-27: Elvis released 'Heartbreak Hotel,' his first No. 1 pop hit.",
     "1956-01-30: Elvis recorded 'Blue Suede Shoes' at RCA Studios in New York.",
     "1956-03-23: Elvis released debut album 'Elvis Presley' featuring 'Blue Suede Shoes.'",
-    "1956-03-26: Elis began filming his first movie, 'Love Me Tender.'",
+    "1956-03-26: Elvis began filming his first movie, 'Love Me Tender.'",
     "1956-08-31: RCA released Elvis' 'Blue Suede Shoes' single version.",
     "1957-03-25: Elvis purchased Graceland mansion in Memphis.",
     "1958-03-24: Elvis entered the U.S. Army and served in Germany.",
