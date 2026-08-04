@@ -187,7 +187,7 @@ It will run using the default view, default theme, default request timeout and o
 Any of these parameters would also change the default choice saves in the application config file. This is why for these options you do not need to edit the config file manually. So for example, if you run
 
 ```bash
-tuiweathergirl --theme basic
+tuiweathergirl --view basic
 ```
 
 The next time you run just `tuiweathergirl` it will assume that `basic` view is now your default view and will use it from now on, unless you run again with `--view` parameter to change the default view to something else. `--theme` and `--requesttimeout` work the same way - if you run the app with any of these set, they would change their defaults in the config file.
