@@ -2,6 +2,12 @@
 
 ![Screenshot](screenshots/thumbnail.gif)
 
+## DOWNLOAD
+
+> [!TIP]
+> **Download the Latest Release**  
+> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
+
 ## DESCRIPTION
 
 Personal weather and disaster terminal application for everyday use.
@@ -91,10 +97,6 @@ If you want detailed wildfire information provided, please consider getting a *f
 2. Create an environment variable called NASAFIRMSAPIKEY and set the API key as a value
 
 If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
-
-> [!TIP]
-> **Download the Latest Release**  
-> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 
 ### VIDEOS (INSTALLATION TUTORIALS, IN-DEPTH APP OVERVIEW)
 
