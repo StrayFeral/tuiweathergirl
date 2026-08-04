@@ -92,9 +92,9 @@ If you want detailed wildfire information provided, please consider getting a *f
 
 If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
 
-```
-📥 Download TUIWEATHERGIRL application (tuiweathergirl.zip): https://github.com/StrayFeral/tuiweathergirl/releases/latest/
-```
+> [!TIP]
+> **Download the Latest Release**  
+> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 
 ### VIDEOS (INSTALLATION TUTORIALS, IN-DEPTH APP OVERVIEW)
 
