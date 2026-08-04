@@ -25,8 +25,9 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## TESTED ON
 
-1. Lubuntu 24.04.4 LTS x86_64 linux
+1. Lubuntu 24.04.4 LTS x86_64 linux, 256 color terminal
 2. Windows 10
+3. Debian 13.3.0, 8 color terminal
 
 > The application was never tested on MacOS. I am providing installation instructions, but please do let me know if you had any installation issues and how you solved them. Thanks!
 
@@ -91,9 +92,16 @@ If you want detailed wildfire information provided, please consider getting a *f
 
 If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
 
+```
 📥 Download TUIWEATHERGIRL application (tuiweathergirl.zip): https://github.com/StrayFeral/tuiweathergirl/releases/latest/
+```
 
-### LINUX/UNIX
+### VIDEOS (INSTALLATION TUTORIALS, IN-DEPTH APP OVERVIEW)
+
+1. LINUX: **DETAILED** application overview and installation: https://www.youtube.com/watch?v=RFNwoeU8nuQ
+2. WINDOWS10: Application overview and installation: https://www.youtube.com/watch?v=G3Ure96hpJM
+
+### LINUX/UNIX INSTALLATION
 
 ```bash
 printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
@@ -103,7 +111,7 @@ make install
 
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
-### WINDOWS10
+### WINDOWS10 INSTALLATION
 
 ```batch
 setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
@@ -111,8 +119,6 @@ windows_install.bat
 ```
 
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
-
-In case of difficulties, check my Windows 10 installation video: https://www.youtube.com/watch?v=G3Ure96hpJM
 
 ### MACOS
 
