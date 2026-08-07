@@ -18,7 +18,7 @@ install:
 	fi
 	sudo apt-get update && sudo apt-get install -y python3-babel python3-requests libncurses6 tzdata
 	mkdir -p $(BIN_DIR)
-	cp $(SCRIPT_NAME) $(BIN_DIR)/$(TARGET_NAME)
+	cp $(MAKEFILEPATH)/$(SCRIPT_NAME) $(BIN_DIR)/$(TARGET_NAME)
 	chmod +x $(BIN_DIR)/$(TARGET_NAME)
 	@echo ""
 	@echo "Installation complete! You can now run '$(TARGET_NAME)'"
