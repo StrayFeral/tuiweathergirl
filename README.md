@@ -22,7 +22,7 @@
 
 > [!TIP]
 > **Download the Linux INSTALLER** (no need to download anything else)  
-> 📥 Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
+> 📥 RIGHT-CLICK TO Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
@@ -125,7 +125,7 @@ If you don't have it, you must get `PYTHON 3` (get the latest): https://www.pyth
 
 > [!TIP]
 > **Download the Linux INSTALLER** (no need to download anything else)  
-> 📥 Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
+> 📥 RIGHT-CLICK TO Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 ```bash
 printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
