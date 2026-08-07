@@ -21,7 +21,7 @@
 ## DOWNLOAD
 
 > [!TIP]
-> **Download the Linux INSTALLER** (no need to download anything else)
+> **Download the Linux INSTALLER** (no need to download anything else)  
 > 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
 
 > [!TIP]
@@ -124,7 +124,7 @@ If you don't have it, you must get `PYTHON 3` (get the latest): https://www.pyth
 ### LINUX/UNIX INSTALLATION
 
 > [!TIP]
-> **Download the Linux INSTALLER** (no need to download anything else)
+> **Download the Linux INSTALLER** (no need to download anything else)  
 > 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
 
 ```bash
