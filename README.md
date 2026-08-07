@@ -21,7 +21,11 @@
 ## DOWNLOAD
 
 > [!TIP]
-> **Download the Latest Release**  
+> **Download the Linux INSTALLER** (no need to download anything else)
+> 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
+
+> [!TIP]
+> Any operating system: **Download the Latest Release**  
 > 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 
 ## DESCRIPTION
@@ -119,15 +123,23 @@ If you don't have it, you must get `PYTHON 3` (get the latest): https://www.pyth
 
 ### LINUX/UNIX INSTALLATION
 
+> [!TIP]
+> **Download the Linux INSTALLER** (no need to download anything else)
+> 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
+
 ```bash
 printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
 source ~/.profile
-make install
+linux_install.sh
 ```
 
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
 ### WINDOWS10 INSTALLATION
+
+> [!TIP]
+> Any operating system: **Download the Latest Release**  
+> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 
 ```batch
 setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
@@ -137,6 +149,10 @@ windows_install.bat
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
 
 ### MACOS INSTALLATION
+
+> [!TIP]
+> Any operating system: **Download the Latest Release**  
+> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 
 > Please keep in mind this app was never tested on MacOS. Please do let me know if you had any installation issues and how you solved them. Thanks!
 
