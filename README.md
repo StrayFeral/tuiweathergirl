@@ -2,6 +2,22 @@
 
 ![Screenshot](screenshots/thumbnail.gif)
 
+## CONTENTS
+
+- [Download](#download)
+- [Description](#description)
+- [What's new (Changelog)](#whats-new-changelog)
+- [Tested on](#tested-on)
+- [Features](#features)
+- [Dependencies](#dependencies)
+- [Installation](#installation)
+- [Linux/Unix installation](#linux-unix-installation)
+- [Windows 10 installation](#windows10-installation)
+- [MacOS installation](#macos-installation)
+- [Usage](#usage)
+- [Changing the setup](#changing-the-setup)
+- [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
+
 ## DOWNLOAD
 
 > [!TIP]
@@ -98,11 +114,6 @@ If you want detailed wildfire information provided, please consider getting a *f
 
 If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
 
-### VIDEOS (INSTALLATION TUTORIALS, IN-DEPTH APP OVERVIEW)
-
-1. LINUX: **DETAILED** application overview and installation: https://www.youtube.com/watch?v=RFNwoeU8nuQ
-2. WINDOWS10: Application overview and installation: https://www.youtube.com/watch?v=G3Ure96hpJM
-
 ### LINUX/UNIX INSTALLATION
 
 ```bash
@@ -122,7 +133,7 @@ windows_install.bat
 
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
 
-### MACOS
+### MACOS INSTALLATION
 
 > Please keep in mind this app was never tested on MacOS. Please do let me know if you had any installation issues and how you solved them. Thanks!
 
@@ -194,3 +205,7 @@ The next time you run just `tuiweathergirl` it will assume that `basic` view is 
 
 You may take a look what's in the config file under `[PREFERENCES]`, in case you want to change the metric/imperial system or temperature units or 24 to 12 hours time format. You may also want to change the language there, but beware - I never tested this. For now I prefer to keep all data in plain English format.
 
+## VIDEO TUTORIALS (INSTALLATION, IN-DEPTH APP OVERVIEW)
+
+[![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/RFNwoeU8nuQ/0.jpg)](https://www.youtube.com/watch?v=RFNwoeU8nuQ)
+[![Windows 10 installation, setup and overview](https://img.youtube.com/vi/G3Ure96hpJM/0.jpg)](https://www.youtube.com/watch?v=G3Ure96hpJM)
