@@ -22,11 +22,11 @@
 
 > [!TIP]
 > **Download the Linux INSTALLER** (no need to download anything else)  
-> 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
+> 📥 Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
-> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
+> 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 ## DESCRIPTION
 
@@ -125,7 +125,7 @@ If you don't have it, you must get `PYTHON 3` (get the latest): https://www.pyth
 
 > [!TIP]
 > **Download the Linux INSTALLER** (no need to download anything else)  
-> 📥 linux_install.sh: [Releases Page](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh).
+> 📥 Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 ```bash
 printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
@@ -139,7 +139,7 @@ linux_install.sh
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
-> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
+> 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 ```batch
 setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
@@ -152,7 +152,7 @@ windows_install.bat
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
-> 📥 Download tuiweathergirl.zip: [Releases Page](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
+> 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 > Please keep in mind this app was never tested on MacOS. Please do let me know if you had any installation issues and how you solved them. Thanks!
 
