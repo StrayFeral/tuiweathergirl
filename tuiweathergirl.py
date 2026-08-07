@@ -15,6 +15,7 @@ import os
 import pickle
 import random
 import re
+import signal
 import socket
 import sys
 import tempfile
@@ -39,7 +40,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.7"
+APPVERSION: str = "1.0.8"
 MAX_CITIES: int = 10  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -625,6 +626,23 @@ class LocalProduceAdvisor:
             month = (month + 5) % 12 + 1
 
         return SEASONAL_DATA.get(zone, {}).get(month, {"veggies": [], "fruits": []})
+
+
+def on_terminal_close(signum, frame):
+    # Optional: Log which signal actually caught the close event
+    sig_name = signal.Signals(signum).name
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Application closed with signal: {sig_name}")
+    logger.info("===================================================== SESSION END")
+
+    print(
+        f"TUIWEATHERGIRL {APPVERSION} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
+    )
+    print("For help: tuiweathergirl --help")
+    print("Cast Spells!")
+
+    sys.exit(0)
 
 
 class TerminalSize:
@@ -2465,11 +2483,13 @@ class DisasterAdvisor:
                 ]
             )
             return fire_list
-        
+
         self.logger.debug(f"RESPONSE={pf(response)}")
-        
+
         if response.status_code != 200:
-            self.logger.error(f"NASA FIRMS ERROR: HTTP {response.status_code}: {response.text}")
+            self.logger.error(
+                f"NASA FIRMS ERROR: HTTP {response.status_code}: {response.text}"
+            )
             fire_list.append(
                 [
                     "ERROR",
@@ -2480,9 +2500,9 @@ class DisasterAdvisor:
             )
             return fire_list
 
-        text = response.text.strip()        
+        text = response.text.strip()
         response = response.text.split("\n")
-        
+
         if text.startswith("<!DOCTYPE") or text.startswith("<html"):
             self.logger.error(f"NASA FIRMS ERROR: Not a CSV: {response.text}")
             fire_list.append(
@@ -2495,7 +2515,11 @@ class DisasterAdvisor:
             )
             return fire_list
 
-        if "unauthorized" in text.lower() or "rate limit" in text.lower() or "bad request" in text.lower():
+        if (
+            "unauthorized" in text.lower()
+            or "rate limit" in text.lower()
+            or "bad request" in text.lower()
+        ):
             self.logger.error(f"NASA FIRMS ERROR: {text}")
             fire_list.append(
                 [
@@ -2506,7 +2530,7 @@ class DisasterAdvisor:
                 ]
             )
             return fire_list
-        
+
         headers: bool = True
         for line in response:  # Skipping the CSV header
             fields: list[str] = line.split(",")
@@ -2522,7 +2546,7 @@ class DisasterAdvisor:
                         ]
                     )
                     return fire_list
-                
+
                 if len(fields) != expected_columns:
                     fire_list.append(
                         [
@@ -2533,11 +2557,11 @@ class DisasterAdvisor:
                         ]
                     )
                     return fire_list
-                
+
                 # Ok, we got the headers, let's move on
                 headers = False
                 continue
-            
+
             # No fires detected in the area
             if not line:
                 continue
@@ -2553,7 +2577,7 @@ class DisasterAdvisor:
                     ]
                 )
                 return fire_list
-            
+
             (
                 f_lat,
                 f_lon,
@@ -6463,11 +6487,25 @@ if __name__ == "__main__":
         logger = logging.getLogger(__name__)
         logger.info("")
         logger.info(
-            " ===================================================== SESSION START"
+            "===================================================== SESSION START"
         )
         logger.info(f" TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
         logger.info(debug_mode_str)
         logger.info("")
+
+        # Standard terminal disconnect (some terminals)
+        if hasattr(signal, "SIGHUP"):
+            signal.signal(signal.SIGHUP, on_terminal_close)
+
+        # Sent by GTK terminals (Terminator, GNOME Terminal, xfce4-terminal) on 'X' click
+        signal.signal(signal.SIGTERM, on_terminal_close)
+
+        # Ctrl+C
+        signal.signal(signal.SIGINT, on_terminal_close)
+
+        # Windows console close
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, on_terminal_close)
 
         view_name: str = cli_arguments.get("view")
 
@@ -6590,9 +6628,7 @@ if __name__ == "__main__":
         print("For help: tuiweathergirl --help")
         print("Cast Spells!")
 
-        logger.info(
-            " ===================================================== SESSION END"
-        )
+        logger.info("===================================================== SESSION END")
 
     except Exception as e:
         title: str = (
@@ -6600,7 +6636,7 @@ if __name__ == "__main__":
         )
         print(f"\n{title}")
         print(e)
-        
+
         logger = logging.getLogger(__name__)
         logger.exception("---------------------------------- EXCEPTION")
 
