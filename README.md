@@ -38,6 +38,8 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 > Not vibe-coded.
 
+> This application was created to become part of my [**DEWLINUX** Project (Debian Terminal-Only Remix)](https://github.com/StrayFeral/dewlinux). You might want to check it out.
+
 ## WHAT'S NEW (CHANGELOG)
 
 - 2026-08-03 v.1.0.6: More defensive parsing of the NASA FIRMS response
