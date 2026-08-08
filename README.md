@@ -10,10 +10,10 @@
 - [Tested on](#tested-on)
 - [Features](#features)
 - [Dependencies](#dependencies)
-- [Installation](#installation)
-- [Linux/Unix installation](#linux-unix-installation)
-- [Windows 10 installation](#windows10-installation)
-- [MacOS installation](#macos-installation)
+- [Installation prerequisites](#installation-prerequisites)
+- [Installing on Linux/Unix](#installing-on-linuxunix)
+- [Installing on Windows10](#installing-on-windows10)
+- [Installing on MacOS](#installing-on-macos)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
 - [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
@@ -46,6 +46,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-08 v.1.0.9: Makefile now supports all major linux distros.
 - 2026-08-07 v.1.0.8: Terminal close and Ctrl-C now intercepted. Fixed minor bugs. Makefile fixed.
 - 2026-08-03 v.1.0.6: More defensive parsing of the NASA FIRMS response.
 - 2026-08-03 v.1.0.5: Now the "setup" view is not saved in the config, so your actual default view is preserved.
@@ -106,7 +107,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 4. `libncurses6`
 5. `tzdata`
 
-## INSTALLATION
+## INSTALLATION PREREQUISITES
 
 MANDATORY ACQUISITION OF TIMEZONEDB API KEY:
 1. Create a *FREE* account on https://timezonedb.com/
@@ -121,7 +122,7 @@ If you want detailed wildfire information provided, please consider getting a *f
 
 If you don't have it, you must get `PYTHON 3` (get the latest): https://www.python.org/downloads/
 
-### LINUX/UNIX INSTALLATION
+### INSTALLING ON LINUX/UNIX
 
 > [!TIP]
 > **Download the Linux INSTALLER** (no need to download anything else)  
@@ -135,7 +136,7 @@ linux_install.sh
 
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
-### WINDOWS10 INSTALLATION
+### INSTALLING ON WINDOWS10
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
@@ -148,7 +149,7 @@ windows_install.bat
 
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
 
-### MACOS INSTALLATION
+### INSTALLING ON MACOS
 
 > [!TIP]
 > Any operating system: **Download the Latest Release**  
