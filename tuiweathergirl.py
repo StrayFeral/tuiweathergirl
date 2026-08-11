@@ -3,6 +3,7 @@
 # TUIWEATHERGIRL
 # 2026 by Evgueni Antonov (StrayF)
 
+import socket
 import argparse
 import concurrent.futures
 import configparser
@@ -40,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.10"
+APPVERSION: str = "1.0.11"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -4994,7 +4995,7 @@ class ColorViews(Views):
         curses.doupdate()
 
     def test_exit_conditions(self, input: int) -> bool:
-        if input == ord("q"):
+        if input == ord("q") or input == ord("Q"):
             return True
 
         # The terminal window was closed; exit immediately
