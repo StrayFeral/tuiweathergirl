@@ -40,8 +40,8 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.9"
-MAX_CITIES: int = 10  # This includes the home city
+APPVERSION: str = "1.0.10"
+MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
 )
@@ -1843,7 +1843,7 @@ class Bulgarian:
                 )
             except Exception:
                 logger.error(
-                    "Cannot get history fact (Wikipedia). Will try again later."
+                    "Cannot get history fact (Wikipedia). Will try again on the next refresh."
                 )
                 return ""
 
@@ -1909,7 +1909,9 @@ class AllergyAndUVAdvisor:
             response: requests.Response = requests.get(url, timeout=reqtimeout)
             response.raise_for_status()
         except Exception:
-            warnings.append(" Cannot get allergy data. Will try again later.")
+            warnings.append(
+                " Cannot get allergy data. Will try again on the next refresh."
+            )
             return warnings
 
         if response.status_code != 200:
@@ -2057,7 +2059,7 @@ class SpaceWeatherAdvisor:
                 }
         except Exception:
             self.logger.error(
-                "Cannot geomagnetic scales (SWPC NOAA). Will try again later."
+                "Cannot geomagnetic scales (SWPC NOAA). Will try again on the next refresh."
             )
 
         return fallback
@@ -2090,7 +2092,9 @@ class SpaceWeatherAdvisor:
                     if kp_val is not None:
                         return float(kp_val)
         except Exception:
-            self.logger.error("Cannot get planetary Kp-index. Will try again later.")
+            self.logger.error(
+                "Cannot get planetary Kp-index. Will try again on the next refresh."
+            )
 
         return 0.0
 
@@ -2310,7 +2314,7 @@ class DisasterAdvisor:
         except Exception:
             # Just making it more user-friendly
             self.logger.error(
-                "Cannot get disaster affected provinces. Will try again later."
+                "Cannot get disaster affected provinces. Will try again on the next refresh."
             )
             return []
 
@@ -2359,7 +2363,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get disasters (GDACS). Will try again later.",
+                    " Cannot get disasters (GDACS). Will try again on the next refresh.",
                 ]
             )
             return disasters
@@ -2420,7 +2424,7 @@ class DisasterAdvisor:
                         "ERROR",
                         "ALL",
                         "ERROR",
-                        " Cannot get disaster details (GDACS). Will try again later.",
+                        " Cannot get disaster details (GDACS). Will try again on the next refresh.",
                     ]
                 )
                 return disasters
@@ -2479,7 +2483,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get wildfire data (FIRMS). Will try again later.",
+                    " Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
                 ]
             )
             return fire_list
@@ -2542,7 +2546,7 @@ class DisasterAdvisor:
                             "ERROR",
                             "ALL",
                             "ERROR",
-                            " Cannot get wildfire data (FIRMS). Will try again later.",
+                            " Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
                         ]
                     )
                     return fire_list
@@ -2664,7 +2668,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get earthquakes (USGS). Will try again later.",
+                    " Cannot get earthquakes (USGS). Will try again on the next refresh.",
                 ]
             )
             return quakes
@@ -2728,7 +2732,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get space falling objects data (FIREBALLS). Will try again later.",
+                    " Cannot get space falling objects data (FIREBALLS). Will try again on the next refresh.",
                 ]
             )
             return fireballs
@@ -2806,7 +2810,9 @@ class ElectrostaticAdvisor:
                 else:
                     return f"X{flux_value/1e-4:.1f}"
         except Exception:
-            logger.error("Cannot get the X-ray flux (SWPC NOAA). Will try again later.")
+            logger.error(
+                "Cannot get the X-ray flux (SWPC NOAA). Will try again on the next refresh."
+            )
 
         return "B1.0"  # Default/Quiet background
 
@@ -3833,7 +3839,7 @@ class Motivator:
                     return [data[0].get("q"), data[0].get("a")]
         except Exception:
             logger.error(
-                "Cannot get motivation, but I am super hyped and will try again later."
+                "Cannot get motivation, but I am super hyped and Will try again on the next refresh."
             )
 
         # Fallback quote in case the internet is slow or API is down

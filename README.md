@@ -46,6 +46,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-08 v.1.0.10: Maximum cities of interest increased to 10. One error message changed.
 - 2026-08-08 v.1.0.9: Makefile now supports all major linux distros.
 - 2026-08-07 v.1.0.8: Terminal close and Ctrl-C now intercepted. Fixed minor bugs. Makefile fixed.
 - 2026-08-03 v.1.0.6: More defensive parsing of the NASA FIRMS response.
