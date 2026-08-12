@@ -23,7 +23,7 @@
 
 > [!TIP]
 > LINUX: **Download the LINUX installer** (no need to download anything else)  
-> 📥 RIGHT-CLICK and SAVE AS TO Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
+> 📥 RIGHT-CLICK and "SAVE AS" to Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 > [!TIP]
 > ANY operating system: **Download the Latest Release**  
