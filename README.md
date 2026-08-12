@@ -45,7 +45,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 > This application was created to become part of my [**DEWLINUX** Project (Debian Terminal-Only Remix)](https://github.com/StrayFeral/dewlinux). You might want to check it out.
 
-> There was a minimal use of AI in this app, mainly for the interpretation of the data for the different medical conditions.
+> There was a minimal use of AI during the development of this app, mainly for the interpretation of the data for the different medical conditions.
 
 ## WHAT'S NEW (CHANGELOG)
 
