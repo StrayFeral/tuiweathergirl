@@ -118,8 +118,8 @@ In case of difficulties, please see [VIDEO TUTORIALS - installation, in-depth ap
 
 ### MANDATORY COMPONENTS AND DATA
 
-TIMEZONEDB API KEY:
-1. Create a *FREE* account on https://timezonedb.com/
+TIMEZONEDB API KEY (*FREE*):
+1. Create an account on https://timezonedb.com/
 2. Get a *FREE* API key
 3. Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
 
@@ -129,8 +129,8 @@ PYTHON3: Please get the latest: https://www.python.org/downloads/
 
 ### OPTIONAL DATA
 
-If you want detailed wildfire information provided, please consider getting a *free* API key from NASA FIRMS:
-1. Go to https://firms.modaps.eosdis.nasa.gov/api/map_key and follow the steps to get the *free* API key
+If you want detailed wildfire information provided, please consider getting a *FREE* API key from NASA FIRMS:
+1. Go to https://firms.modaps.eosdis.nasa.gov/api/map_key and follow the steps to get the *FREE* API key
 2. Create an environment variable called NASAFIRMSAPIKEY and set the API key as a value
 
 ### INSTALLING ON LINUX/UNIX
