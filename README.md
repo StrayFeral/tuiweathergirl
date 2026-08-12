@@ -22,11 +22,11 @@
 ## DOWNLOAD
 
 > [!TIP]
-> **Download the Linux INSTALLER** (no need to download anything else)  
+> LINUX: **Download the LINUX installer** (no need to download anything else)  
 > 📥 RIGHT-CLICK TO Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 > [!TIP]
-> Any operating system: **Download the Latest Release**  
+> ANY operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 ## DESCRIPTION
