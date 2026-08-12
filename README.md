@@ -17,6 +17,7 @@
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
 - [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
+- [Screenshots](#screenshots)
 
 ## DOWNLOAD
 
@@ -231,3 +232,13 @@ You may take a look what's in the config file under `[PREFERENCES]`, in case you
 
 [![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/RFNwoeU8nuQ/0.jpg)](https://www.youtube.com/watch?v=RFNwoeU8nuQ)
 [![Windows 10 installation, setup and overview](https://img.youtube.com/vi/G3Ure96hpJM/0.jpg)](https://www.youtube.com/watch?v=G3Ure96hpJM)
+
+## SCREENSHOTS
+
+Click to enlarge.
+
+[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg))
+[![Thumbnail Description](Fhttps://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg))
+[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg))
+[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg))
+[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg))
