@@ -237,8 +237,8 @@ You may take a look what's in the config file under `[PREFERENCES]`, in case you
 
 Click to enlarge.
 
-[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg))
-[![Thumbnail Description](Fhttps://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg))
-[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg))
-[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg))
-[![Thumbnail Description](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg){: width="200" }](![FULL_SIZE_IMAGE_URL](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg))
+[![Dashboard View: Linux](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg){: width="200" }](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view01.jpg)
+[![Dashboard View: Win10](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg){: width="200" }](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg)
+[![TTYDashboard View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg){: width="200" }](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg)
+[![Basic View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg){: width="200" }](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg)
+[![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg){: width="200" }](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg)
