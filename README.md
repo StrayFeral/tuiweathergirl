@@ -114,6 +114,8 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## INSTALLATION PREREQUISITES
 
+In case of difficulties, please see [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
+
 ### MANDATORY COMPONENTS AND DATA
 
 TIMEZONEDB API KEY:
