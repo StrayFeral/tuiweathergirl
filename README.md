@@ -49,6 +49,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-13 v.1.0.12: Fixed small bug in showing the current home time. Shortened the names of cities, countries and provinces.
 - 2026-08-08 v.1.0.11: Fixed bug: Now application could be closed with capital "Q" too.
 - 2026-08-08 v.1.0.10: Maximum cities of interest increased to 10. One error message changed.
 - 2026-08-08 v.1.0.9: Makefile now supports all major linux distros.

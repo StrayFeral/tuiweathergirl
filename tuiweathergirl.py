@@ -3,7 +3,6 @@
 # TUIWEATHERGIRL
 # 2026 by Evgueni Antonov (StrayF)
 
-import socket
 import argparse
 import concurrent.futures
 import configparser
@@ -41,7 +40,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.11"
+APPVERSION: str = "1.0.12"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -3203,6 +3202,147 @@ Timezone: {self.timezone}"""
 class Locator:
     r"""Gets location data"""
 
+    __CANADA_PROVINCES: dict[str, str] = {
+        "alberta": "AB",
+        "british columbia": "BC",
+        "manitoba": "MB",
+        "new brunswick": "NB",
+        "newfoundland and labrador": "NL",
+        "northwest territories": "NT",
+        "nova scotia": "NS",
+        "nunavut": "NU",
+        "ontario": "ON",
+        "prince edward island": "PE",
+        "quebec": "QC",
+        "saskatchewan": "SK",
+        "yukon": "YT",
+    }
+
+    # __US_STATES: dict[str, str] = {
+    #     "alabama": "AL",
+    #     "alaska": "AK",
+    #     "arizona": "AZ",
+    #     "arkansas": "AR",
+    #     "california": "CA",
+    #     "colorado": "CO",
+    #     "connecticut": "CT",
+    #     "delaware": "DE",
+    #     "florida": "FL",
+    #     "georgia": "GA",
+    #     "hawaii": "HI",
+    #     "idaho": "ID",
+    #     "illinois": "IL",
+    #     "indiana": "IN",
+    #     "iowa": "IA",
+    #     "kansas": "KS",
+    #     "kentucky": "KY",
+    #     "louisiana": "LA",
+    #     "maine": "ME",
+    #     "maryland": "MD",
+    #     "massachusetts": "MA",
+    #     "michigan": "MI",
+    #     "minnesota": "MN",
+    #     "mississippi": "MS",
+    #     "missouri": "MO",
+    #     "montana": "MT",
+    #     "nebraska": "NE",
+    #     "nevada": "NV",
+    #     "new hampshire": "NH",
+    #     "new jersey": "NJ",
+    #     "new mexico": "NM",
+    #     "new york": "NY",
+    #     "north carolina": "NC",
+    #     "north dakota": "ND",
+    #     "ohio": "OH",
+    #     "oklahoma": "OK",
+    #     "oregon": "OR",
+    #     "pennsylvania": "PA",
+    #     "rhode island": "RI",
+    #     "south carolina": "SC",
+    #     "south dakota": "SD",
+    #     "tennessee": "TN",
+    #     "texas": "TX",
+    #     "utah": "UT",
+    #     "vermont": "VT",
+    #     "virginia": "VA",
+    #     "washington": "WA",
+    #     "west virginia": "WV",
+    #     "wisconsin": "WI",
+    #     "wyoming": "WY",
+    # }
+
+    __LONG_COUNTRY_NAMES: dict[str, str] = {
+        "guyana": "Guyana",
+        "democratic people's republic of korea": "North Korea",
+        "republic of korea": "South Korea",
+        "são tomé and príncipe": "Sao Tome",
+        "sao tome and príncipe": "Sao Tome",
+        "timor": "Timor-Leste",
+        "leste": "Timor-Leste",
+        "congo": "Congo",
+        "sri lanka": "Sri Lanka",
+        "ethiopia": "Ethiopia",
+        "nepal": "Nepal",
+        "saint kitts and nevis": "Saint Kitts",
+        "micronesia": "Micronesia",
+        "papua new guinea": "Papua New Guinea",
+        "samoa": "Samoa",
+        "afghanistan": "Afghanistan",
+        "mauritania": "Mauritania",
+        "pakistan": "Pakistan",
+        "lao": "Lao",
+        "algeria": "Algeria",
+        "bolivia": "Bolivia",
+        "trinidad and tobago": "Trinidad",
+        "marshall islands": "Marshall Islands",
+        "vietnam": "Vietnam",
+        "comoros": "Comoros",
+        "united arab emirates": "UAE",
+        "united kingdom": "UK",
+        "great britain": "UK",
+        "northern ireland": "UK",
+        "tanzania": "Tanzania",
+        "united states": "USA",
+        "venezuela": "Venezuela",
+        "central african republic": "CFA",
+        "dominican republic": "Dominican Rep",
+        "syria": "Syria",
+        "bahamas": "Bahamas",
+        "luxembourg": "Luxembourg",
+        "jordan": "Jordan",
+        "kiribati": "Kiribati",
+        "iran": "Iran",
+        "saudi arabia": "Saudi Arabia",
+        "brunei": "Brunei",
+        "uruguay": "Uruguay",
+        "liechtenstein": "Liechtenstein",
+        "equatorial guinea": "Equatorial Guinea",
+        "madagascar": "Madagascar",
+        "mozambique": "Mozambique",
+        "north macedonia": "North Macedonia",
+        "san marino": "San Marino",
+        "south africa": "South Africa",
+        "philippines": "Philippines",
+        "saint vincent": "Saint Vincent",
+        "fiji": "Fiji",
+        "swiss": "Switzerland",
+        "argentine republic": "Argentina",
+        "guernsey": "Guernsey",
+        "jersey": "Jersey",
+        "germany": "Germany",
+        "nigeria": "Nigeria",
+        "somalia": "Somalia",
+        "brazil": "Brazil",
+        "swaziland": "Swaziland",
+        "netherlands": "Netherlands",
+        "côte d'ivoire": "Cote d'Ivoire",
+        "cote d'ivoire": "Cote d'Ivoire",
+        "malta": "Malta",
+        "bosnia and herzegovina": "Bosnia",
+        "herzegovina": "Bosnia",
+        "iceland": "Iceland",
+    }
+
     __CONTINENT_MAP: dict[str, list[str]] = {
         "AF": [
             "DZ",
@@ -3598,6 +3738,39 @@ class Locator:
         "ZWE": "ZW",
     }
 
+    def __get_short_country(self, country: str) -> str:
+        """Shortens the country name"""
+        for c in self.__LONG_COUNTRY_NAMES:
+            if c in country.lower():
+                return self.__LONG_COUNTRY_NAMES[c]
+
+        # Other countries
+        return country[:10]
+
+    def __get_short_province(self, province: str) -> str:
+        """Shortens the province name"""
+        # Russia
+        if " oblast" in province.lower():
+            idx = province.lower().find(" oblast")
+            return province[:idx]
+
+        # Canada
+        if province.lower() in self.__CANADA_PROVINCES:
+            return self.__CANADA_PROVINCES[province.lower()]
+
+        # NOTE: When we abbreviate "United States" to "USA"
+        # these are not a problem
+        # # USA
+        # if province.lower() in self.__US_STATES:
+        #     return self.__US_STATES[province.lower()]
+
+        # Other countries
+        return province[:17]
+
+    def __get_short_city(self, city: str) -> str:
+        """Shortens the city name"""
+        return city[:17]
+
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
         self.logger = logging.getLogger(
@@ -3656,11 +3829,11 @@ class Locator:
                     f"Request failed: {response.get("message")}. Try again!"
                 )
 
-            config.country = response.get("country")
+            config.country = self.__get_short_country(response.get("country"))
             config.country_code2 = response.get("countryCode")
-            config.city = response.get("city")
+            config.city = self.__get_short_city(response.get("city"))
             config.postal_code = response.get("zip")
-            config.province = response.get("region")
+            config.province = self.__get_short_province(response.get("region"))
             config.lat = response.get("lat")  # XX.XXX, Fallback plan
             config.lon = response.get("lon")  # XX.XXX
             config.timezone = response.get("timezone")
@@ -3753,11 +3926,13 @@ class Locator:
                 raise Exception("Timezone request failed. Try again later.")
 
             city_entry: dict[str, str | int] = {
-                "city": location.get("name", "").title(),
-                "country": addr.get("country", "").title(),
+                "city": self.__get_short_city(location.get("name", "").title()),
+                "country": self.__get_short_country(addr.get("country", "").title()),
                 "country_code2": addr.get("country_code", "").upper(),
                 "postal_code": addr.get("postcode", ""),
-                "province": addr.get("state_code", addr.get("state", "")),
+                "province": self.__get_short_province(
+                    addr.get("state_code", addr.get("state", ""))
+                ),
                 "lat": lat,
                 "lon": lon,
                 "continent_code": self.__get_continent_code(
@@ -5521,10 +5696,11 @@ class DashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
+            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
             day_season: str = f"({home_day}) {season}"
             location_window.print(
-                f"Today: {datenow} {timenow}{dstmark}",
-                x=-len(day_season) - 1,
+                day_now,
+                x=-len(day_season),
                 align="right",
                 theme="home",
             )
@@ -5537,7 +5713,7 @@ class DashboardView(ColorViews):
                 city_wx: int = 56
                 citytimezone: str = self.config.followcities[city_cnt]["timezone"]
                 city_time: str = self.presconf.get_time_for_timezone(citytimezone)
-                followcities_window.print(city_time, x=city_wx, y=city_cnt)
+                followcities_window.print(f"{city_time}  ", x=city_wx, y=city_cnt)
 
             if force_screen_update:
                 self.logger.info("--- screen update ---")
@@ -6018,10 +6194,11 @@ class TTYDashboardView(ColorViews):
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
+            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
             day_season: str = f"({home_day}) {season}"
             location_window.print(
-                f"Today: {datenow} {timenow}{dstmark}",
-                x=-len(day_season) - 1,
+                day_now,
+                x=-len(day_season),
                 align="right",
                 theme="home",
             )
