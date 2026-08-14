@@ -40,7 +40,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.12"
+APPVERSION: str = "1.0.13"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -587,6 +587,57 @@ HEALTH_MOTIVATION: list[str] = [
     "Aim for 7 to 8 hours of restful sleep tonight to let your body recover.",
 ]
 
+# fmt: off
+POLAR_STATIONS: list[list[str]] = [
+    ["Amundsen–Scott South Pole STN", "USA", "-90.0", "0.0", "AN", "Antarctica/South_Pole", "US"],
+    ["Concordia STN", "France/Italy", "-75.1", "123.3333", "AN", "Antarctica/McMurdo", "FR"],
+    ["Vostok STN", "Russia", "-78.4667", "106.8", "AN", "Antarctica/Vostok", "RU"],
+    ["Dome Fuji STN", "Japan", "-77.3167", "39.7", "AN", "Antarctica/Syowa", "JP"],
+    ["Kunlun STN", "China", "-80.4167", "77.1167", "AN", "Antarctica/Mawson", "CN"],
+    ["McMurdo STN", "USA", "-77.85", "166.6667", "AN", "Antarctica/McMurdo", "US"],
+    ["Scott STN", "New Zealand", "-77.85", "166.7667", "AN", "Antarctica/McMurdo", "NZ"],
+    ["Casey STN", "Australia", "-66.2833", "110.5167", "AN", "Antarctica/Casey", "AU"],
+    ["Davis STN", "Australia", "-68.5833", "77.9667", "AN", "Antarctica/Davis", "AU"],
+    ["Mawson STN", "Australia", "-67.6", "62.8667", "AN", "Antarctica/Mawson", "AU"],
+    ["Zhongshan STN", "China", "-69.3667", "76.3667", "AN", "Antarctica/Mawson", "CN"],
+    ["Taishan STN", "China", "-73.85", "76.9667", "AN", "Antarctica/Mawson", "CN"],
+    ["Qinling STN", "China", "-74.9333", "163.7", "AN", "Antarctica/McMurdo", "CN"],
+    ["Bharati STN", "India", "-69.4", "76.1833", "AN", "Antarctica/Mawson", "IN"],
+    ["Maitri STN", "India", "-70.7667", "11.7333", "AN", "Antarctica/Syowa", "IN"],
+    ["Novolazarevskaya STN", "Russia", "-70.7667", "11.8333", "AN", "Antarctica/Syowa", "RU"],
+    ["Progress STN", "Russia", "-69.3667", "76.3833", "AN", "Antarctica/Mawson", "RU"],
+    ["Mirny STN", "Russia", "-66.55", "93.0167", "AN", "Antarctica/Vostok", "RU"],
+    ["Showa (Syowa) STN", "Japan", "-69.0", "39.5833", "AN", "Antarctica/Syowa", "JP"],
+    ["Jang Bogo STN", "South Korea", "-74.6167", "164.2", "AN", "Antarctica/McMurdo", "KR"],
+    ["Dumont d'Urville STN", "France", "-66.6667", "140.0167", "AN", "Antarctica/DumontDUrville", "FR"],
+    ["Princess Elisabeth STN", "Belgium", "-71.95", "23.3333", "AN", "Antarctica/Syowa", "BE"],
+    ["Halley VI Research STN", "UK", "-75.5833", "-26.5667", "AN", "Antarctica/Rothera", "GB"],
+    ["Neumayer III STN", "Germany", "-70.6667", "-8.2667", "AN", "UTC", "DE"],
+    ["SANAE IV STN", "South Africa", "-71.6667", "-2.8333", "AN", "Africa/Johannesburg", "ZA"],
+    ["Belgrano II STN", "Argentina", "-77.8667", "-34.6167", "AN", "America/Argentina/Buenos_Aires", "AR"],
+    ["Troll STN", "Norway", "-72.0167", "2.5333", "AN", "Antarctica/Troll", "NO"],
+    ["Palmer STN", "USA", "-64.7667", "-64.05", "AN", "Antarctica/Palmer", "US"],
+    ["Rothera Research STN", "UK", "-67.5667", "-68.1333", "AN", "Antarctica/Rothera", "GB"],
+    ["Esperanza STN", "Argentina", "-63.4", "-56.9833", "AN", "America/Argentina/Buenos_Aires", "AR"],
+    ["Marambio STN", "Argentina", "-64.2333", "-56.6167", "AN", "America/Argentina/Buenos_Aires", "AR"],
+    ["Carlini STN", "Argentina", "-62.2333", "-58.6667", "AN", "America/Argentina/Buenos_Aires", "AR"],
+    ["San Martín STN", "Argentina", "-68.1333", "-67.1", "AN", "America/Argentina/Buenos_Aires", "AR"],
+    ["Gen.Bernardo O'Higgins STN", "Chile", "-63.3167", "-57.9", "AN", "America/Punta_Arenas", "CL"],
+    ["Pres.Eduardo Frei Montalva STN", "Chile", "-62.2", "-58.9667", "AN", "America/Punta_Arenas", "CL"],
+    ["Capt.Arturo Prat STN", "Chile", "-62.5", "-59.6833", "AN", "America/Punta_Arenas", "CL"],
+    ["Great Wall STN", "China", "-62.2167", "-58.9667", "AN", "Antarctica/Rothera", "CN"],
+    ["King Sejong STN", "South Korea", "-62.2167", "-58.7833", "AN", "Antarctica/Rothera", "KR"],
+    ["Henryk Arctowski STN", "Poland", "-62.15", "-58.4667", "AN", "Antarctica/Rothera", "PL"],
+    ["Comandante Ferraz STN", "Brazil", "-62.0833", "-58.3833", "AN", "Antarctica/Rothera", "BR"],
+    ["Bellingshausen STN", "Russia", "-62.2", "-58.9667", "AN", "Antarctica/Rothera", "RU"],
+    ["Vernadsky Research STN", "Ukraine", "-65.25", "-64.2667", "AN", "Antarctica/Rothera", "UA"],
+    ["Artigas STN", "Uruguay", "-62.1833", "-58.9", "AN", "Antarctica/Rothera", "UY"],
+    ["St.Kliment Ohridski STN", "Bulgaria", "-62.6333", "-60.35", "AN", "Antarctica/Rothera", "BG"],
+    ["Juan Carlos I STN", "Spain", "-62.65", "-60.3833", "AN", "Antarctica/Rothera", "ES"],
+    ["Gabriel de Castilla STN", "Spain", "-62.9833", "-60.6833", "AN", "Antarctica/Rothera", "ES"]
+]
+# fmt: on
+
 
 # You probably have even more questions here.
 # Me too.
@@ -594,6 +645,24 @@ def pick_one(stuff: list[str]) -> str:
     if not stuff:
         raise ValueError("Empty source given.")
     return random.choice(stuff)
+
+
+def polar_stations(stnnum: int | None = None) -> list[str]:
+    """If stnnum is not specified, returns list of all Polar Stations as a
+    textual menu.
+
+    Otherwise returns information about the requested Polar Station.
+    """
+    result = []
+    if stnnum is None:
+        for i, stn in enumerate(POLAR_STATIONS):
+            name, country, lat, lon, continent, timezone = stn
+            result.append(f"{i + 1}) {name}, {country}")
+    else:
+        if stnnum < 1 or stnnum > len(POLAR_STATIONS):
+            raise ValueError(f"Invalid station number! Must be a number between 1 and {len(POLAR_STATIONS)}.")
+        result = POLAR_STATIONS[stnnum - 1]
+    return result
 
 
 class LocalProduceAdvisor:
@@ -1936,41 +2005,41 @@ class AllergyAndUVAdvisor:
 
         if tree_pollen_total >= 250:
             warnings.append(
-                f"[VERY HIGH RISK] Extremely high tree pollen: {tree_pollen_total:.1f} grains/m3."
+                f"[VERY HIGH RISK] Extremely high tree pollen: {tree_pollen_total:.1f} grains/m³."
             )
         elif tree_pollen_total >= 70:
             warnings.append(
-                f"[HIGH RISK] High tree pollen levels: {tree_pollen_total:.1f} grains/m3."
+                f"[HIGH RISK] High tree pollen levels: {tree_pollen_total:.1f} grains/m³."
             )
         elif tree_pollen_total >= 10:
             warnings.append(
-                f"[MODERATE RISK] Moderate tree pollen levels: {tree_pollen_total:.1f} grains/m3."
+                f"[MODERATE RISK] Moderate tree pollen levels: {tree_pollen_total:.1f} grains/m³."
             )
 
         if grass >= 150:
             warnings.append(
-                f"[VERY HIGH RISK][HAY FEVER/RESPIRATORY] Very high grass pollen: {grass:.1f} grains/m3."
+                f"[VERY HIGH RISK][HAY FEVER/RESPIRATORY] Very high grass pollen: {grass:.1f} grains/m³."
             )
         elif grass >= 50:
             warnings.append(
-                f"[HIGH RISK][HAY FEVER/RESPIRATORY] High grass pollen levels: {grass:.1f} grains/m3."
+                f"[HIGH RISK][HAY FEVER/RESPIRATORY] High grass pollen levels: {grass:.1f} grains/m³."
             )
         elif grass >= 20:
             warnings.append(
-                f"[MODERATE RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass:.1f} grains/m3."
+                f"[MODERATE RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass:.1f} grains/m³."
             )
 
         if weed_pollen_total >= 80:
             warnings.append(
-                f"[VERY HIGH RISK] Extremely high weed pollen: {weed_pollen_total:.1f} grains/m3."
+                f"[VERY HIGH RISK] Extremely high weed pollen: {weed_pollen_total:.1f} grains/m³."
             )
         elif weed_pollen_total >= 30:
             warnings.append(
-                f"[HIGH RISK] High weed pollen levels: {weed_pollen_total:.1f} grains/m3."
+                f"[HIGH RISK] High weed pollen levels: {weed_pollen_total:.1f} grains/m³."
             )
         elif weed_pollen_total >= 10:
             warnings.append(
-                f"[MODERATE RISK] Moderate weed pollen levels: {weed_pollen_total:.1f} grains/m3."
+                f"[MODERATE RISK] Moderate weed pollen levels: {weed_pollen_total:.1f} grains/m³."
             )
 
         if 6.0 <= uv_index < 8.0:
@@ -3045,7 +3114,7 @@ class Configuration:
 
     @city.setter
     def city(self, s: str) -> None:
-        self._city = s.title()
+        self._city = s.title().replace(" Stn", " STN")
 
     def __str__(self) -> str:
         return f"{self.city}/{self.province}/{self.country}/{self.continent_code}"
@@ -3183,6 +3252,9 @@ Timezone: {self.timezone}"""
         self.logger.info("Config loaded")
 
     def follow_city(self, city: str, country: str) -> None:
+        country = country.strip()
+        city = city.strip()
+
         for city_entry in self.followcities:
             if (
                 city.upper() == city_entry["city"].upper()
@@ -3196,6 +3268,23 @@ Timezone: {self.timezone}"""
             "country": country,
             "city": city,
         }
+
+        if country.lower() == "polarstation":
+            station_data: list[str] = polar_stations(int(city))
+            sname, scountry, slat, slon, scontinent, stimezone, sccode2 = station_data
+            
+            city_entry = {
+                "country": scountry,
+                "city": sname,
+                "lat": slat,
+                "lon": slon,
+                "continent_code": scontinent,
+                "timezone": stimezone,
+                "country_code2": sccode2,
+                "postal_code": "",
+                "province": ""
+            }
+
         self.followcities.append(city_entry)
 
 
@@ -3275,8 +3364,8 @@ class Locator:
         "guyana": "Guyana",
         "democratic people's republic of korea": "North Korea",
         "republic of korea": "South Korea",
-        "são tomé and príncipe": "Sao Tome",
-        "sao tome and príncipe": "Sao Tome",
+        "são tomé and príncipe": "São Tomé",
+        "sao tome and príncipe": "São Tomé",
         "timor": "Timor-Leste",
         "leste": "Timor-Leste",
         "congo": "Congo",
@@ -3343,400 +3432,86 @@ class Locator:
         "iceland": "Iceland",
     }
 
+    # fmt: off
     __CONTINENT_MAP: dict[str, list[str]] = {
         "AF": [
-            "DZ",
-            "AO",
-            "BJ",
-            "BW",
-            "BF",
-            "BI",
-            "CV",
-            "CM",
-            "CF",
-            "TD",
-            "KM",
-            "CD",
-            "CG",
-            "CI",
-            "DJ",
-            "EG",
-            "GQ",
-            "ER",
-            "SZ",
-            "ET",
-            "GA",
-            "GM",
-            "GH",
-            "GN",
-            "GW",
-            "KE",
-            "LS",
-            "LR",
-            "LY",
-            "MG",
-            "MW",
-            "ML",
-            "MR",
-            "MU",
-            "MA",
-            "MZ",
-            "NA",
-            "NE",
-            "NG",
-            "RW",
-            "ST",
-            "SN",
-            "SC",
-            "SL",
-            "SO",
-            "ZA",
-            "SS",
-            "SD",
-            "TZ",
-            "TG",
-            "TN",
-            "UG",
-            "ZM",
-            "ZW",
+            "DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM",
+            "CD", "CG", "CI", "DJ", "EG", "GQ", "ER", "SZ", "ET", "GA", "GM",
+            "GH", "GN", "GW", "KE", "LS", "LR", "LY", "MG", "MW", "ML", "MR",
+            "MU", "MA", "MZ", "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL",
+            "SO", "ZA", "SS", "SD", "TZ", "TG", "TN", "UG", "ZM", "ZW",
         ],
         "AS": [
-            "AF",
-            "AM",
-            "AZ",
-            "BH",
-            "BD",
-            "BT",
-            "BN",
-            "KH",
-            "CN",
-            "CY",
-            "GE",
-            "IN",
-            "ID",
-            "IR",
-            "IQ",
-            "IL",
-            "JP",
-            "JO",
-            "KZ",
-            "KW",
-            "KG",
-            "LA",
-            "LB",
-            "MY",
-            "MV",
-            "MN",
-            "MM",
-            "NP",
-            "KP",
-            "OM",
-            "PK",
-            "PS",
-            "PH",
-            "QA",
-            "SA",
-            "SG",
-            "KR",
-            "LK",
-            "SY",
-            "TW",
-            "TJ",
-            "TH",
-            "TL",
-            "TR",
-            "TM",
-            "AE",
-            "UZ",
-            "VN",
-            "YE",
+            "AF", "AM", "AZ", "BH", "BD", "BT", "BN", "KH", "CN", "CY", "GE",
+            "IN", "ID", "IR", "IQ", "IL", "JP", "JO", "KZ", "KW", "KG", "LA",
+            "LB", "MY", "MV", "MN", "MM", "NP", "KP", "OM", "PK", "PS", "PH",
+            "QA", "SA", "SG", "KR", "LK", "SY", "TW", "TJ", "TH", "TL", "TR",
+            "TM", "AE", "UZ", "VN", "YE",
         ],
         "EU": [
-            "AL",
-            "AD",
-            "AT",
-            "BY",
-            "BE",
-            "BA",
-            "BG",
-            "HR",
-            "CZ",
-            "DK",
-            "EE",
-            "FI",
-            "FR",
-            "DE",
-            "GR",
-            "HU",
-            "IS",
-            "IE",
-            "IT",
-            "LV",
-            "LI",
-            "LT",
-            "LU",
-            "MT",
-            "MD",
-            "MC",
-            "ME",
-            "NL",
-            "MK",
-            "NO",
-            "PL",
-            "PT",
-            "RO",
-            "RU",
-            "SM",
-            "RS",
-            "SK",
-            "SI",
-            "ES",
-            "SE",
-            "CH",
-            "UA",
-            "GB",
-            "VA",
+            "AL", "AD", "AT", "BY", "BE", "BA", "BG", "HR", "CZ", "DK", "EE",
+            "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LI", "LT",
+            "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT", "RO",
+            "RU", "SM", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "GB", "VA",
         ],
         "NA": [
-            "AG",
-            "BS",
-            "BB",
-            "BZ",
-            "CA",
-            "CR",
-            "CU",
-            "DM",
-            "DO",
-            "SV",
-            "GD",
-            "GT",
-            "HT",
-            "HN",
-            "JM",
-            "MX",
-            "NI",
-            "PA",
-            "KN",
-            "LC",
-            "VC",
-            "TT",
+            "AG", "BS", "BB", "BZ", "CA", "CR", "CU", "DM", "DO", "SV", "GD",
+            "GT", "HT", "HN", "JM", "MX", "NI", "PA", "KN", "LC", "VC", "TT",
             "US",
         ],
         "OC": [
-            "AU",
-            "FJ",
-            "KI",
-            "MH",
-            "FM",
-            "NR",
-            "NZ",
-            "PW",
-            "PG",
-            "WS",
-            "SB",
-            "TO",
-            "TV",
-            "VU",
+            "AU", "FJ", "KI", "MH", "FM", "NR", "NZ", "PW", "PG", "WS", "SB",
+            "TO", "TV", "VU",
         ],
-        "SA": ["AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY", "VE"],
+        "SA": [
+            "AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY",
+            "VE",
+        ],
         "AN": ["AQ"],
     }
 
     __ISO3_TO_ISO2 = {
-        "AFG": "AF",
-        "ALB": "AL",
-        "DZA": "DZ",
-        "AND": "AD",
-        "AGO": "AO",
-        "ATG": "AG",
-        "ARG": "AR",
-        "ARM": "AM",
-        "AUS": "AU",
-        "AUT": "AT",
-        "AZE": "AZ",
-        "BHS": "BS",
-        "BHR": "BH",
-        "BGD": "BD",
-        "BRB": "BB",
-        "BLR": "BY",
-        "BEL": "BE",
-        "BLZ": "BZ",
-        "BEN": "BJ",
-        "BTN": "BT",
-        "BOL": "BO",
-        "BIH": "BA",
-        "BWA": "BW",
-        "BRA": "BR",
-        "BRN": "BN",
-        "BGR": "BG",
-        "BFA": "BF",
-        "BDI": "BI",
-        "CPV": "CV",
-        "KHM": "KH",
-        "CMR": "CM",
-        "CAN": "CA",
-        "CAF": "CF",
-        "TCD": "TD",
-        "CHL": "CL",
-        "CHN": "CN",
-        "COL": "CO",
-        "COM": "KM",
-        "COG": "CG",
-        "COD": "CD",
-        "CRI": "CR",
-        "CIV": "CI",
-        "HRV": "HR",
-        "CUB": "CU",
-        "CYP": "CY",
-        "CZE": "CZ",
-        "DNK": "DK",
-        "DJI": "DJ",
-        "DMA": "DM",
-        "DOM": "DO",
-        "ECU": "EC",
-        "EGY": "EG",
-        "SLV": "SV",
-        "GNQ": "GQ",
-        "ERI": "ER",
-        "EST": "EE",
-        "SWZ": "SZ",
-        "ETH": "ET",
-        "FJI": "FJ",
-        "FIN": "FI",
-        "FRA": "FR",
-        "GAB": "GA",
-        "GMB": "GM",
-        "GEO": "GE",
-        "DEU": "DE",
-        "GHA": "GH",
-        "GRC": "GR",
-        "GRD": "GD",
-        "GTM": "GT",
-        "GIN": "GN",
-        "GNB": "GW",
-        "GUY": "GY",
-        "HTI": "HT",
-        "HND": "HN",
-        "HUN": "HU",
-        "ISL": "IS",
-        "IND": "IN",
-        "IDN": "ID",
-        "IRN": "IR",
-        "IRQ": "IQ",
-        "IRL": "IE",
-        "ISR": "IL",
-        "ITA": "IT",
-        "JAM": "JM",
-        "JPN": "JP",
-        "JOR": "JO",
-        "KAZ": "KZ",
-        "KEN": "KE",
-        "KIR": "KI",
-        "KOR": "KR",
-        "KWT": "KW",
-        "KGZ": "KG",
-        "LAO": "LA",
-        "LVA": "LV",
-        "LBN": "LB",
-        "LSO": "LS",
-        "LBR": "LR",
-        "LBY": "LY",
-        "LIE": "LI",
-        "LTU": "LT",
-        "LUX": "LU",
-        "MDG": "MG",
-        "MWI": "MW",
-        "MYS": "MY",
-        "MDV": "MV",
-        "MLI": "ML",
-        "MLT": "MT",
-        "MHL": "MH",
-        "MRT": "MR",
-        "MUS": "MU",
-        "MEX": "MX",
-        "FSM": "FM",
-        "MDA": "MD",
-        "MCO": "MC",
-        "MNG": "MN",
-        "MNE": "ME",
-        "MAR": "MA",
-        "MOZ": "MZ",
-        "MMR": "MM",
-        "NAM": "NA",
-        "NRU": "NR",
-        "NPL": "NP",
-        "NLD": "NL",
-        "NZL": "NZ",
-        "NIC": "NI",
-        "NER": "NE",
-        "NGA": "NG",
-        "MKD": "MK",
-        "NOR": "NO",
-        "OMN": "OM",
-        "PAK": "PK",
-        "PLW": "PW",
-        "PAN": "PA",
-        "PNG": "PG",
-        "PRY": "PY",
-        "PER": "PE",
-        "PHL": "PH",
-        "POL": "PL",
-        "PRT": "PT",
-        "QAT": "QA",
-        "ROU": "RO",
-        "RUS": "RU",
-        "RWA": "RW",
-        "KNA": "KN",
-        "LCA": "LC",
-        "VCT": "VC",
-        "WSM": "WS",
-        "SMR": "SM",
-        "STP": "ST",
-        "SAU": "SA",
-        "SEN": "SN",
-        "SRB": "RS",
-        "SYC": "SC",
-        "SLE": "SL",
-        "SGP": "SG",
-        "SVK": "SK",
-        "SVN": "SI",
-        "SLB": "SB",
-        "SOM": "SO",
-        "ZAF": "ZA",
-        "SSD": "SS",
-        "ESP": "ES",
-        "LKA": "LK",
-        "SDN": "SD",
-        "SUR": "SR",
-        "SWE": "SE",
-        "CHE": "CH",
-        "SYR": "SY",
-        "TWN": "TW",
-        "TJK": "TJ",
-        "TZA": "TZ",
-        "THA": "TH",
-        "TLS": "TL",
-        "TGO": "TG",
-        "TON": "TO",
-        "TTO": "TT",
-        "TUN": "TN",
-        "TUR": "TR",
-        "TKM": "TM",
-        "TUV": "TV",
-        "UGA": "UG",
-        "UKR": "UA",
-        "ARE": "AE",
-        "GBR": "GB",
-        "USA": "US",
-        "URY": "UY",
-        "UZB": "UZ",
-        "VUT": "VU",
-        "VEN": "VE",
-        "VNM": "VN",
-        "YEM": "YE",
-        "ZMB": "ZM",
-        "ZWE": "ZW",
+        "AFG": "AF", "ALB": "AL", "DZA": "DZ", "AND": "AD", "AGO": "AO",
+        "ATG": "AG", "ARG": "AR", "ARM": "AM", "AUS": "AU", "AUT": "AT",
+        "AZE": "AZ", "BHS": "BS", "BHR": "BH", "BGD": "BD", "BRB": "BB",
+        "BLR": "BY", "BEL": "BE", "BLZ": "BZ", "BEN": "BJ", "BTN": "BT",
+        "BOL": "BO", "BIH": "BA", "BWA": "BW", "BRA": "BR", "BRN": "BN",
+        "BGR": "BG", "BFA": "BF", "BDI": "BI", "CPV": "CV", "KHM": "KH",
+        "CMR": "CM", "CAN": "CA", "CAF": "CF", "TCD": "TD", "CHL": "CL",
+        "CHN": "CN", "COL": "CO", "COM": "KM", "COG": "CG", "COD": "CD",
+        "CRI": "CR", "CIV": "CI", "HRV": "HR", "CUB": "CU", "CYP": "CY",
+        "CZE": "CZ", "DNK": "DK", "DJI": "DJ", "DMA": "DM", "DOM": "DO",
+        "ECU": "EC", "EGY": "EG", "SLV": "SV", "GNQ": "GQ", "ERI": "ER",
+        "EST": "EE", "SWZ": "SZ", "ETH": "ET", "FJI": "FJ", "FIN": "FI",
+        "FRA": "FR", "GAB": "GA", "GMB": "GM", "GEO": "GE", "DEU": "DE",
+        "GHA": "GH", "GRC": "GR", "GRD": "GD", "GTM": "GT", "GIN": "GN",
+        "GNB": "GW", "GUY": "GY", "HTI": "HT", "HND": "HN", "HUN": "HU",
+        "ISL": "IS", "IND": "IN", "IDN": "ID", "IRN": "IR", "IRQ": "IQ",
+        "IRL": "IE", "ISR": "IL", "ITA": "IT", "JAM": "JM", "JPN": "JP",
+        "JOR": "JO", "KAZ": "KZ", "KEN": "KE", "KIR": "KI", "KOR": "KR",
+        "KWT": "KW", "KGZ": "KG", "LAO": "LA", "LVA": "LV", "LBN": "LB",
+        "LSO": "LS", "LBR": "LR", "LBY": "LY", "LIE": "LI", "LTU": "LT",
+        "LUX": "LU", "MDG": "MG", "MWI": "MW", "MYS": "MY", "MDV": "MV",
+        "MLI": "ML", "MLT": "MT", "MHL": "MH", "MRT": "MR", "MUS": "MU",
+        "MEX": "MX", "FSM": "FM", "MDA": "MD", "MCO": "MC", "MNG": "MN",
+        "MNE": "ME", "MAR": "MA", "MOZ": "MZ", "MMR": "MM", "NAM": "NA",
+        "NRU": "NR", "NPL": "NP", "NLD": "NL", "NZL": "NZ", "NIC": "NI",
+        "NER": "NE", "NGA": "NG", "MKD": "MK", "NOR": "NO", "OMN": "OM",
+        "PAK": "PK", "PLW": "PW", "PAN": "PA", "PNG": "PG", "PRY": "PY",
+        "PER": "PE", "PHL": "PH", "POL": "PL", "PRT": "PT", "QAT": "QA",
+        "ROU": "RO", "RUS": "RU", "RWA": "RW", "KNA": "KN", "LCA": "LC",
+        "VCT": "VC", "WSM": "WS", "SMR": "SM", "STP": "ST", "SAU": "SA",
+        "SEN": "SN", "SRB": "RS", "SYC": "SC", "SLE": "SL", "SGP": "SG",
+        "SVK": "SK", "SVN": "SI", "SLB": "SB", "SOM": "SO", "ZAF": "ZA",
+        "SSD": "SS", "ESP": "ES", "LKA": "LK", "SDN": "SD", "SUR": "SR",
+        "SWE": "SE", "CHE": "CH", "SYR": "SY", "TWN": "TW", "TJK": "TJ",
+        "TZA": "TZ", "THA": "TH", "TLS": "TL", "TGO": "TG", "TON": "TO",
+        "TTO": "TT", "TUN": "TN", "TUR": "TR", "TKM": "TM", "TUV": "TV",
+        "UGA": "UG", "UKR": "UA", "ARE": "AE", "GBR": "GB", "USA": "US",
+        "URY": "UY", "UZB": "UZ", "VUT": "VU", "VEN": "VE", "VNM": "VN",
+        "YEM": "YE", "ZMB": "ZM", "ZWE": "ZW",
     }
+    # fmt: on
 
     def __get_short_country(self, country: str) -> str:
         """Shortens the country name"""
@@ -3843,7 +3618,7 @@ class Locator:
 
             self.logger.info("** Querying OpenStreetMap **")
 
-            city = city.title()
+            city = city.title().replace(" Stn", " STN")
             country = country.title()
 
             if country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
@@ -3926,7 +3701,7 @@ class Locator:
                 raise Exception("Timezone request failed. Try again later.")
 
             city_entry: dict[str, str | int] = {
-                "city": self.__get_short_city(location.get("name", "").title()),
+                "city": self.__get_short_city(location.get("name", "").title().replace(" Stn", " STN")),
                 "country": self.__get_short_country(addr.get("country", "").title()),
                 "country_code2": addr.get("country_code", "").upper(),
                 "postal_code": addr.get("postcode", ""),
@@ -4238,8 +4013,14 @@ class WeatherForecaster:
 
         return "Hazardous"
 
-    def __get_humidity_assessment(self, humidity: int, temperature: int) -> str:
+    def __get_humidity_assessment(
+        self, humidity: int, temperature: int, tunit: str
+    ) -> str:
         r"""Returns a human-readable assessment based on the humidity and temperature."""
+
+        # Converting a Fahrenheit into a Celsius
+        if tunit.lower() == "f":
+            temperature = (temperature - 32) * 5 / 9
 
         if humidity >= 70 and temperature > 30:
             return "HIGH"
@@ -4747,13 +4528,13 @@ class WeatherForecaster:
                 self.data.weather_code
             )  # Rain, Snow, Storm, Precip
             self.data.humidity_level_min = self.__get_humidity_assessment(
-                self.data.hmin, self.data.temperature
+                self.data.hmin, self.data.temperature, tunit
             )
             self.data.humidity_level_max = self.__get_humidity_assessment(
-                self.data.hmax, self.data.temperature
+                self.data.hmax, self.data.temperature, tunit
             )
             self.data.humidity = self.__get_humidity_assessment(
-                self.data.hcur, self.data.temperature
+                self.data.hcur, self.data.temperature, tunit
             )
             self.data.wind_direction_long = self.__get_wind_direction_long(
                 self.data.wind_direction
@@ -5049,8 +4830,12 @@ class ColorViews(Views):
 
         return "regular"
 
-    def _get_humidity_cp(self, humidity: int, temperature: int) -> int:
+    def _get_humidity_cp(self, humidity: int, temperature: int, tunit: str) -> int:
         r"""Get the humidity color pair"""
+
+        # Converting a Fahrenheit into Celsius
+        if tunit.lower() == "f":
+            temperature = (temperature - 32) * 5 / 9
 
         if humidity >= 70 and temperature > 30:
             return "important"
@@ -5078,10 +4863,20 @@ class ColorViews(Views):
             return "normal"
         return "regular"
 
-    def _get_temp_cp(self, t: int) -> int:
+    def _get_temp_cp(self, t: int, tunit: str) -> int | str:
         r"""Get the appropriate temperature color pair"""
 
-        if t < 11:
+        # Converting a Fahrenheit into Celsius
+        if tunit.lower() == "f":
+            t = (t - 32) * 5 / 9
+
+        if t < -40:
+            return "emergency"
+        if -40 <= t < -30:
+            return "error"
+        if -30 <= t < -20:
+            return "important"
+        if -20 <= t < 11:
             return "water"
         if 11 <= t <= 20:
             return "good"
@@ -5090,6 +4885,11 @@ class ColorViews(Views):
         if 39 <= t <= 44:
             return "error"
         return "emergency"
+    
+    def _get_city_cp(self, city: str) -> int | str:
+        if " STN" in city:
+            return "water"
+        return "general"
 
     def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
         r"""Beaufort Scale"""
@@ -5710,7 +5510,7 @@ class DashboardView(ColorViews):
 
             # The followed cities
             for city_cnt, city_data in enumerate(follow_cities):
-                city_wx: int = 56
+                city_wx: int = 60
                 citytimezone: str = self.config.followcities[city_cnt]["timezone"]
                 city_time: str = self.presconf.get_time_for_timezone(citytimezone)
                 followcities_window.print(f"{city_time}  ", x=city_wx, y=city_cnt)
@@ -5730,18 +5530,21 @@ class DashboardView(ColorViews):
                     f"{temperature}°{tsuffix}",
                     x=data_x,
                     y=1,
-                    theme=self._get_temp_cp(temperature),
+                    theme=self._get_temp_cp(temperature, tsuffix),
                 )
 
                 currently_window.print(
-                    f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin)
+                    f"{tmin}°{tsuffix}",
+                    x=data_x,
+                    y=2,
+                    theme=self._get_temp_cp(tmin, tsuffix),
                 )
                 currently_window.print("/", x=data_x + 4, y=2)
                 currently_window.print(
                     f"{tmax}°{tsuffix}",
                     x=data_x + 5,
                     y=2,
-                    theme=self._get_temp_cp(tmax),
+                    theme=self._get_temp_cp(tmax, tsuffix),
                 )
 
                 # Wind, air quality and precipitation labels
@@ -5764,7 +5567,7 @@ class DashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hcur), int(temperature)
+                        int(self.forecaster.data.hcur), int(temperature), tsuffix
                     ),
                 )
                 # Wind, air quality and precipitation
@@ -5811,7 +5614,7 @@ class DashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(temperature)
+                        int(self.forecaster.data.hmin), int(temperature), tsuffix
                     ),
                 )
                 airquality_window.print("/", x=data_x + len(humidity_str), y=3)
@@ -5820,7 +5623,7 @@ class DashboardView(ColorViews):
                     x=data_x + len(humidity_str) + 1,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(temperature)
+                        int(self.forecaster.data.hmax), int(temperature), tsuffix
                     ),
                 )
 
@@ -5849,14 +5652,14 @@ class DashboardView(ColorViews):
                         f"{dmin}°{tsuffix}",
                         x=data_x2,
                         y=wy,
-                        theme=self._get_temp_cp(dmin),
+                        theme=self._get_temp_cp(dmin, tsuffix),
                     )
                     forecast_window.print("/", x=data_x2 + 4, y=wy)
                     forecast_window.print(
                         f"{dmax}°{tsuffix}",
                         x=data_x2 + 5,
                         y=wy,
-                        theme=self._get_temp_cp(dmax),
+                        theme=self._get_temp_cp(dmax, tsuffix),
                     )
 
                     forecast_window.print("[", x=precip_x, y=wy, theme="border")
@@ -5879,7 +5682,7 @@ class DashboardView(ColorViews):
                     wy: int = city_cnt  # % 9
                     wx: int = 1  # if city_cnt < 9 else 15
                     data_x1: int = wx + 42
-                    data_x2: int = data_x1 + 5
+                    data_x2: int = data_x1 + 8
 
                     day: str = "night"
                     if city_data["is_day"]:
@@ -5895,13 +5698,16 @@ class DashboardView(ColorViews):
                         province2 = f", {province2}"
 
                     followcities_window.print(
-                        f"{city_cnt+1}. {city2}{province2}, {country2}", x=wx, y=wy
+                        f"{city_cnt+1}. {city2}{province2}, {country2}",
+                        x=wx,
+                        y=wy,
+                        theme=self._get_city_cp(city2)
                     )
                     followcities_window.print(
-                        f"{temp}°{tsuffix}",
+                        f"{temp}°{tsuffix}".rjust(6),
                         x=data_x1,
                         y=wy,
-                        theme=self._get_temp_cp(temp),
+                        theme=self._get_temp_cp(temp, tsuffix),
                     )
                     followcities_window.print(
                         f"({day})".ljust(7),
@@ -6221,7 +6027,7 @@ class TTYDashboardView(ColorViews):
                     f"{temperature}°{tsuffix}",
                     x=data_x,
                     y=1,
-                    theme=self._get_temp_cp(temperature),
+                    theme=self._get_temp_cp(temperature, tsuffix),
                 )
 
                 currently_window.print(
@@ -6232,7 +6038,7 @@ class TTYDashboardView(ColorViews):
                     f"{tmax}°{tsuffix}",
                     x=data_x + 5,
                     y=2,
-                    theme=self._get_temp_cp(tmax),
+                    theme=self._get_temp_cp(tmax, tsuffix),
                 )
 
                 # Wind, air quality and precipitation labels
@@ -6255,7 +6061,7 @@ class TTYDashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hcur), int(temperature)
+                        int(self.forecaster.data.hcur), int(temperature), tsuffix
                     ),
                 )
                 # Wind, air quality and precipitation
@@ -6302,7 +6108,7 @@ class TTYDashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(temperature)
+                        int(self.forecaster.data.hmin), int(temperature), tsuffix
                     ),
                 )
                 airquality_window.print("/", x=data_x + len(humidity_str), y=3)
@@ -6311,7 +6117,7 @@ class TTYDashboardView(ColorViews):
                     x=data_x + len(humidity_str) + 1,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(temperature)
+                        int(self.forecaster.data.hmax), int(temperature), tsuffix
                     ),
                 )
 
@@ -6340,14 +6146,14 @@ class TTYDashboardView(ColorViews):
                         f"{dmin}°{tsuffix}",
                         x=data_x2,
                         y=wy,
-                        theme=self._get_temp_cp(dmin),
+                        theme=self._get_temp_cp(dmin, tsuffix),
                     )
                     forecast_window.print("/", x=data_x2 + 4, y=wy)
                     forecast_window.print(
                         f"{dmax}°{tsuffix}",
                         x=data_x2 + 5,
                         y=wy,
-                        theme=self._get_temp_cp(dmax),
+                        theme=self._get_temp_cp(dmax, tsuffix),
                     )
 
                     forecast_window.print("[", x=precip_x, y=wy, theme="border")
@@ -6504,6 +6310,11 @@ class ParseCommandline:
             action="store_true",
             help="List all the application files: LOG, config etc.",
         )
+        cli_parser.add_argument(
+            "--listpolarstations",
+            action="store_true",
+            help="List all the Polar Stations you can follow.",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
@@ -6512,7 +6323,7 @@ class ParseCommandline:
             sys.exit(0)
 
         if args.get("newcity"):
-            args["newcity"] = args["newcity"].strip().title()
+            args["newcity"] = args["newcity"].strip().title().replace(" Stn", " STN")
         if args.get("country"):
             args["country"] = args["country"].strip().title()
 
@@ -6724,6 +6535,20 @@ if __name__ == "__main__":
             print("Cache deleted, warnings log deleted, logfile reset.")
             sys.exit(0)
 
+        if cli_arguments["listpolarstations"]:
+            print("LIST OF KNOWN POLAR STATIONS")
+            print("============================")
+            stations: list[str] = polar_stations()
+            for stn in stations:
+                print(stn)
+            print()
+            print("Polar stations are different, because they are operated by a country, but they reside on neutral territory.")
+            print()
+            print("TO ADD A POLAR STATION USE:")
+            print("tuiweathergirl --addcity <STATIONNUMBER> --country polarstation")
+            print()
+            sys.exit(0)
+        
         if cli_arguments["listfiles"]:
             cache: CacheManager = CacheManager()
             warnings: WarningsManager = WarningsManager()
