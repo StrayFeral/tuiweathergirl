@@ -5627,7 +5627,7 @@ class DashboardView(ColorViews):
                 theme="home",
             )
             location_window.print(
-                day_season, align="right", theme=self._get_daynight_cp(is_day)
+                day_season, align="right"  # , theme=self._get_daynight_cp(is_day)
             )
 
             # The followed cities
