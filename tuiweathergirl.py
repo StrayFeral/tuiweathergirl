@@ -22,6 +22,7 @@ import tempfile
 import textwrap
 import time
 import traceback
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
@@ -40,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.0.13"
+APPVERSION: str = "1.1.0"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -660,9 +661,48 @@ def polar_stations(stnnum: int | None = None) -> list[str]:
             result.append(f"{i + 1}) {name}, {country}")
     else:
         if stnnum < 1 or stnnum > len(POLAR_STATIONS):
-            raise ValueError(f"Invalid station number! Must be a number between 1 and {len(POLAR_STATIONS)}.")
+            raise ValueError(
+                f"Invalid station number! Must be a number between 1 and {len(POLAR_STATIONS)}."
+            )
         result = POLAR_STATIONS[stnnum - 1]
     return result
+
+
+class WindowsTerminalEnforcer:
+    """Static class. Forces a Windows terminal to maximize."""
+
+    def __new__(cls):
+        raise TypeError("WindowsTerminalEnforcer is a static class.")
+
+    @staticmethod
+    def maximize_terminal() -> None:
+        """Forcing the Windows terminal to maximize."""
+
+        if sys.platform == "win32":
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 3)
+                time.sleep(1)  # Ensures enough time for spells initialization
+
+
+class ExitHandler:
+    """Handles application exit with Ctrl-C etc."""
+
+    @staticmethod
+    def set_handler(handler: callable) -> None:
+        # Standard terminal disconnect (some terminals)
+        if hasattr(signal, "SIGHUP"):
+            signal.signal(signal.SIGHUP, handler)
+
+        # Sent by GTK terminals (Terminator, GNOME Terminal, xfce4-terminal) on 'X' click
+        signal.signal(signal.SIGTERM, handler)
+
+        # Ctrl+C
+        signal.signal(signal.SIGINT, handler)
+
+        # Windows console close
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, handler)
 
 
 class LocalProduceAdvisor:
@@ -1032,6 +1072,9 @@ class TextList:
         self.ordered: bool = kwargs.get("ordered", False)
         self.bullet_space: int = kwargs.get("bulletspace", self.style.bullet_space)
 
+        if len(self.bullet) > 1:
+            raise ValueError("The bullet must be a one-character string.")
+
         first_line_prepend: str = self.number_separator + " " * self.bullet_space
         other_lines_prepend: str = " " * (
             len(first_line_prepend) + 2
@@ -1108,6 +1151,30 @@ class BlockQuote(TextParagraph):
 
 
 class Window:
+    def vislen(self, text: str) -> int:
+        """Drop-in replacement for len() that returns the actual number
+        of terminal columns a string occupies on screen.
+
+        DISCLAIMER:
+            This function is not perfect. It will overcount when in situation
+            of complex multi-emoji combinations tied together with
+            Zero-Width Joiners. But the point here is to work well with simpler
+            glyphs.
+        """
+        width: int = 0
+        for char in text:
+            # Zero-width modifiers (like variation selectors or combining marks)
+            if unicodedata.category(char) in ("Mn", "Me", "Cf"):
+                continue
+
+            # Wide (W) and Fullwidth (F) characters occupy 2 terminal columns
+            if unicodedata.east_asian_width(char) in ("W", "F"):
+                width += 2
+            else:
+                width += 1
+
+        return width
+
     def __init__(self, **kwargs) -> None:
         theme: Theme | None = kwargs.get("theme", None)
         self.y: int = kwargs.get("y", 0)
@@ -1141,14 +1208,12 @@ class Window:
             raise ValueError(f"Window '{self.title}' is too shallow.")
         if self.inner_width < 1:
             raise ValueError(f"Window '{self.title}' is too narrow.")
-        if len(self.title) + 2 > self.width:
+        if self.vislen(self.title) + 2 > self.width:
             raise ValueError(f"The title for window '{self.title}' is too long.")
 
         self.theme: Theme | None = theme
 
-        self.win: curses.window | None = curses.newwin(
-            self.height, self.width, self.y, self.x
-        )
+        self.win: curses.window = curses.newwin(self.height, self.width, self.y, self.x)
         self.borderwin: curses.window | None = None
         if self.border:
             self.borderwin = self.win
@@ -1173,24 +1238,24 @@ class Window:
             border_theme = "warnborder"
             title_theme = "warntitle"
 
-        if self.theme:
-            self.theme.on(self.borderwin, border_theme)
-            self.borderwin.box()
-            self.theme.off()
-            if self.title and len(self.title) > 0:
-                self.theme.on(self.borderwin, title_theme)
-                self.borderwin.addstr(0, 2, f"[{self.title}]")
+        if self.borderwin:
+            if self.theme:
+                self.theme.on(self.borderwin, border_theme)
+                self.borderwin.box()
                 self.theme.off()
-        else:
-            self.borderwin.box()
-            if self.title and len(self.title) > 0:
-                self.borderwin.addstr(0, 2, f"[{self.title}]")
-        # self.borderwin.refresh()
+                if self.title and self.vislen(self.title) > 0:
+                    self.theme.on(self.borderwin, title_theme)
+                    self.borderwin.addstr(0, 2, f"[{self.title}]")
+                    self.theme.off()
+            else:
+                self.borderwin.box()
+                if self.title and self.vislen(self.title) > 0:
+                    self.borderwin.addstr(0, 2, f"[{self.title}]")
 
     def printyx(self, y: int, x: int, s: str, **kwargs):
-        if x + len(s) >= self.inner_width:
+        if x + self.vislen(s) >= self.inner_width:
             raise Exception(
-                f"String {s!r} is too long and goes over the window right border: x={x}, len={len(s)}, inner_width={self.inner_width}."
+                f"String {s!r} is too long and goes over the window right border: x={x}, len={self.vislen(s)}, inner_width={self.inner_width}."
             )
 
         theme_key: str = kwargs.get("theme", "general")
@@ -1225,14 +1290,14 @@ class Window:
         if isinstance(s, str):
             if align == "right":
                 if x < 0:
-                    x = self.inner_width - len(s) - 1 + x
+                    x = self.inner_width - self.vislen(s) - 1 + x
                 else:
-                    x = self.inner_width - len(s) - 1
+                    x = self.inner_width - self.vislen(s) - 1
             elif align == "center":
                 if x < 0:
-                    x = ((self.inner_width - len(s) - 1) // 2) + x
+                    x = ((self.inner_width - self.vislen(s) - 1) // 2) + x
                 else:
-                    x = (self.inner_width - len(s) - 1) // 2
+                    x = (self.inner_width - self.vislen(s) - 1) // 2
 
             self.printyx(y, x, s, theme=theme_key)
 
@@ -1244,14 +1309,14 @@ class Window:
 
                 if align == "right":
                     if x < 0:
-                        x = self.inner_width - len(line) - 1 + x
+                        x = self.inner_width - self.vislen(line) - 1 + x
                     else:
-                        x = self.inner_width - len(line) - 1
+                        x = self.inner_width - self.vislen(line) - 1
                 elif align == "center":
                     if x < 0:
-                        x = ((self.inner_width - len(line) - 1) // 2) + x
+                        x = ((self.inner_width - self.vislen(line) - 1) // 2) + x
                     else:
-                        x = (self.inner_width - len(line) - 1) // 2
+                        x = (self.inner_width - self.vislen(line) - 1) // 2
 
                 if y >= self.inner_height:
                     y = self.inner_height - 1
@@ -1261,7 +1326,7 @@ class Window:
                         f"String {s!r} contains newline or carriage return characters."
                     )
                 self.printyx(y, x, line, theme=theme_key)
-                last_x = x + len(line)
+                last_x = x + self.vislen(line)
 
                 y += 1
                 if y >= self.inner_height:
@@ -1271,7 +1336,7 @@ class Window:
 
         # Calculating the new X
         if isinstance(s, str):
-            self.cursor_x += x + len(s)
+            self.cursor_x += x + self.vislen(s)
 
         if self.cursor_x >= self.inner_width - 1:
             self.cursor_x = 0
@@ -1306,10 +1371,10 @@ class Window:
     def draw_line(self, **kwargs) -> None:
         if not all(key in kwargs for key in ("x", "y", "direction", "length")):
             raise ValueError("Method draw_line() requires: x, y, direction and length.")
-        y: int = kwargs.get("y")
-        x: int = kwargs.get("x")
-        direction: int = kwargs.get("direction")
-        length: int = kwargs.get("length")
+        y: int = kwargs["y"]
+        x: int = kwargs["x"]
+        direction: int = kwargs["direction"]
+        length: int = kwargs["length"]
         theme: str = kwargs.get("theme", "border")
 
         if direction not in ["horizontal", "vertical", "h", "v"]:
@@ -1362,8 +1427,8 @@ class Layout:
         self.yspacing: int = kwargs.get("yspacing", 0)
         self.xmargin: int = kwargs.get("xmargin", 0)
         self.ymargin: int = kwargs.get("ymargin", 0)
-        self.maxy: int = kwargs.get("maxy")
-        self.maxx: int = kwargs.get("maxx")
+        self.maxy: int = kwargs["maxy"]
+        self.maxx: int = kwargs["maxx"]
         self.columns: list[LayoutColumn] = []
 
         # One of the columns has been center
@@ -1407,7 +1472,7 @@ class Layout:
 
 class LayoutManager:
     def __init__(self, **kwargs) -> None:
-        self.stdscr: curses.window = kwargs.get("stdscr")
+        self.stdscr: curses.window = kwargs["stdscr"]
         maxy, maxx = self.stdscr.getmaxyx()
         self.layout: Layout = Layout(
             maxx=kwargs.get("maxx", maxx),
@@ -1949,115 +2014,6 @@ class Bulgarian:
         return ""
 
 
-class AllergyAndUVAdvisor:
-    """Pollen (Trees/Grass) and UV (Sun Allergy) advisor"""
-
-    def advise(self, lat: str, lon: str, reqtimeout: int) -> list[str]:
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
-        logger.info("** Querying Open-Meteo (pollen) **")
-
-        pollen_params: list[str] = [
-            "alder_pollen",
-            "birch_pollen",
-            "olive_pollen",
-            "grass_pollen",
-            "mugwort_pollen",
-            "ragweed_pollen",
-            "uv_index",
-        ]
-
-        url: str = (
-            f"https://air-quality-api.open-meteo.com/v1/air-quality"
-            f"?latitude={lat}&longitude={lon}&current={','.join(pollen_params)}&timezone=auto"
-        )
-        logger.debug(f"URL={url}")
-
-        warnings: list[str] = []
-
-        try:
-            response: requests.Response = requests.get(url, timeout=reqtimeout)
-            response.raise_for_status()
-        except Exception:
-            warnings.append(
-                " Cannot get allergy data. Will try again on the next refresh."
-            )
-            return warnings
-
-        if response.status_code != 200:
-            return []
-
-        data: dict[str, any] = response.json()
-        logger.debug(f"RESPONSE={pf(data)}")
-
-        data = data.get("current", {})
-        if not data:
-            return []
-
-        alder: float = data.get("alder_pollen") or 0.0
-        birch: float = data.get("birch_pollen") or 0.0
-        olive: float = data.get("olive_pollen") or 0.0
-        tree_pollen_total: float = alder + birch + olive
-        grass: float = data.get("grass_pollen") or 0.0
-        mugwort: float = data.get("mugwort_pollen") or 0.0
-        ragweed: float = data.get("ragweed_pollen") or 0.0
-        weed_pollen_total: float = mugwort + ragweed
-        uv_index: float = data.get("uv_index") or 0.0
-
-        if tree_pollen_total >= 250:
-            warnings.append(
-                f"[VERY HIGH RISK] Extremely high tree pollen: {tree_pollen_total:.1f} grains/m³."
-            )
-        elif tree_pollen_total >= 70:
-            warnings.append(
-                f"[HIGH RISK] High tree pollen levels: {tree_pollen_total:.1f} grains/m³."
-            )
-        elif tree_pollen_total >= 10:
-            warnings.append(
-                f"[MODERATE RISK] Moderate tree pollen levels: {tree_pollen_total:.1f} grains/m³."
-            )
-
-        if grass >= 150:
-            warnings.append(
-                f"[VERY HIGH RISK][HAY FEVER/RESPIRATORY] Very high grass pollen: {grass:.1f} grains/m³."
-            )
-        elif grass >= 50:
-            warnings.append(
-                f"[HIGH RISK][HAY FEVER/RESPIRATORY] High grass pollen levels: {grass:.1f} grains/m³."
-            )
-        elif grass >= 20:
-            warnings.append(
-                f"[MODERATE RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass:.1f} grains/m³."
-            )
-
-        if weed_pollen_total >= 80:
-            warnings.append(
-                f"[VERY HIGH RISK] Extremely high weed pollen: {weed_pollen_total:.1f} grains/m³."
-            )
-        elif weed_pollen_total >= 30:
-            warnings.append(
-                f"[HIGH RISK] High weed pollen levels: {weed_pollen_total:.1f} grains/m³."
-            )
-        elif weed_pollen_total >= 10:
-            warnings.append(
-                f"[MODERATE RISK] Moderate weed pollen levels: {weed_pollen_total:.1f} grains/m³."
-            )
-
-        if 6.0 <= uv_index < 8.0:
-            warnings.append(
-                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Limit direct sun exposure! Avoid being out 11:00-16:00!"
-            )
-        elif 8.0 <= uv_index < 11.0:
-            warnings.append(
-                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Extra protection needed!"
-            )
-        elif uv_index >= 11.0:
-            warnings.append(
-                f"[EXTREME RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Avoid exposure!"
-            )
-
-        return warnings
-
-
 class SpaceWeatherAdvisor:
     """NOAA advisories"""
 
@@ -2426,7 +2382,6 @@ class DisasterAdvisor:
                 timeout=self.reqtimeout,
             )
         except Exception:
-            # raise Exception(f"Cannot get disasters (GDACS). Try again in a minute. Request timeout ({self.reqtimeout}).")
             disasters.append(
                 [
                     "ERROR",
@@ -2487,7 +2442,6 @@ class DisasterAdvisor:
                     timeout=self.reqtimeout,
                 )
             except Exception:
-                # raise Exception(f"Cannot get disaster details (GDACS). Try again in a minute. Request timeout ({self.reqtimeout}).")
                 disasters.append(
                     [
                         "ERROR",
@@ -2546,7 +2500,6 @@ class DisasterAdvisor:
                 timeout=self.reqtimeout,
             )
         except Exception:
-            # raise Exception(f"Cannot get wildfire data (FIRMS). Try again in a minute. Request timeout ({self.reqtimeout}).")
             fire_list.append(
                 [
                     "ERROR",
@@ -2731,7 +2684,6 @@ class DisasterAdvisor:
         try:
             response = requests.get(url, timeout=self.reqtimeout)
         except Exception:
-            # raise Exception(f"Cannot get earthquakes data (USGS). Try again in a minute. Request timeout ({self.reqtimeout}).")
             quakes.append(
                 [
                     "ERROR",
@@ -2795,7 +2747,6 @@ class DisasterAdvisor:
         try:
             response = requests.get(url, timeout=self.reqtimeout)
         except Exception:
-            # raise Exception(f"Cannot get space falling objects data (FIREBALLS). Try again in a minute. Request timeout ({self.reqtimeout}).")
             fireballs.append(
                 [
                     "ERROR",
@@ -3272,7 +3223,7 @@ Timezone: {self.timezone}"""
         if country.lower() == "polarstation":
             station_data: list[str] = polar_stations(int(city))
             sname, scountry, slat, slon, scontinent, stimezone, sccode2 = station_data
-            
+
             city_entry = {
                 "country": scountry,
                 "city": sname,
@@ -3282,7 +3233,7 @@ Timezone: {self.timezone}"""
                 "timezone": stimezone,
                 "country_code2": sccode2,
                 "postal_code": "",
-                "province": ""
+                "province": "",
             }
 
         self.followcities.append(city_entry)
@@ -3701,7 +3652,9 @@ class Locator:
                 raise Exception("Timezone request failed. Try again later.")
 
             city_entry: dict[str, str | int] = {
-                "city": self.__get_short_city(location.get("name", "").title().replace(" Stn", " STN")),
+                "city": self.__get_short_city(
+                    location.get("name", "").title().replace(" Stn", " STN")
+                ),
                 "country": self.__get_short_country(addr.get("country", "").title()),
                 "country_code2": addr.get("country_code", "").upper(),
                 "postal_code": addr.get("postcode", ""),
@@ -3884,24 +3837,12 @@ class WeatherForecaster:
         self._data_collection_counter: int = 0
 
     def __get_wind_direction(self, degrees: float) -> str:
+        # fmt: off
         dirs: list[str] = [
-            "N",
-            "NNE",
-            "NE",
-            "ENE",
-            "E",
-            "ESE",
-            "SE",
-            "SSE",
-            "S",
-            "SSW",
-            "SW",
-            "WSW",
-            "W",
-            "WNW",
-            "NW",
-            "NNW",
+            "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW",
+            "WSW", "W", "WNW", "NW", "NNW",
         ]
+        # fmt: on
         ix = int((degrees + 11.25) / 22.5)
         return dirs[ix % 16]
 
@@ -4205,7 +4146,7 @@ class WeatherForecaster:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lats}&longitude={lons}"
-            f"&current=temperature_2m,is_day"
+            f"&current=temperature_2m,is_day,weather_code"
             f"&timezone={timezones.replace('/', '%2F')}"
             f"&temperature_unit={tunit}"
         )
@@ -4232,15 +4173,26 @@ class WeatherForecaster:
         # self.logger.debug(f"BODY_LEN={len(response.text)} BODY={response.text[:200]!r}")
         return response.json()
 
-    def _get_aqi_data(self, lat: str, lon: str) -> requests.Response:
+    def _get_aqi_pollen_uv_data(self, lat: str, lon: str) -> requests.Response:
         r"""Gets only AQI data for the given location"""
 
-        self.logger.info("** Querying Open-Meteo (AQI) **")
+        self.logger.info("** Querying Open-Meteo (AQI, Pollen, UV) **")
+
+        params: list[str] = [
+            "us_aqi",
+            "alder_pollen",
+            "birch_pollen",
+            "olive_pollen",
+            "grass_pollen",
+            "mugwort_pollen",
+            "ragweed_pollen",
+            "uv_index",
+        ]
 
         # Air Quality API (Separate endpoint but same coordinates)
-        url = (
+        url: str = (
             f"https://air-quality-api.open-meteo.com/v1/air-quality?"
-            f"latitude={lat}&longitude={lon}&current=us_aqi"
+            f"latitude={lat}&longitude={lon}&current={','.join(params)}&timezone=auto"
         )
         self.logger.debug(f"URL={url}")
 
@@ -4305,6 +4257,76 @@ class WeatherForecaster:
             return f"[{humidity}%][RISK] People with asthma: Increased allergens, difficult breathing."
 
         return f"[{humidity}%][HIGH RISK] People with resp. condt.: Labored breathing!"
+    
+    def get_pollen_and_uv_warnings(self, data: dict) -> list[str]:
+        if not data:
+            return []
+        
+        alder: float = data.get("alder_pollen") or 0.0
+        birch: float = data.get("birch_pollen") or 0.0
+        olive: float = data.get("olive_pollen") or 0.0
+        tree_pollen_total: float = alder + birch + olive
+        grass: float = data.get("grass_pollen") or 0.0
+        mugwort: float = data.get("mugwort_pollen") or 0.0
+        ragweed: float = data.get("ragweed_pollen") or 0.0
+        weed_pollen_total: float = mugwort + ragweed
+        uv_index: float = data.get("uv_index") or 0.0
+
+        warnings: list[str] = []
+
+        if tree_pollen_total >= 250:
+            warnings.append(
+                f"[VERY HIGH RISK] Extremely high tree pollen: {tree_pollen_total:.1f} grains/m³."
+            )
+        elif tree_pollen_total >= 70:
+            warnings.append(
+                f"[HIGH RISK] High tree pollen levels: {tree_pollen_total:.1f} grains/m³."
+            )
+        elif tree_pollen_total >= 10:
+            warnings.append(
+                f"[MODERATE RISK] Moderate tree pollen levels: {tree_pollen_total:.1f} grains/m³."
+            )
+
+        if grass >= 150:
+            warnings.append(
+                f"[VERY HIGH RISK][HAY FEVER/RESPIRATORY] Very high grass pollen: {grass:.1f} grains/m³."
+            )
+        elif grass >= 50:
+            warnings.append(
+                f"[HIGH RISK][HAY FEVER/RESPIRATORY] High grass pollen levels: {grass:.1f} grains/m³."
+            )
+        elif grass >= 20:
+            warnings.append(
+                f"[MODERATE RISK][HAY FEVER/RESPIRATORY] Grass pollen levels: {grass:.1f} grains/m³."
+            )
+
+        if weed_pollen_total >= 80:
+            warnings.append(
+                f"[VERY HIGH RISK] Extremely high weed pollen: {weed_pollen_total:.1f} grains/m³."
+            )
+        elif weed_pollen_total >= 30:
+            warnings.append(
+                f"[HIGH RISK] High weed pollen levels: {weed_pollen_total:.1f} grains/m³."
+            )
+        elif weed_pollen_total >= 10:
+            warnings.append(
+                f"[MODERATE RISK] Moderate weed pollen levels: {weed_pollen_total:.1f} grains/m³."
+            )
+
+        if 6.0 <= uv_index < 8.0:
+            warnings.append(
+                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Limit direct sun exposure! Avoid being out 11:00-16:00!"
+            )
+        elif 8.0 <= uv_index < 11.0:
+            warnings.append(
+                f"[HIGH RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Extra protection needed!"
+            )
+        elif uv_index >= 11.0:
+            warnings.append(
+                f"[EXTREME RISK][SUN ALLERGY] UV Index: {uv_index:.1f}. Avoid exposure!"
+            )
+
+        return warnings
 
     def get_data(self) -> None:
         # Build the API URL with your config preferences
@@ -4325,7 +4347,6 @@ class WeatherForecaster:
         # bulgarian: Bulgarian = Bulgarian()
         astronomer: Astronomer = Astronomer()
         holidays_manager: HolidaysManager = HolidaysManager()
-        allergy_uv_advisor: AllergyAndUVAdvisor = AllergyAndUVAdvisor()
         spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor(
             self.config.reqtimeout
         )
@@ -4351,8 +4372,8 @@ class WeatherForecaster:
                 tunit,
                 wunit,
             )
-            future_aq = executor.submit(
-                self._get_aqi_data, self.config.lat, self.config.lon
+            future_aqi_pollen_uv = executor.submit(
+                self._get_aqi_pollen_uv_data, self.config.lat, self.config.lon
             )
             if self.config.followcities:
                 future_followcities = executor.submit(
@@ -4383,12 +4404,6 @@ class WeatherForecaster:
                 self.config.country_code2,
                 self.config.reqtimeout,
             )
-            future_allergies_uv = executor.submit(
-                allergy_uv_advisor.advise,
-                self.config.lat,
-                self.config.lon,
-                self.config.reqtimeout,
-            )
             future_electrostatic_xray_flux = executor.submit(
                 electrostatic_advisor.get_xray_flux,
                 self.config.reqtimeout,
@@ -4414,7 +4429,7 @@ class WeatherForecaster:
             # Get the responses
             # -----------------
             weather_result: dict = future_weather.result()
-            aq_result: dict = future_aq.result()
+            aqi_pollen_uv_result: dict = future_aqi_pollen_uv.result()
             if self.config.followcities:
                 followcities_result: dict | list = future_followcities.result()
             fireballs: list[list[str]] = future_fireballs.result()
@@ -4431,7 +4446,6 @@ class WeatherForecaster:
             electrostatic_warning: str = (
                 electrostatic_advisor.get_electrostatic_warning(electrostatic_xray_flux)
             )
-            allergy_uv_warnings: list[str] = future_allergies_uv.result()
 
             new_holidays: dict[str, str] = future_holidays.result()
             if self.config.holidays != new_holidays:
@@ -4462,7 +4476,10 @@ class WeatherForecaster:
             # Extract Data
             current: dict[str, str] = weather_result["current"]
             daily: dict[str, str] = weather_result["daily"]
-            aqi: str = aq_result["current"]["us_aqi"]
+            # Air quality, pollen, UV
+            aqi_pollen_uv_result_data = aqi_pollen_uv_result.get("current", {})
+            aqi: str = aqi_pollen_uv_result_data["us_aqi"] or 0
+            
 
             # Fill the object with data
             # self.data.is_day = True if current["is_day"] == "1" else False
@@ -4498,6 +4515,8 @@ class WeatherForecaster:
                         "city": self.config.followcities[-1]["city"],
                         "country_code2": self.config.followcities[-1]["country_code2"],
                         "province": self.config.followcities[-1]["province"],
+                        "weather_code": followcities_result["current"]["weather_code"],
+                        "sky": self.__get_weather_description(followcities_result["current"]["weather_code"]),
                     }
                     self.data.cities_data = [city_data]
                 if isinstance(followcities_result, list):
@@ -4511,6 +4530,8 @@ class WeatherForecaster:
                             "city": combodata[0]["city"],
                             "country_code2": combodata[0]["country_code2"],
                             "province": combodata[0]["province"],
+                            "weather_code": combodata[1]["current"]["weather_code"],
+                            "sky": self.__get_weather_description(combodata[1]["current"]["weather_code"]),
                         }
                         self.data.cities_data.append(city_data)
 
@@ -4569,6 +4590,7 @@ class WeatherForecaster:
             baropressure_warning: str = self.get_baropressure_warning(
                 self.data.baropressure
             )
+            pollen_and_uv_warnings: list[str] = self.get_pollen_and_uv_warnings(aqi_pollen_uv_result_data)
 
             # WARNINGS
             # --------
@@ -4590,7 +4612,7 @@ class WeatherForecaster:
                 warnings.append(*disaster)
             if electrostatic_warning:
                 warnings.append("home", "", "ELECTROSTATIC", electrostatic_warning)
-            for message in allergy_uv_warnings:
+            for message in pollen_and_uv_warnings:
                 warnings.append("home", "", "ALLERGY", message)
 
             self.cache.save()
@@ -4732,15 +4754,15 @@ class Views:
 
     def screen(self, stdscr: curses.window) -> None:
         r"""The actual TUI screen to display"""
-        pass
+        raise NotImplementedError
 
     def display(self) -> None:
         r"""Wrapper for screen(), unless simple printing"""
-        pass
+        raise NotImplementedError
 
     def update_screen(self) -> None:
         r"""Pushes all screen updates at once, if applicable"""
-        pass
+        raise NotImplementedError
 
 
 class ColorViews(Views):
@@ -4863,6 +4885,12 @@ class ColorViews(Views):
             return "normal"
         return "regular"
 
+    def _get_daynight_icon_cp(self, is_day: bool) -> int:
+        r"""Get the day or night color pair"""
+        if is_day:
+            return "general"
+        return "regular"
+
     def _get_temp_cp(self, t: int, tunit: str) -> int | str:
         r"""Get the appropriate temperature color pair"""
 
@@ -4885,7 +4913,7 @@ class ColorViews(Views):
         if 39 <= t <= 44:
             return "error"
         return "emergency"
-    
+
     def _get_city_cp(self, city: str) -> int | str:
         if " STN" in city:
             return "water"
@@ -5002,6 +5030,97 @@ class ColorViews(Views):
             self.consecutive_errors = 0
             return False
 
+    def _get_daynight_icon(self, is_day: bool) -> str:
+        if is_day:
+            return "🔅"
+        return "🌑"
+    
+    def _get_weather_description_icon(self, weather_code: int, is_day: bool) -> str:
+        r"""Weather icons"""
+
+        mapping: dict[bool, dict[int, str]] = {
+            True: {
+                0: "☀️",  # Clear
+                1: "🌤️",  # Mainly clear
+                2: "⛅",  # Partly cloudy
+                3: "☁️",  # Overcast
+                45: "🌫️",  # Foggy
+                48: "🌫️",  # Rime fog
+                51: "🌦️",  # Drizzle
+                61: "🌧️",  # Rain
+                71: "❄️",  # Snow
+                80: "🌦️",  # Rain showers
+                95: "🌩️",  # Thunderstorm
+            },
+            False: {
+                0: "☾",  # Clear Night (Crescent Moon)
+                1: "☾",  # Mainly Clear (or 🌃 Night with Stars)
+                2: "☁️",  # Partly Cloudy (or 🌙 + ☁️)
+                3: "☁️",  # Overcast
+                45: "🌫️", # Foggy
+                48: "🌫️", # Rime fog
+                51: "🌦️", # Drizzle
+                61: "🌧️", # Rain
+                71: "❄️", # Snow
+                80: "🌧️", # Rain showers
+                95: "🌩️", # Thunderstorm
+            },
+        }
+        return mapping[is_day].get(weather_code, "☁️")  # Cloudy
+    
+    def _get_moon_icon(self, phase: str) -> str:
+        """Moon phase icons"""
+
+        mapping: dict[str, str] = {
+            "New Moon": "🌑",
+            "Waxing Crescent": "🌒",
+            "First Quarter": "🌓",
+            "Waxing Gibbous": "🌔",
+            "Full Moon": "🌕",
+            "Waning Gibbous": "🌖",
+            "Last Quarter": "🌗",
+            "Waning Crescent": "🌘",
+        }
+        return mapping.get(phase, "☁️")  # New Moon
+    
+    def _get_zodiac_icon(self, sign: str) -> str:
+        """Zodiac icons"""
+
+        mapping: dict[str, str] = {
+            "Aries": "🐏",
+            "Taurus": "🐂",
+            "Gemini": "👯",
+            "Cancer": "🦀",
+            "Leo": "🦁",
+            "Virgo": "🌾",
+            "Libra": "⚖️",
+            "Scorpio": "🦂",
+            "Sagittarius": "🏹",
+            "Capricorn": "🐐",
+            "Aquarius": "🏺",
+            "Pisces": "🐟",
+        }
+        return mapping[sign]
+    
+    def _get_chinese_icon(self, sign: str) -> str:
+        """Chinese zodiac icons"""
+
+        mapping: dict[str, str] = {
+            "Rat": "🐀",
+            "Ox": "🐂",
+            "Tiger": "🐅",
+            "Rabbit": "🐇",
+            "Dragon": "🐉",
+            "Snake": "🐍",
+            "Horse": "🐎",
+            "Goat": "🐐",
+            "Monkey": "🐒",
+            "Rooster": "🐓",
+            "Dog": "🐕",
+            "Pig": "🐖",
+        }
+        return mapping[sign]
+    
 
 class SetupView(Views):
     r"""Prints the setup"""
@@ -5458,6 +5577,7 @@ class DashboardView(ColorViews):
 
             # Technically we do not need this, but filling up the addstr()s
             # later would be more messy without it
+            weather_code: int = self.forecaster.data.weather_code
             sky: str = self.forecaster.data.sky
             temperature: int = self.forecaster.data.temperature
             tmin: int = self.forecaster.data.min
@@ -5490,17 +5610,19 @@ class DashboardView(ColorViews):
             # cache.register("weather_data", self.forecaster.data)
             # cache.save()
 
-            home_day: str = "night"
-            if is_day:
-                home_day = "day"
+            # home_day: str = "night"
+            # if is_day:
+            #     home_day = "day"
+            home_day_icon: str = self._get_daynight_icon(is_day)
 
             # ----------------------------------------- Screen update
             # Today's date and time - we need this to refresh more often
             day_now: str = f"Today: {datenow} {timenow}{dstmark} "
-            day_season: str = f"({home_day}) {season}"
+            # day_season: str = f"({home_day}) {season}"
+            day_season: str = f"{home_day_icon} {season}"
             location_window.print(
                 day_now,
-                x=-len(day_season),
+                x=-location_window.vislen(day_season),
                 align="right",
                 theme="home",
             )
@@ -5510,10 +5632,10 @@ class DashboardView(ColorViews):
 
             # The followed cities
             for city_cnt, city_data in enumerate(follow_cities):
-                city_wx: int = 60
+                city_wx: int = 59
                 citytimezone: str = self.config.followcities[city_cnt]["timezone"]
                 city_time: str = self.presconf.get_time_for_timezone(citytimezone)
-                followcities_window.print(f"{city_time}  ", x=city_wx, y=city_cnt)
+                followcities_window.print(f"{city_time} ", x=city_wx, y=city_cnt)
 
             if force_screen_update:
                 self.logger.info("--- screen update ---")
@@ -5525,7 +5647,12 @@ class DashboardView(ColorViews):
                 currently_window.print("Temp  :", x=labels_x, y=1)
                 currently_window.print("Range :", x=labels_x, y=2)
                 currently_window.print("Humidt:", x=labels_x, y=3)
-                currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
+                currently_window.print(
+                    f"{self._get_weather_description_icon(weather_code, is_day)}  {sky}",
+                    x=data_x,
+                    y=0,
+                    theme=self._get_sky_cp(sky)
+                )
                 currently_window.print(
                     f"{temperature}°{tsuffix}",
                     x=data_x,
@@ -5681,16 +5808,19 @@ class DashboardView(ColorViews):
                 for city_cnt, city_data in enumerate(follow_cities):
                     wy: int = city_cnt  # % 9
                     wx: int = 1  # if city_cnt < 9 else 15
-                    data_x1: int = wx + 42
-                    data_x2: int = data_x1 + 8
+                    data_x1: int = wx + 38
+                    data_x2: int = data_x1 + 7
+                    daynight_icon_x: int = 65
 
-                    day: str = "night"
-                    if city_data["is_day"]:
-                        day = "day"
+                    # day: str = "night"
+                    # if city_data["is_day"]:
+                    #     day = "day"
                     temp: int = city_data["temperature"]
                     city2: str = self.config.followcities[city_cnt]["city"]
                     province2: str = self.config.followcities[city_cnt]["province"]
                     country2: str = self.config.followcities[city_cnt]["country"]
+                    weather_code2: str = city_data["weather_code"]
+                    sky2: str = city_data["sky"]
 
                     if province2.isdigit():
                         province2 = ""
@@ -5701,7 +5831,7 @@ class DashboardView(ColorViews):
                         f"{city_cnt+1}. {city2}{province2}, {country2}",
                         x=wx,
                         y=wy,
-                        theme=self._get_city_cp(city2)
+                        theme=self._get_city_cp(city2),
                     )
                     followcities_window.print(
                         f"{temp}°{tsuffix}".rjust(6),
@@ -5710,8 +5840,15 @@ class DashboardView(ColorViews):
                         theme=self._get_temp_cp(temp, tsuffix),
                     )
                     followcities_window.print(
-                        f"({day})".ljust(7),
+                        f"{self._get_weather_description_icon(weather_code2, city_data["is_day"])} {sky2[:10]}",
                         x=data_x2,
+                        y=wy,
+                        theme=self._get_sky_cp(sky2),
+                    )
+                    followcities_window.print(
+                        # f"({day})".ljust(7),
+                        self._get_daynight_icon(city_data["is_day"]),
+                        x=daynight_icon_x,
                         y=wy,
                         theme=self._get_daynight_cp(city_data["is_day"]),
                     )
@@ -5752,9 +5889,9 @@ class DashboardView(ColorViews):
 
                 if "celestial" in self.forecaster.data.misc_data:
                     celestial_window.clear()
-                    spc: str = f"{" " * 7}|{" " * 7}"  # Spacer
+                    spc: str = f"{" " * 6}|{" " * 6}"  # Spacer
                     s: str = (
-                        f"Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}"
+                        f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon"])}  {self.forecaster.data.misc_data["celestial"]["moon"]}'
                     )
                     celestial_window.print(s, align="center", y=0)
 
@@ -6031,7 +6168,7 @@ class TTYDashboardView(ColorViews):
                 )
 
                 currently_window.print(
-                    f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin)
+                    f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin, tsuffix)
                 )
                 currently_window.print("/", x=data_x + 4, y=2)
                 currently_window.print(
@@ -6197,7 +6334,7 @@ class TTYDashboardView(ColorViews):
                     celestial_window.clear()
                     spc: str = f"{" " * 2}|{" " * 2}"  # Spacer
                     s: str = (
-                        f"Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}"
+                        f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}'
                     )
                     celestial_window.print(s, align="center", y=0)
 
@@ -6467,11 +6604,7 @@ if __name__ == "__main__":
             debug_mode_str = "*** DEBUG MODE ENABLED ***"
 
         # Forcing the Windows terminal to maximize
-        if sys.platform == "win32":
-            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-            if hwnd:
-                ctypes.windll.user32.ShowWindow(hwnd, 3)
-                time.sleep(1)
+        WindowsTerminalEnforcer.maximize_terminal()
 
         logging.basicConfig(
             filename=LOGFILENAME,
@@ -6488,19 +6621,7 @@ if __name__ == "__main__":
         logger.info(debug_mode_str)
         logger.info("")
 
-        # Standard terminal disconnect (some terminals)
-        if hasattr(signal, "SIGHUP"):
-            signal.signal(signal.SIGHUP, on_terminal_close)
-
-        # Sent by GTK terminals (Terminator, GNOME Terminal, xfce4-terminal) on 'X' click
-        signal.signal(signal.SIGTERM, on_terminal_close)
-
-        # Ctrl+C
-        signal.signal(signal.SIGINT, on_terminal_close)
-
-        # Windows console close
-        if hasattr(signal, "SIGBREAK"):
-            signal.signal(signal.SIGBREAK, on_terminal_close)
+        ExitHandler.set_handler(on_terminal_close)
 
         view_name: str = cli_arguments.get("view")
 
@@ -6542,13 +6663,15 @@ if __name__ == "__main__":
             for stn in stations:
                 print(stn)
             print()
-            print("Polar stations are different, because they are operated by a country, but they reside on neutral territory.")
+            print(
+                "Polar stations are different, because they are operated by a country, but they reside on neutral territory."
+            )
             print()
             print("TO ADD A POLAR STATION USE:")
             print("tuiweathergirl --addcity <STATIONNUMBER> --country polarstation")
             print()
             sys.exit(0)
-        
+
         if cli_arguments["listfiles"]:
             cache: CacheManager = CacheManager()
             warnings: WarningsManager = WarningsManager()

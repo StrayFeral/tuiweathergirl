@@ -49,6 +49,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-16 v.1.1.0: Some refactoring done. Fixed: Bug in right-aligned text. Bug in TTYDashboard view. Optimized the Open-Meteo querying. Cosmetic improvements.
 - 2026-08-13 v.1.0.13: Fixed: Temperature assessments now takes Fahrenheit into account too. Now Polar Stations could be followed too.
 - 2026-08-13 v.1.0.12: Fixed small bug in showing the current home time. Shortened the names of cities, countries and provinces.
 - 2026-08-08 v.1.0.11: Fixed bug: Now application could be closed with capital "Q" too.
