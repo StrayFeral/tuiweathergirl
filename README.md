@@ -49,6 +49,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-17 v.1.1.2: Fixed: Abbreviation in cities of interest sky condition.
 - 2026-08-16 v.1.1.1: Fixed: Too long city/province names for cities of interest. Bug in holidays update.
 - 2026-08-16 v.1.1.0: Code refactored. Fixed: Bug in right-aligned text. Bug in TTYDashboard view. Bug in NASA Fireballs query. Optimized the 
 - 2026-08-13 v.1.0.13: Fixed: Temperature assessments now takes Fahrenheit into account too. Now Polar Stations could be followed too.

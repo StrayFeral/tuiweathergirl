@@ -41,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.1"
+APPVERSION: str = "1.1.2"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -5947,8 +5947,12 @@ class DashboardView(ColorViews):
                         y=wy,
                         theme=self._get_temp_cp(temp, tsuffix),
                     )
+                    sky_condition: str = sky2
+                    if sky_condition != "Clear" and sky_condition != "Cloudy":
+                        sky_condition = sky_condition.replace("Clear", "Clr")
+                        sky_condition = sky_condition.replace("Cloudy", "Cld")
                     followcities_window.print(
-                        f"{self._get_weather_description_icon(weather_code2, city_data["is_day"])} {sky2[:10]}",
+                        f"{self._get_weather_description_icon(weather_code2, city_data["is_day"])} {sky_condition[:10]}",
                         x=data_x2,
                         y=wy,
                         theme=self._get_sky_cp(sky2),
