@@ -4772,6 +4772,11 @@ class PresentationConfiguration:
             "northwest": "NW.",
             "southeast": "SE.",
             "southwest": "SW.",
+            "republic": "Rep.",
+            "republique": "Rep.",
+            "republik": "Rep.",
+            "department": "Dept.",
+            "county": "Cty.",
         }
 
         temp_name: str = name.replace("-", " - ")
