@@ -41,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.0"
+APPVERSION: str = "1.1.1"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -4744,6 +4744,56 @@ class PresentationConfiguration:
         self.time = now.strftime(time_pattern)
 
         return self.time
+    
+    def abbreviate_name(self, name: str) -> str:
+        """Abbreviates common geographic names."""
+        
+        if not name:
+            return ""
+
+        abbreviations: dict[str, str] = {
+            "saint": "St.",
+            "sainte": "Ste.",
+            "fort": "Ft.",
+            "mount": "Mt.",
+            "mountain": "Mtn.",
+            "point": "Pt.",
+            "pointe": "Pte.",
+            "port": "Pt.",
+            "heights": "Hts.",
+            "springs": "Spgs.",
+            "junction": "Jct.",
+            "township": "Twp.",
+            "north": "N.",
+            "south": "S.",
+            "east": "E.",
+            "west": "W.",
+            "northeast": "NE.",
+            "northwest": "NW.",
+            "southeast": "SE.",
+            "southwest": "SW.",
+        }
+
+        temp_name: str = name.replace("-", " - ")
+        words: list[str] = temp_name.split()
+        abbreviated_words: list[str] = []
+
+        for word in words:
+            clean_word: str = word.strip(",.").lower()
+
+            if clean_word in abbreviations:
+                abbr: str = abbreviations[clean_word]
+                if word.endswith(","):
+                    abbr += ","
+                abbreviated_words.append(abbr)
+            else:
+                abbreviated_words.append(word)
+
+        result: str = " ".join(abbreviated_words)
+        result = result.replace(" - ", "-")
+        result = result.replace(".-", ".")
+        
+        return result
 
 
 class Views:
@@ -5866,7 +5916,11 @@ class DashboardView(ColorViews):
                     #     day = "day"
                     temp: int = city_data["temperature"]
                     city2: str = self.config.followcities[city_cnt]["city"]
+                    city2 = self.presconf.abbreviate_name(city2)
+                    if not "STN" in city2:
+                        city2 = city2[:15]
                     province2: str = self.config.followcities[city_cnt]["province"]
+                    province2 = self.presconf.abbreviate_name(province2)
                     country2: str = self.config.followcities[city_cnt]["country"]
                     weather_code2: str = city_data["weather_code"]
                     sky2: str = city_data["sky"]
@@ -5877,7 +5931,7 @@ class DashboardView(ColorViews):
                         province2 = f", {province2}"
 
                     followcities_window.print(
-                        f"{city_cnt+1}. {city2}{province2}, {country2}",
+                        f"{city_cnt+1}. {city2}{province2:.12}, {country2:.10}",
                         x=wx,
                         y=wy,
                         theme=self._get_city_cp(city2),
