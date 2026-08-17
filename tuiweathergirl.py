@@ -2739,7 +2739,7 @@ class DisasterAdvisor:
             hour=0, minute=0, second=0, microsecond=0
         )
         url: str = (
-            "https://ssd-api.jpl.nasa.gov/fireball.api?date-start="
+            "https://ssd-api.jpl.nasa.gov/fireball.api?date-min="
             + start_of_yesterday.strftime("%Y-%m-%d")
         )
         self.logger.debug(f"URL={url}")
@@ -3163,7 +3163,7 @@ Timezone: {self.timezone}"""
 
         config = configparser.ConfigParser()
         config.read(self.filename)
-        
+
         self.followcities = []  # Reset the list
 
         self.country = config["HOME"]["country"]
@@ -3185,7 +3185,7 @@ Timezone: {self.timezone}"""
         self.reqtimeout = int(config["PREFERENCES"]["requesttimeout"])
 
         self.holidays = dict(config["HOLIDAYS"])
-        
+
         # Let me be clear here: In case someone manually adds extra cities
         # we will truncate the list.
 
@@ -3204,9 +3204,9 @@ Timezone: {self.timezone}"""
                     "timezone": config[index]["timezone"],
                 }
                 self.followcities.append(city)
-        
+
         if len(self.followcities) > MAX_CITIES - 1:
-            del self.followcities[MAX_CITIES - 1:]
+            del self.followcities[MAX_CITIES - 1 :]
             self.save()
 
         self.logger.info("Config loaded")
@@ -3543,7 +3543,7 @@ class Locator:
             (key for key, values in self.__CONTINENT_MAP.items() if country in values),
             "Unknown",
         )
-    
+
     def get_timezone_name(self, lat: float, lon: float) -> str:
         apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
 
@@ -3561,9 +3561,7 @@ class Locator:
         self.logger.debug(f"URL={url}")
 
         try:
-            response: requests.Response = requests.get(
-                url, timeout=config.reqtimeout
-            )
+            response: requests.Response = requests.get(url, timeout=config.reqtimeout)
         except Exception:
             # Just making it more user-friendly
             raise Exception(
@@ -3584,13 +3582,12 @@ class Locator:
             )
 
         response = response.json()
-        
+
         if response.get("status") == "FAILED":
             raise Exception("Timezone request failed. Try again later.")
 
         return response.get("zoneName", "")
-    
-    
+
     def _get_city_details(self, city: str, country: str) -> dict:
         # Attempt to get information for the city and the country
 
@@ -3624,9 +3621,9 @@ class Locator:
             raise Exception(
                 f"Cannot locate city '{city}/{country}'. Please check your syntax and try again."
             )
-        
+
         return response[0] or {}
-    
+
     def _ip_autoconfig(self) -> dict:
         # Attempt auto-location
 
@@ -3639,9 +3636,7 @@ class Locator:
         self.logger.debug(f"URL={url}")
 
         try:
-            response: requests.Response = requests.get(
-                url, timeout=config.reqtimeout
-            )
+            response: requests.Response = requests.get(url, timeout=config.reqtimeout)
         except Exception:
             # Just making it more user-friendly
             raise Exception(
@@ -3658,15 +3653,17 @@ class Locator:
         response = response.json()
 
         if response.get("status") == "fail":
-            raise Exception(
-                f"Request failed: {response.get("message")}. Try again!"
-            )
-        
+            raise Exception(f"Request failed: {response.get("message")}. Try again!")
+
         return response or {}
 
     def config(
-        self, config: Configuration, city: str = "", country: str = "",
-        lat: float | None = None, lon: float | None = None
+        self,
+        config: Configuration,
+        city: str = "",
+        country: str = "",
+        lat: float | None = None,
+        lon: float | None = None,
     ) -> None | dict[str | int]:
         logger.debug("Locator is running")
 
@@ -3693,9 +3690,9 @@ class Locator:
             addr: dict = location.get("address", {})
             lat: str = location.get("lat", "")
             lon: str = location.get("lon", "")
-            
+
             timezone_name: str = self.get_timezone_name(lat, lon)
-            
+
             city_entry: dict[str, str | int] = {
                 "city": self.__get_short_city(
                     location.get("name", "").title().replace(" Stn", " STN")
@@ -4770,7 +4767,9 @@ class Views:
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
-    def prog_bar(self, percent: int, fillchar: str = "#", emptychar: str = ".", maxchar: int = 10) -> str:
+    def prog_bar(
+        self, percent: int, fillchar: str = "#", emptychar: str = ".", maxchar: int = 10
+    ) -> str:
         # Ensure percent stays within 0-100 bounds
         percent = max(0, min(100, percent))
 
@@ -6634,7 +6633,14 @@ class LocationManager:
         config.save()  # Update config
         self.logger.info(f"City {citynum} is unfollowed")
 
-    def add_city(self, city: str, country: str, config: Configuration, lat: float | None = None, lon: float | None = None) -> None:
+    def add_city(
+        self,
+        city: str,
+        country: str,
+        config: Configuration,
+        lat: float | None = None,
+        lon: float | None = None,
+    ) -> None:
         r"""Add a new city to follow"""
 
         config.follow_city(city, country, lat, lon)
@@ -6652,10 +6658,12 @@ class LocationManager:
                     **config.followcities[i],
                     **city_entry,
                 }  # Update values
-            elif "timezone" not in config.followcities[i] or not config.followcities[i]["timezone"]:
+            elif (
+                "timezone" not in config.followcities[i]
+                or not config.followcities[i]["timezone"]
+            ):
                 config.followcities[i]["timezone"] = locator.get_timezone_name(
-                    config.followcities[i]["lat"],
-                    config.followcities[i]["lon"]
+                    config.followcities[i]["lat"], config.followcities[i]["lon"]
                 )
         config.save()  # Update config
 
@@ -6823,8 +6831,11 @@ if __name__ == "__main__":
         if cli_arguments["newcity"]:
             view_name = "setup"
             location_manager.add_city(
-                cli_arguments["newcity"], cli_arguments["country"], config,
-                cli_arguments["lat"], cli_arguments["lon"]
+                cli_arguments["newcity"],
+                cli_arguments["country"],
+                config,
+                cli_arguments["lat"],
+                cli_arguments["lon"],
             )
             cache = CacheManager()
             cache.delete()
