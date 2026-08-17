@@ -2856,7 +2856,7 @@ class HolidaysManager:
     """Taking care of the national holidays"""
 
     def _need_update(self, year: str, code1: str, code2: str) -> bool:
-        this_year: str = datetime.now().year
+        this_year: str = str(datetime.now().year)
         if this_year != year or code1 != code2:
             return True
         return False
@@ -4744,10 +4744,10 @@ class PresentationConfiguration:
         self.time = now.strftime(time_pattern)
 
         return self.time
-    
+
     def abbreviate_name(self, name: str) -> str:
         """Abbreviates common geographic names."""
-        
+
         if not name:
             return ""
 
@@ -4797,7 +4797,7 @@ class PresentationConfiguration:
         result: str = " ".join(abbreviated_words)
         result = result.replace(" - ", "-")
         result = result.replace(".-", ".")
-        
+
         return result
 
 
@@ -5481,7 +5481,7 @@ class DashboardView(ColorViews):
         stdscr.timeout(1000)  # Wait 1 second
         stdscr.keypad(True)  # Allow extended keyboard codes
 
-    def screen(self, stdscr: curses.window) -> None:  # DEBUG:
+    def screen(self, stdscr: curses.window) -> None:
         self.logger.info("View is running")
 
         # Initial data collection
@@ -6054,7 +6054,7 @@ class TTYDashboardView(ColorViews):
         stdscr.timeout(1000)  # Wait 1 second
         stdscr.keypad(True)  # Allow extended keyboard codes
 
-    def screen(self, stdscr: curses.window) -> None:  # DEBUG:
+    def screen(self, stdscr: curses.window) -> None:
         self.logger.info("View is running")
 
         # Initial data collection
