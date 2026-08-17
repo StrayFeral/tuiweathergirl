@@ -41,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.2"
+APPVERSION: str = "1.1.3"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -5951,6 +5951,12 @@ class DashboardView(ColorViews):
                     if sky_condition != "Clear" and sky_condition != "Cloudy":
                         sky_condition = sky_condition.replace("Clear", "Clr")
                         sky_condition = sky_condition.replace("Cloudy", "Cld")
+                    # Yes, yes, very barbaric way to clear the field
+                    followcities_window.print(
+                        "             ",
+                        x=data_x2,
+                        y=wy,
+                    )
                     followcities_window.print(
                         f"{self._get_weather_description_icon(weather_code2, city_data["is_day"])} {sky_condition[:10]}",
                         x=data_x2,
