@@ -657,7 +657,7 @@ def polar_stations(stnnum: int | None = None) -> list[str]:
     result = []
     if stnnum is None:
         for i, stn in enumerate(POLAR_STATIONS):
-            name, country, lat, lon, continent, timezone = stn
+            name, country, lat, lon, continent, timezone, country_code2 = stn
             result.append(f"{i + 1}) {name}, {country}")
     else:
         if stnnum < 1 or stnnum > len(POLAR_STATIONS):
@@ -3163,6 +3163,8 @@ Timezone: {self.timezone}"""
 
         config = configparser.ConfigParser()
         config.read(self.filename)
+        
+        self.followcities = []  # Reset the list
 
         self.country = config["HOME"]["country"]
         self.country_code2 = config["HOME"]["country_code2"]
@@ -3183,8 +3185,11 @@ Timezone: {self.timezone}"""
         self.reqtimeout = int(config["PREFERENCES"]["requesttimeout"])
 
         self.holidays = dict(config["HOLIDAYS"])
+        
+        # Let me be clear here: In case someone manually adds extra cities
+        # we will truncate the list.
 
-        for i in range(10):
+        for i in range(40):
             index: str = f"FOLLOWCITY{i+1}"
             if index in config:
                 city: dict[str | int] = {
@@ -3199,10 +3204,20 @@ Timezone: {self.timezone}"""
                     "timezone": config[index]["timezone"],
                 }
                 self.followcities.append(city)
+        
+        if len(self.followcities) > MAX_CITIES - 1:
+            del self.followcities[MAX_CITIES - 1:]
+            self.save()
 
         self.logger.info("Config loaded")
 
-    def follow_city(self, city: str, country: str) -> None:
+    def follow_city(
+        self,
+        city: str,
+        country: str,
+        lat: float | None = None,
+        lon: float | None = None,
+    ) -> None:
         country = country.strip()
         city = city.strip()
 
@@ -3212,6 +3227,7 @@ Timezone: {self.timezone}"""
                 and country.upper() == city_entry["country"].upper()
             ):
                 raise Exception(f"City '{city}/{country}' is already followed.")
+
         if len(self.followcities) > MAX_CITIES - 2:
             raise Exception(f"Cannot follow city. Max cities limit is {MAX_CITIES-1}.")
 
@@ -3232,6 +3248,19 @@ Timezone: {self.timezone}"""
                 "continent_code": scontinent,
                 "timezone": stimezone,
                 "country_code2": sccode2,
+                "postal_code": "",
+                "province": "",
+            }
+
+        if lat and lon:
+            city_entry = {
+                "country": country,
+                "city": city,
+                "lat": lat,
+                "lon": lon,
+                "continent_code": "",
+                "timezone": "",
+                "country_code2": "",
                 "postal_code": "",
                 "province": "",
             }
@@ -3514,143 +3543,159 @@ class Locator:
             (key for key, values in self.__CONTINENT_MAP.items() if country in values),
             "Unknown",
         )
+    
+    def get_timezone_name(self, lat: float, lon: float) -> str:
+        apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
+
+        if not apikey:
+            raise Exception(
+                f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Please get API key and set it in this variable before running this application."
+            )
+
+        if self.tzapi_calls > 0:
+            time.sleep(1)  # API limit
+
+        self.logger.info("** Querying TimezoneDB **")
+
+        url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
+        self.logger.debug(f"URL={url}")
+
+        try:
+            response: requests.Response = requests.get(
+                url, timeout=config.reqtimeout
+            )
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get timezone data. Try again in a minute. Request timeout ({config.reqtimeout})."
+            )
+
+        self.logger.debug(f"RESPONSE={pf(response)}")
+        self.tzapi_calls += 1
+
+        if not response.ok:
+            raise Exception(
+                f"Timezone API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
+            )
+
+        if not response:
+            raise Exception(
+                f"Cannot obtain timezone for '{city}/{country}'. Please check your syntax and try again."
+            )
+
+        response = response.json()
+        
+        if response.get("status") == "FAILED":
+            raise Exception("Timezone request failed. Try again later.")
+
+        return response.get("zoneName", "")
+    
+    
+    def _get_city_details(self, city: str, country: str) -> dict:
+        # Attempt to get information for the city and the country
+
+        self.logger.info("** Querying OpenStreetMap **")
+
+        headers: dict[str, str] = {
+            "User-Agent": USERAGENT,
+            "Accept-Language": "en",
+        }
+        url = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
+        self.logger.debug(f"URL={url}")
+
+        try:
+            response = requests.get(url, headers=headers, timeout=config.reqtimeout)
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get information for city '{city}/{country}'. Try again in a minute. Request timeout ({config.reqtimeout})."
+            )
+
+        self.logger.debug(f"RESPONSE={pf(response)}")
+
+        if not response.ok:
+            raise Exception(
+                f"Location API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
+            )
+
+        response = response.json()
+
+        if not response:
+            raise Exception(
+                f"Cannot locate city '{city}/{country}'. Please check your syntax and try again."
+            )
+        
+        return response[0] or {}
+    
+    def _ip_autoconfig(self) -> dict:
+        # Attempt auto-location
+
+        logger.info("** Querying IP-API **")
+
+        url: str = (
+            "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
+            "&lang=en"
+        )
+        self.logger.debug(f"URL={url}")
+
+        try:
+            response: requests.Response = requests.get(
+                url, timeout=config.reqtimeout
+            )
+        except Exception:
+            # Just making it more user-friendly
+            raise Exception(
+                f"Cannot get computer location. Try again in a minute. Request timeout ({config.reqtimeout})."
+            )
+
+        self.logger.debug(f"RESPONSE={pf(response)}")
+
+        if not response:
+            raise Exception(
+                f"Cannot autoconfigure. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
+            )
+
+        response = response.json()
+
+        if response.get("status") == "fail":
+            raise Exception(
+                f"Request failed: {response.get("message")}. Try again!"
+            )
+        
+        return response or {}
 
     def config(
-        self, config: Configuration, city: str = "", country: str = ""
+        self, config: Configuration, city: str = "", country: str = "",
+        lat: float | None = None, lon: float | None = None
     ) -> None | dict[str | int]:
         logger.debug("Locator is running")
 
         if city == "" or country == "":
-            # Attempt auto-location
-
-            logger.info("** Querying IP-API **")
-
-            url: str = (
-                "http://ip-api.com/json/?fields=status,message,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone"
-                "&lang=en"
-            )
-            self.logger.debug(f"URL={url}")
-
-            try:
-                response: requests.Response = requests.get(
-                    url, timeout=config.reqtimeout
-                )
-            except Exception:
-                # Just making it more user-friendly
-                raise Exception(
-                    f"Cannot get computer location. Try again in a minute. Request timeout ({config.reqtimeout})."
-                )
-
-            self.logger.debug(f"RESPONSE={pf(response)}")
-
-            if not response:
-                raise Exception(
-                    f"Cannot autoconfigure. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
-                )
-
-            response = response.json()
-
-            if response.get("status") == "fail":
-                raise Exception(
-                    f"Request failed: {response.get("message")}. Try again!"
-                )
-
-            config.country = self.__get_short_country(response.get("country"))
-            config.country_code2 = response.get("countryCode")
-            config.city = self.__get_short_city(response.get("city"))
-            config.postal_code = response.get("zip")
-            config.province = self.__get_short_province(response.get("region"))
-            config.lat = response.get("lat")  # XX.XXX, Fallback plan
-            config.lon = response.get("lon")  # XX.XXX
-            config.timezone = response.get("timezone")
-            config.continent_code = response.get("continentCode")
+            data: dict = self._ip_autoconfig()
+            config.country = self.__get_short_country(data.get("country"))
+            config.country_code2 = data.get("countryCode")
+            config.city = self.__get_short_city(data.get("city"))
+            config.postal_code = data.get("zip")
+            config.province = self.__get_short_province(data.get("region"))
+            config.lat = data.get("lat")  # XX.XXX, Fallback plan
+            config.lon = data.get("lon")  # XX.XXX
+            config.timezone = data.get("timezone")
+            config.continent_code = data.get("continentCode")
         else:
             # Attempt to get information for the city and the country
-
-            self.logger.info("** Querying OpenStreetMap **")
-
             city = city.title().replace(" Stn", " STN")
             country = country.title()
 
             if country.upper() in ["USA", "US", "UK", "UAE", "CAR", "DRC"]:
                 country = country.upper()
 
-            headers: dict[str, str] = {
-                "User-Agent": USERAGENT,
-                "Accept-Language": "en",
-            }
-            url = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
-            self.logger.debug(f"URL={url}")
-
-            try:
-                response = requests.get(url, headers=headers, timeout=config.reqtimeout)
-            except Exception:
-                # Just making it more user-friendly
-                raise Exception(
-                    f"Cannot get information for city '{city}/{country}'. Try again in a minute. Request timeout ({config.reqtimeout})."
-                )
-
-            self.logger.debug(f"RESPONSE={pf(response)}")
-
-            if not response.ok:
-                raise Exception(
-                    f"Location API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
-                )
-
-            response = response.json()
-
-            if not response:
-                raise Exception(
-                    f"Cannot locate city '{city}/{country}'. Please check your syntax and try again."
-                )
-
-            location: dict = response[0]
+            location: dict = self._get_city_details(city, country)
             addr: dict = location.get("address", {})
             lat: str = location.get("lat", "")
             lon: str = location.get("lon", "")
-            apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
-
-            if not apikey:
-                raise Exception(
-                    f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Please get API key and set it in this variable before running this application."
-                )
-
-            if self.tzapi_calls > 0:
-                time.sleep(1)  # API limit
-
-            self.logger.info("** Querying TimezoneDB **")
-
-            url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
-            self.logger.debug(f"URL={url}")
-
-            try:
-                response: requests.Response = requests.get(
-                    url, timeout=config.reqtimeout
-                )
-            except Exception:
-                # Just making it more user-friendly
-                raise Exception(
-                    f"Cannot get timezone data. Try again in a minute. Request timeout ({config.reqtimeout})."
-                )
-
-            self.logger.debug(f"RESPONSE={pf(response)}")
-            self.tzapi_calls += 1
-
-            if not response.ok:
-                raise Exception(
-                    f"Timezone API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
-                )
-
-            if not response:
-                raise Exception(
-                    f"Cannot obtain timezone for '{city}/{country}'. Please check your syntax and try again."
-                )
-
-            response = response.json()
-
-            if response.get("status") == "FAILED":
-                raise Exception("Timezone request failed. Try again later.")
-
+            
+            timezone_name: str = self.get_timezone_name(lat, lon)
+            
             city_entry: dict[str, str | int] = {
                 "city": self.__get_short_city(
                     location.get("name", "").title().replace(" Stn", " STN")
@@ -3666,7 +3711,7 @@ class Locator:
                 "continent_code": self.__get_continent_code(
                     addr.get("country_code", "").upper()
                 ),
-                "timezone": response.get("zoneName", ""),
+                "timezone": timezone_name,
             }
 
             time.sleep(1)  # API requirement
@@ -4257,11 +4302,11 @@ class WeatherForecaster:
             return f"[{humidity}%][RISK] People with asthma: Increased allergens, difficult breathing."
 
         return f"[{humidity}%][HIGH RISK] People with resp. condt.: Labored breathing!"
-    
+
     def get_pollen_and_uv_warnings(self, data: dict) -> list[str]:
         if not data:
             return []
-        
+
         alder: float = data.get("alder_pollen") or 0.0
         birch: float = data.get("birch_pollen") or 0.0
         olive: float = data.get("olive_pollen") or 0.0
@@ -4479,7 +4524,6 @@ class WeatherForecaster:
             # Air quality, pollen, UV
             aqi_pollen_uv_result_data = aqi_pollen_uv_result.get("current", {})
             aqi: str = aqi_pollen_uv_result_data["us_aqi"] or 0
-            
 
             # Fill the object with data
             # self.data.is_day = True if current["is_day"] == "1" else False
@@ -4516,7 +4560,9 @@ class WeatherForecaster:
                         "country_code2": self.config.followcities[-1]["country_code2"],
                         "province": self.config.followcities[-1]["province"],
                         "weather_code": followcities_result["current"]["weather_code"],
-                        "sky": self.__get_weather_description(followcities_result["current"]["weather_code"]),
+                        "sky": self.__get_weather_description(
+                            followcities_result["current"]["weather_code"]
+                        ),
                     }
                     self.data.cities_data = [city_data]
                 if isinstance(followcities_result, list):
@@ -4531,7 +4577,9 @@ class WeatherForecaster:
                             "country_code2": combodata[0]["country_code2"],
                             "province": combodata[0]["province"],
                             "weather_code": combodata[1]["current"]["weather_code"],
-                            "sky": self.__get_weather_description(combodata[1]["current"]["weather_code"]),
+                            "sky": self.__get_weather_description(
+                                combodata[1]["current"]["weather_code"]
+                            ),
                         }
                         self.data.cities_data.append(city_data)
 
@@ -4590,7 +4638,9 @@ class WeatherForecaster:
             baropressure_warning: str = self.get_baropressure_warning(
                 self.data.baropressure
             )
-            pollen_and_uv_warnings: list[str] = self.get_pollen_and_uv_warnings(aqi_pollen_uv_result_data)
+            pollen_and_uv_warnings: list[str] = self.get_pollen_and_uv_warnings(
+                aqi_pollen_uv_result_data
+            )
 
             # WARNINGS
             # --------
@@ -4720,7 +4770,7 @@ class Views:
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
-    def prog_bar(self, percent: int, maxchar: int = 10) -> str:
+    def prog_bar(self, percent: int, fillchar: str = "#", emptychar: str = ".", maxchar: int = 10) -> str:
         # Ensure percent stays within 0-100 bounds
         percent = max(0, min(100, percent))
 
@@ -4729,10 +4779,10 @@ class Views:
         # DOS Era characters:
         # █ (Full Block) or ▓ (Dark Shade) for progress
         # ░ (Light Shade) for the background/remaining
-        fill_char = "#"
-        empty_char = "."
+        # fill_char = "#"
+        # empty_char = "."
 
-        bar = (fill_char * count) + (empty_char * (maxchar - count))
+        bar = (fillchar * count) + (emptychar * (maxchar - count))
         return bar
 
     def test_terminal_resized(
@@ -5034,7 +5084,7 @@ class ColorViews(Views):
         if is_day:
             return "🔅"
         return "🌑"
-    
+
     def _get_weather_description_icon(self, weather_code: int, is_day: bool) -> str:
         r"""Weather icons"""
 
@@ -5057,17 +5107,17 @@ class ColorViews(Views):
                 1: "☾",  # Mainly Clear (or 🌃 Night with Stars)
                 2: "☁️",  # Partly Cloudy (or 🌙 + ☁️)
                 3: "☁️",  # Overcast
-                45: "🌫️", # Foggy
-                48: "🌫️", # Rime fog
-                51: "🌦️", # Drizzle
-                61: "🌧️", # Rain
-                71: "❄️", # Snow
-                80: "🌧️", # Rain showers
-                95: "🌩️", # Thunderstorm
+                45: "🌫️",  # Foggy
+                48: "🌫️",  # Rime fog
+                51: "🌦️",  # Drizzle
+                61: "🌧️",  # Rain
+                71: "❄️",  # Snow
+                80: "🌧️",  # Rain showers
+                95: "🌩️",  # Thunderstorm
             },
         }
         return mapping[is_day].get(weather_code, "☁️")  # Cloudy
-    
+
     def _get_moon_icon(self, phase: str) -> str:
         """Moon phase icons"""
 
@@ -5082,7 +5132,7 @@ class ColorViews(Views):
             "Waning Crescent": "🌘",
         }
         return mapping.get(phase, "☁️")  # New Moon
-    
+
     def _get_zodiac_icon(self, sign: str) -> str:
         """Zodiac icons"""
 
@@ -5101,7 +5151,7 @@ class ColorViews(Views):
             "Pisces": "🐟",
         }
         return mapping[sign]
-    
+
     def _get_chinese_icon(self, sign: str) -> str:
         """Chinese zodiac icons"""
 
@@ -5120,7 +5170,7 @@ class ColorViews(Views):
             "Pig": "🐖",
         }
         return mapping[sign]
-    
+
 
 class SetupView(Views):
     r"""Prints the setup"""
@@ -5651,7 +5701,7 @@ class DashboardView(ColorViews):
                     f"{self._get_weather_description_icon(weather_code, is_day)}  {sky}",
                     x=data_x,
                     y=0,
-                    theme=self._get_sky_cp(sky)
+                    theme=self._get_sky_cp(sky),
                 )
                 currently_window.print(
                     f"{temperature}°{tsuffix}",
@@ -5721,7 +5771,7 @@ class DashboardView(ColorViews):
                 )
                 airquality_window.print("[", x=data_x, y=2, theme="border")
                 airquality_window.print(
-                    self.prog_bar(precipitation),
+                    self.prog_bar(precipitation, "●", "○"),
                     x=data_x + 1,
                     y=2,
                     theme=self._get_progbar_cp(precipitation),
@@ -5791,7 +5841,7 @@ class DashboardView(ColorViews):
 
                     forecast_window.print("[", x=precip_x, y=wy, theme="border")
                     forecast_window.print(
-                        self.prog_bar(dprecip),
+                        self.prog_bar(dprecip, "●", "○"),
                         x=precip_x + 1,
                         y=wy,
                         theme=self._get_progbar_cp(dprecip),
@@ -6168,7 +6218,10 @@ class TTYDashboardView(ColorViews):
                 )
 
                 currently_window.print(
-                    f"{tmin}°{tsuffix}", x=data_x, y=2, theme=self._get_temp_cp(tmin, tsuffix)
+                    f"{tmin}°{tsuffix}",
+                    x=data_x,
+                    y=2,
+                    theme=self._get_temp_cp(tmin, tsuffix),
                 )
                 currently_window.print("/", x=data_x + 4, y=2)
                 currently_window.print(
@@ -6377,7 +6430,7 @@ class WeatherGirl:
         self.views[view or self.view].display()
 
 
-class ParseCommandline:
+class CommandlineParser:
     def parse(self) -> dict[str, str | int | bool]:
         cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -6450,7 +6503,23 @@ class ParseCommandline:
         cli_parser.add_argument(
             "--listpolarstations",
             action="store_true",
-            help="List all the Polar Stations you can follow.",
+            help="List all the Polar Stations you can follow",
+        )
+        cli_parser.add_argument(
+            "-lat",
+            "--latitude",
+            type=float,
+            dest="lat",
+            default=None,
+            help=f"Specifies a latitude",
+        )
+        cli_parser.add_argument(
+            "-lon",
+            "--longitude",
+            type=float,
+            dest="lon",
+            default=None,
+            help=f"Specifies a longitude",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
@@ -6565,15 +6634,15 @@ class LocationManager:
         config.save()  # Update config
         self.logger.info(f"City {citynum} is unfollowed")
 
-    def add_city(self, city: str, country: str, config: Configuration) -> None:
+    def add_city(self, city: str, country: str, config: Configuration, lat: float | None = None, lon: float | None = None) -> None:
         r"""Add a new city to follow"""
 
-        config.follow_city(city, country)
+        config.follow_city(city, country, lat, lon)
 
         for i in range(len(config.followcities)):
             locator: Locator = Locator()
 
-            if "lat" not in config.followcities[i]:
+            if "lat" not in config.followcities[i] or not config.followcities[i]["lat"]:
                 city_entry: dict[str | int] = locator.config(
                     config,
                     config.followcities[i]["city"],
@@ -6583,6 +6652,11 @@ class LocationManager:
                     **config.followcities[i],
                     **city_entry,
                 }  # Update values
+            elif "timezone" not in config.followcities[i] or not config.followcities[i]["timezone"]:
+                config.followcities[i]["timezone"] = locator.get_timezone_name(
+                    config.followcities[i]["lat"],
+                    config.followcities[i]["lon"]
+                )
         config.save()  # Update config
 
         self.logger.info(f"Followed new city: {city}, {country}")
@@ -6592,7 +6666,7 @@ class LocationManager:
 if __name__ == "__main__":
     try:
         InstanceGuard.ensure_single_instance()
-        parser: ParseCommandline = ParseCommandline()
+        parser: CommandlineParser = CommandlineParser()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
 
         DEBUG_MODE: str = cli_arguments["debug"]
@@ -6617,7 +6691,7 @@ if __name__ == "__main__":
         logger.info(
             "===================================================== SESSION START"
         )
-        logger.info(f" TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
+        logger.info(f"TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
         logger.info(debug_mode_str)
         logger.info("")
 
@@ -6625,10 +6699,23 @@ if __name__ == "__main__":
 
         view_name: str = cli_arguments.get("view")
 
-        if bool(cli_arguments.get("newcity")) ^ bool(cli_arguments.get("country")):
+        # Mandatory arguments check
+        lat_specified: bool = cli_arguments.get("lat") is not None
+        lon_specified: bool = cli_arguments.get("lon") is not None
+        city_specified: bool = bool(cli_arguments.get("newcity"))
+        country_specified: bool = bool(cli_arguments.get("country"))
+        if city_specified != country_specified:
             raise ValueError("City and country must be provided together.")
+        if lat_specified != lon_specified:
+            raise ValueError("Latitude and longitude must be provided together.")
+        if (lat_specified or lon_specified) and not (
+            city_specified and country_specified
+        ):
+            raise ValueError(
+                "If latitude or longitude is specified, all four arguments (latitude, longitude, city and country) must be specified."
+            )
 
-        # No point to run everything if this is not set
+        # No point to run anything if this is not set
         timezone_apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
         if not timezone_apikey:
             raise Exception(
@@ -6639,7 +6726,10 @@ if __name__ == "__main__":
         nasafirms_apikey: str = os.getenv(NASAFIRMS_APIKEY_ENV_VARNAME)
         if not nasafirms_apikey:
             print(
-                f"WARNING: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get wildfires detailed information. Run the app with --help"
+                f"NOTE: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get wildfires detailed information. Run the app with --help\n"
+            )
+            logger.info(
+                f"NOTE: Environment variable {NASAFIRMS_APIKEY_ENV_VARNAME} is not set. You will not be able to get wildfires detailed information. Run the app with --help"
             )
 
         if cli_arguments["clearcache"]:
@@ -6662,14 +6752,11 @@ if __name__ == "__main__":
             stations: list[str] = polar_stations()
             for stn in stations:
                 print(stn)
-            print()
             print(
-                "Polar stations are different, because they are operated by a country, but they reside on neutral territory."
+                "\nPolar stations are different, because they are operated by a country, but they reside on neutral territory."
             )
-            print()
-            print("TO ADD A POLAR STATION USE:")
-            print("tuiweathergirl --addcity <STATIONNUMBER> --country polarstation")
-            print()
+            print("\nTO ADD A POLAR STATION USE:")
+            print("tuiweathergirl --addcity <STATIONNUMBER> --country polarstation\n")
             sys.exit(0)
 
         if cli_arguments["listfiles"]:
@@ -6736,7 +6823,8 @@ if __name__ == "__main__":
         if cli_arguments["newcity"]:
             view_name = "setup"
             location_manager.add_city(
-                cli_arguments["newcity"], cli_arguments["country"], config
+                cli_arguments["newcity"], cli_arguments["country"], config,
+                cli_arguments["lat"], cli_arguments["lon"]
             )
             cache = CacheManager()
             cache.delete()
@@ -6748,8 +6836,14 @@ if __name__ == "__main__":
         if cli_arguments["homecity"]:
             view_name = "setup"
             location_manager.set_home(cli_arguments["homecity"], config)
-            cache = CacheManager()
+            cache: CacheManager = CacheManager()
             cache.delete()
+            warnings: WarningsManager = WarningsManager()
+            warnings.delete()
+            print("Cache and warnings log deleted.\n")
+            logger.info(
+                "User is setting new home city. Cache and warnings log are deleted."
+            )
 
         weather_girl: WeatherGirl = WeatherGirl(config)
         weather_girl.present(view_name)
