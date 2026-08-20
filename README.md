@@ -49,6 +49,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-20 v.1.1.5: Fixed duplicate wildfire warnings.
 - 2026-08-20 v.1.1.4: Electrostatic warning texts shortened to better fit the screen.
 - 2026-08-17 v.1.1.3: Fixed: Sky condition overlap in cities of interest.
 - 2026-08-17 v.1.1.2: Fixed: Abbreviation in cities of interest sky condition.

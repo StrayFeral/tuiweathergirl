@@ -41,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.4"
+APPVERSION: str = "1.1.5"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -1768,10 +1768,17 @@ class WarningsManager:
         if ogdate and ogtime:
             message_entry[0] = ogdate
             message_entry[1] = ogtime
+        
+        # Wildfires special case of duplication
+        # We ignore the date, as we can get same message on the next day
+        if label.lower() == "wildfire":
+            for m in self._messages:
+                if message.lower() == m[-1].lower():
+                    return
 
         # Duplicate check: same date, same message
         for m in self._messages:
-            if message_entry[0] == m[0] and message_entry[-1].lower() == m[-1].lower():
+            if date_str == m[0] and message.lower() == m[-1].lower():
                 return
 
         self._cleanup()
