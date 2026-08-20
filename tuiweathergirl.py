@@ -41,7 +41,7 @@ from babel.languages import get_official_languages
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.3"
+APPVERSION: str = "1.1.4"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
     f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
@@ -2845,9 +2845,9 @@ class ElectrostaticAdvisor:
         class_letter = xray_flux[0].upper()
 
         if class_letter == "M":
-            return f"[RISK] Sol.X-ray flux: {xray_flux} (M-Class). Discomfort or 'phantom' skin sensations for sensitive people."
+            return f"[RISK] Sol.XrayFlux: {xray_flux} (M-Cls). Discomfrt/'phantom' skin sensations for sensitive ppl."
         elif class_letter == "X":
-            return f"[RISK] Sol.X-ray flux: {xray_flux} (X-Class). Neurological discomfort, dizziness, and localized pain."
+            return f"[RISK] Sol.XrayFlux: {xray_flux} (X-Cls). Neurolog.discomfrt, dizziness,localized pain."
 
         return ""
 
