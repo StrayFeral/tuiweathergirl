@@ -40,7 +40,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.0"
+__version__: str = "1.2.1"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3467,7 +3467,7 @@ class UpdateManager:
 
             if elapsed_minutes < self.minminutes:
                 raise Exception(
-                    f"Don't force-update too often. Please wait {self.minminutes - elapsed_minutes} more minutes. Thanks!"
+                    f"Don't force-update too often. Please wait {self.minminutes - elapsed_minutes} more minute(s). Thanks!"
                 )
         except ValueError:
             # Probably Invalid date format, so let's force it
