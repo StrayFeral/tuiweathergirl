@@ -203,6 +203,8 @@ Once installed, application will quietly auto-update each Wednesday by default (
 tuiweathergirl --autoupdateapp off
 ```
 
+(later you could always turn it back ON, by simply running the same command with: --autoupdateapp on)
+
 You could also manually force-update it by running:
 
 ```bash
