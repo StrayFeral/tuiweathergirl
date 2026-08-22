@@ -18,6 +18,7 @@ import re
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -42,7 +43,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.5"
+__version__: str = "1.2.6"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3435,6 +3436,11 @@ class UpdateManager:
 
             self.logger.info("Installing...")
             shutil.move(str(extracted_script), str(current_script))
+
+            # Set executable permissions
+            if os.name != "nt":
+                current_permissions = current_script.stat().st_mode
+                current_script.chmod(current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
             self.logger.info("Cleanup...")
             zip_path.unlink(missing_ok=True)
