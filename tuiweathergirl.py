@@ -15,6 +15,7 @@ import os
 import pickle
 import random
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -24,6 +25,7 @@ import textwrap
 import time
 import traceback
 import unicodedata
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from pprint import pformat as pf
@@ -40,7 +42,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.3"
+__version__: str = "1.2.4"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3416,31 +3418,27 @@ class UpdateManager:
             zip_res.raise_for_status()
             zip_path.write_bytes(zip_res.content)
 
+            if extract_dir.exists():
+                shutil.rmtree(extract_dir)
             extract_dir.mkdir(parents=True, exist_ok=True)
 
-            if os.name == "nt":
-                self.logger.info("Installing for Windows...")
-                subprocess.run(
-                    ["tar", "-xf", str(zip_path), "-C", str(extract_dir)],
-                    check=True,
-                    capture_output=True,
-                )
-            else:
-                self.logger.info("Installing for Linux/Unix/MacOS...")
-                subprocess.run(
-                    ["unzip", "-o", str(zip_path), "-d", str(extract_dir)],
-                    check=True,
-                    capture_output=True,
-                )
-
-            extracted_script: Path = extract_dir / "tuiweathergirl.py"
-            if not extracted_script.exists():
+            self.logger.info("Extracting...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            
+            extracted_files: list = list(extract_dir.rglob("tuiweathergirl.py"))
+            if not extracted_files:
                 raise FileNotFoundError(
-                    "tuiweathergirl.py not found inside the zip-file! Corrupted release package?"
+                    "tuiweathergirl.py not found inside release archive!"
                 )
+            extracted_script = extracted_files[0]
 
-            extracted_script.replace(current_script)
+            self.logger.info("Installing...")
+            shutil.move(str(extracted_script), str(current_script))
+
+            self.logger.info("Cleanup...")
             zip_path.unlink(missing_ok=True)
+            shutil.rmtree(extract_dir, ignore_errors=True)
 
             # Updating update timestamp
             now = datetime.now(timezone.utc)
