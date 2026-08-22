@@ -17,6 +17,7 @@ import random
 import re
 import signal
 import socket
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -33,18 +34,20 @@ import requests
 from babel import Locale
 from babel.dates import format_date
 from babel.languages import get_official_languages
+from packaging.version import parse as parse_version
 
 # Normally I don't leave global variables hanging in the source but
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
+__version__: str = "1.2.0"
+
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
 DEFAULT_THEME: str = "main"
-APPVERSION: str = "1.1.6"
 MAX_CITIES: int = 11  # This includes the home city
 DESCRIPTION_HELP: str = (
-    f"TUIWEATHERGIRL {APPVERSION} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
+    f"TUIWEATHERGIRL {__version__} by Evgueni Antonov (StrayF) 2026. Weather and disaster station."
 )
 EPILOGUE_HELP: str = f"""VIEWS:
     motivate and basic
@@ -71,8 +74,12 @@ Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.
 For detailed wildfires info set NASAFIRMSAPIKEY (free API key): https://firms.modaps.eosdis.nasa.gov/api/map_key
 """
 USERAGENT: str = (
-    f"TUIWeatherGirl/{APPVERSION} (https://github.com/StrayFeral/tuiweathergirl)"
+    f"TUIWeatherGirl/{__version__} (https://github.com/StrayFeral/tuiweathergirl)"
 )
+HTTPHEADERS: dict[str, str] = {
+    "User-Agent": USERAGENT,
+    "Accept-Language": "en",
+}
 TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 LOGFILENAME: Path = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
@@ -81,7 +88,9 @@ REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
 MAXSTRINGLEN: int = 140
-SUBMIT_BUG: str = "Submit a bug to the project GitHub page and attach your config file."
+SUBMIT_BUG: str = (
+    "Submit a bug to the project GitHub page, attach your config file and your logfile."
+)
 REFRESH_INTERVAL: int = 30  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 
@@ -741,12 +750,12 @@ def on_terminal_close(signum, frame):
     # Optional: Log which signal actually caught the close event
     sig_name = signal.Signals(signum).name
 
-    logger = logging.getLogger(__name__)
+    logger: logging.Logger = logging.getLogger(__name__)
     logger.info(f"Application closed with signal: {sig_name}")
     logger.info("===================================================== SESSION END")
 
     print(
-        f"TUIWEATHERGIRL {APPVERSION} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
+        f"TUIWEATHERGIRL {__version__} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
     )
     print("For help: tuiweathergirl --help")
     print("Cast Spells!")
@@ -940,7 +949,7 @@ class ThemePalette:
             "lemon": LemonTheme(),
             "arctic": ArcticTheme(),
         }
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -1193,7 +1202,7 @@ class Window:
         self.inner_height: int = self.height
         self.inner_width: int = self.width
 
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
         self.logger.debug(
@@ -1768,7 +1777,7 @@ class WarningsManager:
         if ogdate and ogtime:
             message_entry[0] = ogdate
             message_entry[1] = ogtime
-        
+
         # Wildfires special case of duplication
         # We ignore the date, as we can get same message on the next day
         if label.lower() == "wildfire":
@@ -1812,7 +1821,9 @@ class Astronomer:
     ) -> dict[str, str]:
         """Fetches sunrise and sunset for today in UTC."""
 
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
         logger.info("** Querying Sunrise-Sunset **")
 
         url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&formatted=0"
@@ -1936,7 +1947,9 @@ class Bulgarian:
         today or yesterday.
         """
 
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
         now: datetime = datetime.now()
         yesterday: datetime = now - timedelta(days=1)
@@ -1958,12 +1971,6 @@ class Bulgarian:
         if len(keyword) > 0:
             keywords.append(keyword)  # Just in case
 
-        # Wikimedia requires a unique User-Agent identifying your app/contact info
-        headers: dict[str, str] = {
-            "User-Agent": USERAGENT,
-            "Accept-Language": "en",
-        }
-
         # We check today first, then yesterday
         for date_obj, label in [(now, "today"), (yesterday, "yesterday")]:
             logger.info("** Querying Wikipedia **")
@@ -1980,7 +1987,7 @@ class Bulgarian:
 
             try:
                 response: requests.Response = requests.get(
-                    url, headers=headers, timeout=reqtimeout
+                    url, headers=HTTPHEADERS, timeout=reqtimeout
                 )
             except Exception:
                 logger.error(
@@ -2025,7 +2032,7 @@ class SpaceWeatherAdvisor:
     """NOAA advisories"""
 
     def __init__(self, reqtimeout: int) -> None:
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
         self.reqtimeout: int = reqtimeout
@@ -2285,7 +2292,7 @@ class DisasterAdvisor:
     """Monitors the national disasters"""
 
     def __init__(self, **kwargs) -> None:
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -2809,7 +2816,9 @@ class ElectrostaticAdvisor:
         Source: NOAA GOES Primary X-ray Flux
         """
 
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
         logger.info("** Querying SWPC NOAA (x-rays) **")
 
         # This endpoint provides the 1-minute data for the last 24 hours
@@ -2878,7 +2887,9 @@ class HolidaysManager:
         HOME's country code.
         """
 
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
         logger.info("** Querying Holidays **")
 
         new_holidays: dict[str, str] = {}
@@ -2928,7 +2939,7 @@ class CacheManager:
         self.filename = self.filename.expanduser()
         self.loaded: bool = False
         self._data: dict[str, any] = {}
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -3020,6 +3031,10 @@ class Configuration:
         self.view: str = DEFAULT_VIEW
         self.theme: str = DEFAULT_THEME
         self.reqtimeout: int = REQTIMEOUT
+        # Application update mechanics
+        self.last_appupdate_check: str = ""
+        self.last_known_appversion: str = __version__
+        self.appautoupdate: bool = True
 
         self.followcities: list[dict[str | int]] = []
 
@@ -3032,7 +3047,7 @@ class Configuration:
 
         self.filename = self.filename.expanduser()
 
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -3139,6 +3154,10 @@ Timezone: {self.timezone}"""
             "view": self.view,
             "theme": self.theme,
             "requesttimeout": self.reqtimeout,
+            # ---
+            "lastappupdatecheck": self.last_appupdate_check,
+            "lastknownappversion": self.last_known_appversion,
+            "appautoupdate": str(self.appautoupdate).lower(),
         }
 
         config["HOLIDAYS"] = self.holidays
@@ -3183,13 +3202,23 @@ Timezone: {self.timezone}"""
         self.continent_code = config["HOME"]["continent_code"]
         self.timezone = config["HOME"]["timezone"]
         self.language = config["PREFERENCES"]["language"]
-        self.time24 = config.getboolean("PREFERENCES", "time24")
-        self.metric = config.getboolean("PREFERENCES", "metric")
-        self.celsius = config.getboolean("PREFERENCES", "celsius")
+        self.time24 = config.getboolean("PREFERENCES", "time24", fallback=True)
+        self.metric = config.getboolean("PREFERENCES", "metric", fallback=True)
+        self.celsius = config.getboolean("PREFERENCES", "celsius", fallback=True)
         # self.date_format_length = config["PREFERENCES"]["date_format_length"]
         self.view = config["PREFERENCES"]["view"]
         self.theme = config["PREFERENCES"]["theme"]
         self.reqtimeout = int(config["PREFERENCES"]["requesttimeout"])
+        # ---
+        self.last_appupdate_check = (
+            config["PREFERENCES"].get("lastappupdatecheck") or ""
+        )
+        self.last_known_appversion = (
+            config["PREFERENCES"].get("lastknownappversion") or __version__
+        )
+        self.appautoupdate = config.getboolean(
+            "PREFERENCES", "appautoupdate", fallback=True
+        )
 
         self.holidays = dict(config["HOLIDAYS"])
 
@@ -3273,6 +3302,188 @@ Timezone: {self.timezone}"""
             }
 
         self.followcities.append(city_entry)
+
+
+class UpdateManager:
+    """Checking for updates, download updates etc."""
+
+    def __init__(self, config: Configuration) -> None:
+        self.maxdays: int = 9
+        self.mindays: int = 3
+        self.minminutes: int = 2  # Let's not kill github
+        self.update_dow: int = 2  # Wednesday
+        self.config: Configuration = config
+        self.logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
+
+    def _must_autoupdate(self) -> bool:
+        """Returns True if application must auto-update"""
+
+        # If never checked - check imediatelly
+        if not self.config.last_appupdate_check:
+            return True
+
+        if not self.config.appautoupdate:
+            return False
+
+        today = datetime.now(timezone.utc)
+
+        try:
+            # A long time ago in a galaxy far far away?
+            last_appupdate_check = datetime.fromisoformat(
+                self.config.last_appupdate_check
+            )
+            if (today - last_appupdate_check).days > self.maxdays:
+                return True
+
+            # It's update day! (but hey let's not update everyday okay?)
+            if (
+                date.today().weekday() == self.update_dow
+                and (today - last_appupdate_check_date) > self.mindays
+            ):
+                return True
+        except ValueError:
+            # Probably Invalid date format, so let's force it
+            return True
+
+        return False
+
+    def _newer_version(self) -> str:
+        """Checks for updates, returns the most recent version if newer than
+        the current version.
+        """
+
+        self.logger.info("Checking for newer version of TUIWEATHERGIRL...")
+
+        url = "https://api.github.com/repos/StrayFeral/tuiweathergirl/releases/latest"
+
+        try:
+            response = requests.get(url, headers=HTTPHEADERS, timeout=REQTIMEOUT)
+            response.raise_for_status()
+
+            data = response.json()
+            latest_tag = data["tag_name"].lstrip("v")
+
+            if parse_version(latest_tag) > parse_version(__version__):
+                self.logger.info(f"Newer version found: {latest_tag}")
+                return latest_tag
+
+            self.logger.info("No newer version found.")
+            return ""
+        except requests.RequestException:
+            self.logger.info("No newer version found.")
+            return ""  # Ignore errors (e.g., offline mode)
+
+    def _restart_application(self) -> None:
+        """Restart current application."""
+        self.logger.info("*** RESTARTING APPLICATION ***")
+        logger.info("===================================================== SESSION END")
+        try:
+            if os.name == "nt":  # Windows
+                subprocess.Popen([sys.executable, str(current_script)] + sys.argv[1:])
+                sys.exit(0)
+            else:
+                os.execv(
+                    sys.executable, [sys.executable, str(current_script)] + sys.argv[1:]
+                )
+        except Exception as e:
+            print(f"Failed to restart: {e}")
+
+    def _update(self, newer_version: str) -> None:
+        if not newer_version:
+            # Updating update timestamp
+            now = datetime.now(timezone.utc)
+            timestamp_str = now.isoformat()
+            config.last_appupdate_check = timestamp_str
+            config.last_known_appversion = __version__
+            config.save()
+            return
+
+        download_url: str = (
+            f"https://github.com/StrayFeral/tuiweathergirl/releases/download/{newer_version}/tuiweathergirl.zip"
+        )
+        current_script: Path = Path(sys.argv[0]).resolve()
+        temp_dir: Path = Path(tempfile.gettempdir())
+        zip_path: Path = temp_dir / "tuiweathergirl.zip"
+        extract_dir: Path = temp_dir / "tuiweathergirl"
+
+        try:
+            self.logger.info(f"Downloading new version: {newer_version} ...")
+            zip_res: requests.Response = requests.get(
+                download_url, headers=HTTPHEADERS, timeout=15
+            )
+            zip_res.raise_for_status()
+            zip_path.write_bytes(zip_res.content)
+
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            if os.name == "nt":
+                self.logger.info("Installing for Windows...")
+                subprocess.run(
+                    ["tar", "-xf", str(zip_path), "-C", str(extract_dir)],
+                    check=True,
+                    capture_output=True,
+                )
+            else:
+                self.logger.info("Installing for Linux/Unix/MacOS...")
+                subprocess.run(
+                    ["unzip", "-o", str(zip_path), "-d", str(extract_dir)],
+                    check=True,
+                    capture_output=True,
+                )
+
+            extracted_script: Path = extract_dir / "tuiweathergirl.py"
+            if not extracted_script.exists():
+                raise FileNotFoundError(
+                    "tuiweathergirl.py not found inside the zip-file! Corrupted release package?"
+                )
+
+            extracted_script.replace(current_script)
+            zip_path.unlink(missing_ok=True)
+
+            # Updating update timestamp
+            now = datetime.now(timezone.utc)
+            timestamp_str = now.isoformat()
+            config.last_appupdate_check = timestamp_str
+            config.last_known_appversion = newer_version
+            config.save()
+
+            self.logger.info(f"UPDATE COMPLETE. Installed new version: {newer_version}")
+            self._restart_application()
+
+        except Exception as e:
+            print(f"Failed to update to version {newer_version}: {e}")
+
+    def force_update(self) -> None:
+        """Force update the application"""
+
+        try:
+            today = datetime.now(timezone.utc)
+            last_appupdate_check = datetime.fromisoformat(
+                self.config.last_appupdate_check
+            )
+            elapsed_minutes = int((today - last_appupdate_check).total_seconds() // 60)
+
+            if elapsed_minutes < self.minminutes:
+                raise Exception(
+                    f"Don't force-update too often. Please wait {self.minminutes - elapsed_minutes} more minutes. Thanks!"
+                )
+        except ValueError:
+            # Probably Invalid date format, so let's force it
+            pass
+
+        latest_release: str = self._newer_version()
+        self._update(latest_release)
+
+    def auto_update(self) -> None:
+        """Application auto-update"""
+
+        if not self._must_autoupdate():
+            return
+
+        latest_release: str = self._newer_version()
+        self._update(latest_release)
 
 
 class Locator:
@@ -3535,7 +3746,7 @@ class Locator:
 
     def __init__(self) -> None:
         self.tzapi_calls: int = 0  # Counts the TZ data API calls
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -3600,15 +3811,11 @@ class Locator:
 
         self.logger.info("** Querying OpenStreetMap **")
 
-        headers: dict[str, str] = {
-            "User-Agent": USERAGENT,
-            "Accept-Language": "en",
-        }
         url = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
         self.logger.debug(f"URL={url}")
 
         try:
-            response = requests.get(url, headers=headers, timeout=config.reqtimeout)
+            response = requests.get(url, headers=HTTPHEADERS, timeout=config.reqtimeout)
         except Exception:
             # Just making it more user-friendly
             raise Exception(
@@ -3776,7 +3983,7 @@ class Motivator:
     def get_motivation(reqtimeout: int = REQTIMEOUT) -> list[str]:
         r"""Fetches a random inspirational quote from Quotable API."""
 
-        logger = logging.getLogger("Motivator.get_motivation")
+        logger: logging.Logger = logging.getLogger("Motivator.get_motivation")
         logger.info("** Querying motivator **")
 
         try:
@@ -3878,7 +4085,7 @@ class WeatherForecaster:
     def __init__(self, config: Configuration) -> None:
         self.config = config
         self.locale_id = f"{config.language}_{config.country_code2}"
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
         self.cache = CacheManager()
@@ -4825,7 +5032,7 @@ class Views:
         self.width: int | None = None
         self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
 
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -5641,7 +5848,7 @@ class DashboardView(ColorViews):
 
                 # Screen labels
                 # About
-                title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
+                title_window.print(f" TUIWEATHERGIRL {__version__}")
                 title_window.print("-= Weather and Disaster Station =-", align="center")
                 title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
                 # Home location
@@ -6191,7 +6398,7 @@ class TTYDashboardView(ColorViews):
 
                 # Screen labels
                 # About
-                title_window.print(f" TUIWEATHERGIRL {APPVERSION}")
+                title_window.print(f" TUIWEATHERGIRL {__version__}")
                 title_window.print("-= Weather and Disaster Station =-", align="center")
                 title_window.print("Evgueni Antonov (StrayF) 2026", align="right")
                 # Home location
@@ -6491,7 +6698,9 @@ class WeatherGirl:
         }
 
     def present(self, view: str = "") -> None:
-        logger = logging.getLogger(f"{self.__module__}.{self.__class__.__qualname__}")
+        logger: logging.Logger = logging.getLogger(
+            f"{self.__module__}.{self.__class__.__qualname__}"
+        )
 
         if len(view) > 0 and view not in self.views:
             raise ValueError(f"View not defined '{view}'. Run with --help for help.")
@@ -6506,6 +6715,21 @@ class WeatherGirl:
 
 
 class CommandlineParser:
+    @staticmethod
+    def str2bool(value: str | bool) -> bool:
+        """Converts string boolean inputs into Python booleans."""
+        if isinstance(value, bool):
+            return value
+        val_lower: str = str(value).lower()
+        if val_lower in ("true", "on", "yes", "1"):
+            return True
+        elif val_lower in ("false", "off", "no", "0"):
+            return False
+        else:
+            raise argparse.ArgumentTypeError(
+                f"Invalid boolean value: '{value}'. Expected true/false, on/off, yes/no, 1/0."
+            )
+
     def parse(self) -> dict[str, str | int | bool]:
         cli_parser: argparse.ArgumentParser = argparse.ArgumentParser(
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -6518,6 +6742,19 @@ class CommandlineParser:
             "--version",
             action="store_true",
             help="Print the version",
+        )
+        cli_parser.add_argument(
+            "--updateapp",
+            action="store_true",
+            help="Check for updates, download and install updates.",
+        )
+        cli_parser.add_argument(
+            "--autoupdateapp",
+            type=self.str2bool,
+            nargs="?",
+            const=True,
+            # default=True,
+            help="Enable or disable auto-updates (true/false, on/off)",
         )
         cli_parser.add_argument(
             "--view",
@@ -6617,7 +6854,7 @@ class CommandlineParser:
 
 class LocationManager:
     def __init__(self) -> None:
-        self.logger = logging.getLogger(
+        self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
@@ -6770,12 +7007,12 @@ if __name__ == "__main__":
             format="[%(asctime)s][%(levelname)s][%(name)s][%(funcName)s] %(message)s",
         )
 
-        logger = logging.getLogger(__name__)
+        logger: logging.Logger = logging.getLogger(__name__)
         logger.info("")
         logger.info(
             "===================================================== SESSION START"
         )
-        logger.info(f"TUIWeatherGirl {APPVERSION} 2026 by Evgueni Antonov (StrayF)")
+        logger.info(f"TUIWeatherGirl {__version__} 2026 by Evgueni Antonov (StrayF)")
         logger.info(debug_mode_str)
         logger.info("")
 
@@ -6932,11 +7169,24 @@ if __name__ == "__main__":
                 "User is setting new home city. Cache and warnings log are deleted."
             )
 
+        if cli_arguments["autoupdateapp"] is not None:
+            config.appautoupdate = cli_arguments["autoupdateapp"]
+            config.save()
+            status_str: dict[bool, str] = {True: "ON", False: "OFF"}
+            logger.info(
+                f"Application auto-update is now set to: {status_str[config.appautoupdate]}"
+            )
+
+        update_manager: UpdateManager = UpdateManager(config)
+        if cli_arguments["updateapp"]:
+            update_manager.force_update()
+        update_manager.auto_update()
+
         weather_girl: WeatherGirl = WeatherGirl(config)
         weather_girl.present(view_name)
 
         print(
-            f"TUIWEATHERGIRL {APPVERSION} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
+            f"TUIWEATHERGIRL {__version__} -Weather and disaster station- by Evgueni Antonov (StrayF) 2026."
         )
         print("For help: tuiweathergirl --help")
         print("Cast Spells!")
@@ -6945,12 +7195,12 @@ if __name__ == "__main__":
 
     except Exception as e:
         title: str = (
-            f"TUIWEATHERGIRL {APPVERSION} =============================================[ EXCEPTION ]"
+            f"TUIWEATHERGIRL {__version__} =============================================[ EXCEPTION ]"
         )
         print(f"\n{title}")
         print(e)
 
-        logger = logging.getLogger(__name__)
+        logger: logging.Logger = logging.getLogger(__name__)
         logger.exception("---------------------------------- EXCEPTION")
 
         if DEBUG_MODE:

@@ -49,6 +49,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-21 v.1.2.0: Implemented application auto-update and force-update.
 - 2026-08-21 v.1.1.6: Abbreviation "ppl." expanded back to "people.".
 - 2026-08-20 v.1.1.5: Fixed duplicate wildfire warnings.
 - 2026-08-20 v.1.1.4: Electrostatic warning texts shortened to better fit the screen.
