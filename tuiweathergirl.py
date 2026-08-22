@@ -40,7 +40,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.1"
+__version__: str = "1.2.2"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3401,7 +3401,7 @@ class UpdateManager:
             return
 
         download_url: str = (
-            f"https://github.com/StrayFeral/tuiweathergirl/releases/download/{newer_version}/tuiweathergirl.zip"
+            f"https://github.com/StrayFeral/tuiweathergirl/releases/download/v{newer_version}/tuiweathergirl.zip"
         )
         current_script: Path = Path(sys.argv[0]).resolve()
         temp_dir: Path = Path(tempfile.gettempdir())
