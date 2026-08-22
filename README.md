@@ -14,6 +14,7 @@
 - [Installing on Linux/Unix](#installing-on-linuxunix)
 - [Installing on Windows10](#installing-on-windows10)
 - [Installing on MacOS](#installing-on-macos)
+- [Updating](#updating)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
 - [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
@@ -49,6 +50,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-22 v.1.2.13: Application update is now fully working.
 - 2026-08-22 v.1.2.6: Fixed: Bugs with the application updates.
 - 2026-08-21 v.1.2.0: Implemented application auto-update and force-update.
 - 2026-08-21 v.1.1.6: Abbreviation "ppl." expanded back to "people.".
@@ -191,6 +193,20 @@ If not:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install python ncurses
 pip3 install requests babel
+```
+
+## UPDATING
+
+Once installed, application will quietly auto-update each Wednesday by default (or if you didn't ran it more than 8 days), unless you turn the auto-update OFF with:
+
+```bash
+tuiweathergirl --autoupdateapp off
+```
+
+You could also manually force-update it by running:
+
+```bash
+tuiweathergirl --updateapp
 ```
 
 ## USAGE
