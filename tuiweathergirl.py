@@ -43,7 +43,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.11"
+__version__: str = "1.2.12"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3380,19 +3380,23 @@ class UpdateManager:
 
     def _restart_application(self) -> None:
         """Restart current application."""
+        
         self.logger.info("*** RESTARTING APPLICATION ***")
         logger.info("===================================================== SESSION END")
+        
         current_script = Path(sys.argv[0]).resolve()
+        args = [a for a in sys.argv[1:] if a not in ("--updateapp")]
+        
         try:
             if os.name == "nt":  # Windows
-                subprocess.Popen([sys.executable, str(current_script)] + sys.argv[1:])
+                subprocess.Popen([sys.executable, str(current_script)] + args)
                 sys.exit(0)
             else:
                 # Flushing output buffers
                 sys.stdout.flush()
                 sys.stderr.flush()
 
-                cmd = [sys.executable, str(current_script)] + sys.argv[1:]
+                cmd = [sys.executable, str(current_script)] + args
                 os.execv(sys.executable, cmd)
         except Exception as e:
             print(f"Failed to restart: {e}")
