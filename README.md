@@ -178,7 +178,6 @@ linux_install.sh
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 ```batch
-setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
 windows_install.bat
 ```
 
