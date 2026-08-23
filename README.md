@@ -22,11 +22,11 @@
 
 ## DOWNLOAD
 
-> [!IMPORTANT]
+> [!TIP]
 > LINUX: **Download the LINUX installer** (no need to download anything else)  
 > 📥 RIGHT-CLICK and "SAVE AS" to Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
-> [!IMPORTANT]
+> [!TIP]
 > ANY operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
@@ -168,12 +168,12 @@ source ~/.profile
 linux_install.sh
 ```
 
-> [!WARNING]
+> [!CAUTION]
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
 ### INSTALLING ON WINDOWS10
 
-> [!IMPORTANT]
+> [!TIP]
 > Any operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
@@ -182,14 +182,16 @@ setx TIMEZONEAPIKEY "PUT_YOUR_API_KEY_HERE"
 windows_install.bat
 ```
 
+> [!TIP]
 > After `windows_install.bat` finishes running, it will create an application shortcut, which you may copy around and use to run the app.
 
 ### INSTALLING ON MACOS
 
-> [!IMPORTANT]
+> [!TIP]
 > Any operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
+> [!WARNING]
 > Please keep in mind this app was never tested on MacOS. Please do let me know if you had any installation issues and how you solved them. Thanks!
 
 If you already have `homebrew` installed:
@@ -224,6 +226,7 @@ tuiweathergirl --updateapp
 
 ## USAGE
 
+> [!TIP]
 > Please consult the help screen for the most up-to-date command-line options
 
 ```bash
