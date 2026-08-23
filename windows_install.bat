@@ -19,7 +19,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Installing python components...
-pip install windows-curses Babel tzdata requests
+pip install windows-curses Babel tzdata requests packaging
 
 rem echo Installing app...
 rem copy tuiweathergirl.py "%LOCALAPPDATA%\Microsoft\WindowsApps\tuiweathergirl.py"

@@ -43,7 +43,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.13"
+__version__: str = "1.2.14"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -678,23 +678,6 @@ def polar_stations(stnnum: int | None = None) -> list[str]:
             )
         result = POLAR_STATIONS[stnnum - 1]
     return result
-
-
-class WindowsTerminalEnforcer:
-    """Static class. Forces a Windows terminal to maximize."""
-
-    def __new__(cls):
-        raise TypeError("WindowsTerminalEnforcer is a static class.")
-
-    @staticmethod
-    def maximize_terminal() -> None:
-        """Forcing the Windows terminal to maximize."""
-
-        if sys.platform == "win32":
-            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-            if hwnd:
-                ctypes.windll.user32.ShowWindow(hwnd, 3)
-                time.sleep(1)  # Ensures enough time for spells initialization
 
 
 class ExitHandler:
@@ -7009,9 +6992,6 @@ if __name__ == "__main__":
         if DEBUG_MODE:
             LOGLEVEL = logging.DEBUG
             debug_mode_str = "*** DEBUG MODE ENABLED ***"
-
-        # Forcing the Windows terminal to maximize
-        WindowsTerminalEnforcer.maximize_terminal()
 
         logging.basicConfig(
             filename=LOGFILENAME,

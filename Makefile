@@ -26,27 +26,27 @@ install-deps:
 	@if command -v apt-get &> /dev/null; then \
 		echo "* Debian installation"; \
 		echo ""; \
-		sudo apt-get update && sudo apt-get install -y python3 python3-babel python3-requests libncurses6 tzdata; \
+		sudo apt-get update && sudo apt-get install -y python3 python3-babel python3-packaging python3-requests libncurses6 tzdata; \
 	elif command -v dnf &> /dev/null; then \
 		echo "* Red Hat installation"; \
 		echo ""; \
-		sudo dnf install -y python3 python3-babel python3-requests ncurses-libs tzdata; \
+		sudo dnf install -y python3 python3-babel python3-packaging python3-requests ncurses-libs tzdata; \
 	elif command -v yum &> /dev/null; then \
 		echo "* RHEL installation"; \
 		echo ""; \
-		sudo yum install -y python3 python3-babel python3-requests ncurses-libs tzdata; \
+		sudo yum install -y python3 python3-babel python3-packaging python3-requests ncurses-libs tzdata; \
 	elif command -v pacman &> /dev/null; then \
 		echo "* Arch installation"; \
 		echo ""; \
-		sudo pacman -Sy --noconfirm python python-babel python-requests ncurses tzdata; \
+		sudo pacman -Sy --noconfirm python python-babel python-packaging python-requests ncurses tzdata; \
 	elif command -v zypper &> /dev/null; then \
 		echo "* openSUSE installation"; \
 		echo ""; \
-		sudo zypper install -y python3 python3-babel python3-requests libncurses6 timezone; \
+		sudo zypper install -y python3 python3-babel python3-packaging python3-requests libncurses6 timezone; \
 	elif command -v emerge &> /dev/null; then \
 		echo "* Gentoo installation"; \
 		echo ""; \
-		sudo emerge --noreplace dev-lang/python dev-python/babel dev-python/requests sys-libs/ncurses sys-libs/timezone-data; \
+		sudo emerge --noreplace dev-lang/python dev-python/babel dev-python/packaging dev-python/requests sys-libs/ncurses sys-libs/timezone-data; \
 	else \
 		echo "Error: Could not detect a supported package manager (apt, dnf, yum, pacman, zypper, emerge)." >&2; \
 		exit 1; \
