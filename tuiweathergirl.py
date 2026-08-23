@@ -43,7 +43,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.14"
+__version__: str = "1.2.15"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -60,7 +60,8 @@ EPILOGUE_HELP: str = f"""VIEWS:
         A colorful ncurses dashboard, made for pure virtual console of 106x33.
 
     dashboard
-        MAIN DASHBOARD - tons of information. Requires terminal size at least 146x38.
+        MAIN DASHBOARD - tons of information.
+        Requires terminal size at least 146x38.
 
     setup
         Prints the currently set cities.
@@ -68,13 +69,18 @@ EPILOGUE_HELP: str = f"""VIEWS:
 NOTE: --addcity and --country must be passed together
 
 HOW DOES TUIWEATHERGIRL WORKS:
-    - The app would auto-configure. You may edit the config, but if you mess it up - delete it.
-    - You may edit the config, but if you mess-it up, better run the app with --clearcache
-    - You may add up to {MAX_CITIES - 1} additional cities, but not every view will show them
+    - The app would auto-configure. You may edit the config, but if you mess
+      it up - delete it.
+    - You may edit the config, but if you mess-it up, better run the app
+      with --clearcache
+    - You may add up to {MAX_CITIES - 1} additional cities, but not every view
+      will show them
 
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
-Variable TIMEZONEAPIKEY must be set with a free API key from https://timezonedb.com/
-For detailed wildfires info set NASAFIRMSAPIKEY (free API key): https://firms.modaps.eosdis.nasa.gov/api/map_key
+Variable TIMEZONEAPIKEY must be set with a free API key
+from https://timezonedb.com/
+For detailed wildfires info set variable NASAFIRMSAPIKEY with a free API key
+from: https://firms.modaps.eosdis.nasa.gov/api/map_key
 """
 USERAGENT: str = (
     f"TUIWeatherGirl/{__version__} (https://github.com/StrayFeral/tuiweathergirl)"
@@ -1705,7 +1711,7 @@ class WarningsManager:
             writer = csv.writer(f)
             writer.writerows(self._messages)
 
-    def get_warnings(self, number_of_messages: int) -> list[list[str]]:
+    def get_warnings(self, number_of_messages: int = 0) -> list[list[str]]:
         self._load()
         self._cleanup()
         self._save()
@@ -1714,6 +1720,9 @@ class WarningsManager:
         # warnings at the moment
         if len(self._messages) == 0 and len(self.home_location) > 0:
             self.append("***")
+
+        if number_of_messages == 0:  # Return all warnings
+            return self._messages
 
         return self._messages[-number_of_messages:]
 
@@ -3363,13 +3372,13 @@ class UpdateManager:
 
     def _restart_application(self) -> None:
         """Restart current application."""
-        
+
         self.logger.info("*** RESTARTING APPLICATION ***")
         logger.info("===================================================== SESSION END")
-        
+
         current_script = Path(sys.argv[0]).resolve()
         args = [a for a in sys.argv[1:] if a not in ("--updateapp")]
-        
+
         try:
             if os.name == "nt":  # Windows
                 subprocess.Popen([sys.executable, str(current_script)] + args)
@@ -3415,9 +3424,9 @@ class UpdateManager:
             extract_dir.mkdir(parents=True, exist_ok=True)
 
             self.logger.info("Extracting...")
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(extract_dir)
-            
+
             extracted_files: list = list(extract_dir.rglob("tuiweathergirl.py"))
             if not extracted_files:
                 raise FileNotFoundError(
@@ -3431,7 +3440,9 @@ class UpdateManager:
             # Set executable permissions
             if os.name != "nt":
                 current_permissions = current_script.stat().st_mode
-                current_script.chmod(current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                current_script.chmod(
+                    current_permissions | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+                )
 
             self.logger.info("Cleanup...")
             zip_path.unlink(missing_ok=True)
@@ -5056,7 +5067,7 @@ class Views:
         rows, columns = stdscr.getmaxyx()
         if rows < terminal_size.rows or columns < terminal_size.columns:
             raise Exception(
-                f"Current terminal size ({columns}x{rows}) is smaller than the required minimum terminal size ({terminal_size.columns}x{terminal_size.rows}) for this view. You might try another view. Run with --help"
+                f"The view you're trying to use requires a larger terminal. Current terminal: {columns}x{rows}; Required: {terminal_size.columns}x{terminal_size.rows}. Try another view. Run with --help"
             )
         if (columns, rows) != (self.width, self.height):
             self.width = columns
@@ -5512,7 +5523,7 @@ class BasicView(Views):
         follow_cities: list = self.forecaster.data.cities_data
 
         # Getting the last 10 warnings
-        warnings: list[list[str]] = self.warnings.get_warnings(12)
+        warnings: list[list[str]] = self.warnings.get_warnings()
 
         day: str = "day" if is_day else "night"
 
@@ -5524,11 +5535,13 @@ TODAY                     ({dow})
 Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
 Home             | {city}, {province}{country}
 Sky              | {sky}
-Temperature      | {temperature} deg {tsuffix} (Today: {tmin} deg /{tmax} deg {tsuffix})
-Wind             | {wind_type}, {wind}{wunit}, {wind_direction_long}.
+Temperature      | {temperature}°{tsuffix} (Today: {tmin}°/{tmax}°{tsuffix})
+Wind             | {wind_type}, {wind_direction_long} {wind}{wunit}.
 Air Quality      | {airquality} ({aqi})
 {precipitation_type:17}| {precipitation}% chance
-Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
+Humidity Now     | {humidity} ({hcur}%)
+Humidity Today   | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
+Barometric Press.| {baropressure} hPa
 """)
 
         print("7-DAY FORECAST")
@@ -5539,7 +5552,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2} deg /{dmax:>2} deg {tsuffix}"
+            temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
             print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
 
         print("\nWARNINGS")
@@ -5563,15 +5576,17 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
         print(hr)
 
         for city_cnt, city_data in enumerate(follow_cities):
-            day: str = "night"
+            day: str = "(night)"
             if city_data["is_day"]:
-                day = "day"
+                day = "(day)"
             temp: int = city_data["temperature"]
             city2: str = self.config.followcities[city_cnt]["city"]
             province2: str = self.config.followcities[city_cnt]["province"]
             country2: str = self.config.followcities[city_cnt]["country"]
             citytimezone: str = self.config.followcities[city_cnt]["timezone"]
             city_time: str = self.presconf.get_time_for_timezone(citytimezone)
+            # weather_code2: str = city_data["weather_code"]
+            sky2: str = city_data["sky"]
 
             if province2.isdigit():
                 province2 = ""
@@ -5579,7 +5594,7 @@ Humidity         | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
                 province2 = f", {province2}"
 
             s: str = (
-                f"{city_cnt+1}. {city_time} {city2}{province2}, {country2} {temp}°{tsuffix} ({day})"
+                f"{city_cnt+1:>2}. {city_time} {temp:>3}°{tsuffix} {sky2:>14} {day:>7} {city2}{province2}, {country2}"
             )
             print(s)
 
@@ -5650,7 +5665,7 @@ By unfolding the dusty ancient scrolls, we uncover these secrets of the future:
 {hr3}
 {mind_drift}
 as today it is a beautiful, {sky.lower()} {season} {day.lower()} in {city}, {province}{country} on {datenow} at {timenow}{dstmark}.
-The current temperature is {temperature}°{tsuffix} with a forecasted range between {tmin} deg and {tmax} deg {tsuffix}.
+The current temperature is {temperature}°{tsuffix} with a forecasted range between {tmin}° and {tmax}°{tsuffix}.
 The wind is {wind_type.lower()}, blowing at {wind}{wunit} from the {wind_direction_long}.
 Air quality is currently {airquality.lower()} with an AQI value of {aqi}.
 There is a {precipitation}% chance of {precipitation_type.lower()} today.
@@ -5669,13 +5684,9 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             dprecip: int = day.precip
             dow: str = day.dow
 
-            temperatures = f"{dmin:>2} deg/{dmax:>2} deg {tsuffix}"
+            temperatures = f"{dmin:>4}° /{dmax:>4}°{tsuffix}"
             print(f"{dow} ~ {temperatures:<6} ~ {dprecip:>3}%")
 
-        # for warning in warnings:
-        #     print(f"\n{warning}")
-
-        # print("\nTry: tuiweathergirl --help")
         print("\n")
 
 
@@ -7187,7 +7198,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         title: str = (
-            f"TUIWEATHERGIRL {__version__} =============================================[ EXCEPTION ]"
+            f"TUIWEATHERGIRL {__version__} ==========================================[ EXCEPTION ]"
         )
         print(f"\n{title}")
         print(e)
