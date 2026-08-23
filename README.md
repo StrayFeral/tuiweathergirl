@@ -50,7 +50,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
-- 2026-08-23 v.1.2.14: Fixed: Windows10 installation issues. Terminal no longer force-maximized.
+- 2026-08-23 v.1.2.14: Fixed: Windows10 installation issues. Terminal no longer force-maximized. Added recent Win10 screenshot. Added directories for screenshots of known bugs.
 - 2026-08-22 v.1.2.13: Application update is now fully working.
 - 2026-08-22 v.1.2.6: Fixed: Bugs with the application updates.
 - 2026-08-21 v.1.2.0: Implemented application auto-update and force-update.
