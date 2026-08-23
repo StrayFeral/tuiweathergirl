@@ -42,10 +42,13 @@ Built to run on everything from basic legacy terminals to modern terminal emulat
 
 The application has minimal dependencies and is designed with a strong focus on portability.
 
+> [!NOTE]
 > Not vibe-coded.
 
+> [!TIP]
 > This application was created to become part of my [**DEWLINUX** Project (Debian Terminal-Only Remix)](https://github.com/StrayFeral/dewlinux). You might want to check it out.
 
+> [!NOTE]
 > There was a minimal use of AI during the development of this app, mainly for the interpretation of the data for the different medical conditions.
 
 ## WHAT'S NEW (CHANGELOG)
@@ -78,6 +81,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 2. Windows 10
 3. Debian 13.3.0, 8 color terminal
 
+> [!WARNING]
 > The application was never tested on MacOS. I am providing installation instructions, but please do let me know if you had any installation issues and how you solved them. Thanks!
 
 ## FEATURES
@@ -138,11 +142,12 @@ TIMEZONEDB API KEY (*FREE*):
 2. Get a *FREE* API key
 3. Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
 
-> The application will not work without this API key set in the environment
+> [!WARNING]
+> The application will NOT WORK without this API key set in the environment.
 
 PYTHON3: Please get the latest: https://www.python.org/downloads/
 
-> [!TIP]
+> [!WARNING]
 > FOR WINDOWS 10 DO NOT USE CMD.EXE: USE "WINDOWS TERMINAL" INSTEAD! You can install it from the app store. Soon I will make a video showing how to install and setup it.
 
 ### OPTIONAL DATA
@@ -163,11 +168,12 @@ source ~/.profile
 linux_install.sh
 ```
 
+> [!WARNING]
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
 ### INSTALLING ON WINDOWS10
 
-> [!TIP]
+> [!IMPORTANT]
 > Any operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
@@ -180,7 +186,7 @@ windows_install.bat
 
 ### INSTALLING ON MACOS
 
-> [!TIP]
+> [!IMPORTANT]
 > Any operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
@@ -242,8 +248,10 @@ tuiweathergirl --clearcache
 
 But beware - this would gather fresh data from all APIs, so if you do this too often you may choke the APIs and may get banned.
 
+> [!TIP]
 > If you are behind VPN, still let the application detect your location, then add the city you're actually in manually with the `--addcity` option, then use the `--sethome` option to set which city is your actual home and optional you may then remove the fake city using `--removecity`.
 
+> [!TIP]
 > If your internet connection is slow for any reason, you may want to increase the API call request timeout, using `--requesttimeout`
 
 ### CHANGING THE SETUP
