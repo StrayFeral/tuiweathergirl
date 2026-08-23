@@ -125,6 +125,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 3. `python3-requests`
 4. `libncurses6`
 5. `tzdata`
+6. `python3-packaging`
 
 ## INSTALLATION PREREQUISITES
 
@@ -140,6 +141,9 @@ TIMEZONEDB API KEY (*FREE*):
 > The application will not work without this API key set in the environment
 
 PYTHON3: Please get the latest: https://www.python.org/downloads/
+
+> [!TIP]
+> FOR WINDOWS 10 DO NOT USE CMD.EXE: USE "WINDOWS TERMINAL" INSTEAD! You can install it from the app store. Soon I will make a video showing how to install and setup it.
 
 ### OPTIONAL DATA
 
