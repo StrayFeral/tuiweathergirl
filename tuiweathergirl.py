@@ -7,7 +7,6 @@ import argparse
 import concurrent.futures
 import configparser
 import csv
-import ctypes
 import curses
 import logging
 import math
@@ -43,7 +42,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.15"
+__version__: str = "1.2.16"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -3781,7 +3780,17 @@ class Locator:
 
         self.logger.info("** Querying TimezoneDB **")
 
-        url = f"http://api.timezonedb.com/v2.1/get-time-zone?key={apikey}&format=json&by=position&lat={lat}&lng={lon}"
+        base_url: str = "http://api.timezonedb.com/v2.1/get-time-zone"
+        url_params: dict[str, str | float] = {
+            "key": apikey,
+            "format": "json",
+            "by": "position",
+            "lat": lat,
+            "lng": lon,
+        }
+        prepared: requests.PreparedRequest = requests.PreparedRequest()
+        prepared.prepare_url(base_url, url_params)
+        url: str = prepared.url
         self.logger.debug(f"URL={url}")
 
         try:
@@ -3817,11 +3826,22 @@ class Locator:
 
         self.logger.info("** Querying OpenStreetMap **")
 
-        url = f"https://nominatim.openstreetmap.org/search?city={city}&country={country}&format=json&addressdetails=1"
+        base_url: str = "https://nominatim.openstreetmap.org/search"
+        url_params: dict[str, str] = {
+            "city": city,
+            "country": country,
+            "format": "json",
+            "addressdetails": 1,
+        }
+        prepared: requests.PreparedRequest = requests.PreparedRequest()
+        prepared.prepare_url(base_url, url_params)
+        url: str = prepared.url
         self.logger.debug(f"URL={url}")
 
         try:
-            response = requests.get(url, headers=HTTPHEADERS, timeout=config.reqtimeout)
+            response = requests.get(
+                url, headers=HTTPHEADERS, timeout=config.reqtimeout
+            )
         except Exception:
             # Just making it more user-friendly
             raise Exception(
@@ -4364,15 +4384,20 @@ class WeatherForecaster:
         self.logger.info("** Querying Open-Meteo (home weather) **")
 
         #  &timezone=auto # current
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lat}&longitude={lon}"
-            f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,pressure_msl"
-            f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max"
-            f"&timezone={timezone.replace('/', '%2F')}"
-            f"&temperature_unit={tunit}&wind_speed_unit={wunit}"
-            f"&forecast_days=8"
-        )
+        base_url: str = "https://api.open-meteo.com/v1/forecast"
+        url_params: dict[str, str | int] = {
+            "latitude": lat,
+            "longitude": lon,
+            "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,pressure_msl",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max",
+            "timezone": timezone,
+            "temperature_unit": tunit,
+            "wind_speed_unit": wunit,
+            "forecast_days": 8,
+        }
+        prepared: requests.PreparedRequest = requests.PreparedRequest()
+        prepared.prepare_url(base_url, url_params)
+        url: str = prepared.url
         self.logger.debug(f"URL={url}")
 
         try:
@@ -4397,21 +4422,24 @@ class WeatherForecaster:
     def _get_brief_weather_data(
         self, lats: str, lons: str, timezones: str, tunit: str
     ) -> requests.Response:
-        r"""Gets only current temperatures for a given location"""
+        r"""Gets only current temperatures, weather codes for a given location"""
 
         self.logger.info("** Querying Open-Meteo for the folowed cities **")
         if not self.config.followcities:
             self.logger.info("No cities of interest. Exiting.")
             return {}
 
-        #  &timezone=auto # current
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={lats}&longitude={lons}"
-            f"&current=temperature_2m,is_day,weather_code"
-            f"&timezone={timezones.replace('/', '%2F')}"
-            f"&temperature_unit={tunit}"
-        )
+        base_url: str = "https://api.open-meteo.com/v1/forecast"
+        url_params: dict[str, str] = {
+            "latitude": lats,
+            "longitude": lons,
+            "current": "temperature_2m,is_day,weather_code",
+            "timezone": timezones,
+            "temperature_unit": tunit,
+        }
+        prepared: requests.PreparedRequest = requests.PreparedRequest()
+        prepared.prepare_url(base_url, url_params)
+        url: str = prepared.url
         self.logger.debug(f"URL={url}")
 
         try:
@@ -4452,10 +4480,16 @@ class WeatherForecaster:
         ]
 
         # Air Quality API (Separate endpoint but same coordinates)
-        url: str = (
-            f"https://air-quality-api.open-meteo.com/v1/air-quality?"
-            f"latitude={lat}&longitude={lon}&current={','.join(params)}&timezone=auto"
-        )
+        base_url: str = "https://air-quality-api.open-meteo.com/v1/air-quality"
+        url_params: dict[str, str] = {
+            "latitude": lat,
+            "longitude": lon,
+            "current": ",".join(params),
+            "timezone": "auto",
+        }
+        prepared: requests.PreparedRequest = requests.PreparedRequest()
+        prepared.prepare_url(base_url, url_params)
+        url: str = prepared.url
         self.logger.debug(f"URL={url}")
 
         try:
