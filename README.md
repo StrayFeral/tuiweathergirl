@@ -141,9 +141,10 @@ In case of difficulties, please see [VIDEO TUTORIALS - installation, in-depth ap
 
 1. PYTHON3: Please get the latest: https://www.python.org/downloads/
 2. TIMEZONEDB API KEY (*FREE*):
-  1. Create an account on https://timezonedb.com/
-  2. Get a *FREE* API key
-  3. Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
+
+- Create an account on https://timezonedb.com/
+- Get a *FREE* API key
+- Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
 
 > [!WARNING]
 > The application will NOT WORK without this API key set in the environment.
