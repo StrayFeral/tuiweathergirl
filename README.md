@@ -53,7 +53,8 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
-- 2026-08-24 v.1.2.17: Fixed: Crasher bug when a random Earth point is set as home location.
+- 2026-08-25: New video tutorials for Windows10 and Linux has been created and uploaded to Youtube. Readme is updated with the new URLs.
+- 2026-08-25 v.1.2.17: Fixed: Crasher bug when a random Earth point is set as home location. Crasher in the auto-update.
 - 2026-08-24 v.1.2.16: Fixed: Crasher URL issue.
 - 2026-08-24 v.1.2.15: Basic view extended to show all warnings and a bit more info. Help reformatted. Small terminal exception message wording changed.
 - 2026-08-23 v.1.2.14: Fixed: Windows10 installation issues. Terminal no longer force-maximized. Added recent Win10 screenshot. Added directories for screenshots of known bugs.
@@ -285,8 +286,8 @@ You may take a look what's in the config file under `[PREFERENCES]`, in case you
 
 ## VIDEO TUTORIALS (INSTALLATION, IN-DEPTH APP OVERVIEW)
 
-[![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/RFNwoeU8nuQ/0.jpg)](https://www.youtube.com/watch?v=RFNwoeU8nuQ)
-[![Windows 10 installation, setup and overview](https://img.youtube.com/vi/G3Ure96hpJM/0.jpg)](https://www.youtube.com/watch?v=G3Ure96hpJM)
+[![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/HMTAQ0rKRpM/0.jpg)](https://www.youtube.com/watch?v=HMTAQ0rKRpM)
+[![Windows 10 installation, setup and overview](https://img.youtube.com/vi/kSYME9Z-FQs/0.jpg)](https://www.youtube.com/watch?v=kSYME9Z-FQs)
 
 ## SCREENSHOTS
 
@@ -297,3 +298,4 @@ Click to enlarge.
 [![Basic View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg)
 [![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg)
 [![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg)
+[![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_wildfire.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_wildfire.jpg)
