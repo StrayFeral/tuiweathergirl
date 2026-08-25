@@ -3338,7 +3338,7 @@ class UpdateManager:
             # It's update day! (but hey let's not update everyday okay?)
             if (
                 date.today().weekday() == self.update_dow
-                and (today - last_appupdate_check_date) > self.mindays
+                and (today - last_appupdate_check).days > self.mindays
             ):
                 return True
         except ValueError:
