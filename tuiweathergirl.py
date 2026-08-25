@@ -42,7 +42,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.16"
+__version__: str = "1.2.17"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -2888,6 +2888,10 @@ class HolidaysManager:
 
         new_holidays: dict[str, str] = {}
 
+        # Fix for bug when a random Earth point was set as Home location
+        if country_code2 in ["", "XX"]:
+            return new_holidays
+
         # Holidays data
         year: str = ""
         code1: str = ""
@@ -3290,7 +3294,7 @@ Timezone: {self.timezone}"""
                 "lon": lon,
                 "continent_code": "",
                 "timezone": "",
-                "country_code2": "",
+                "country_code2": "XX",  # Safe for use dummy country code
                 "postal_code": "",
                 "province": "",
             }
