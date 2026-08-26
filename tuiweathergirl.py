@@ -42,7 +42,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.17"
+__version__: str = "1.2.18"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -5276,9 +5276,11 @@ class ColorViews(Views):
             return "error"
         return "emergency"
 
-    def _get_city_cp(self, city: str) -> int | str:
-        if " STN" in city:
+    def _get_city_cp(self, city: str, country_code2: str) -> int | str:
+        if " STN" in city:  # Polar stations
             return "water"
+        if country_code2.lower() == "xx":  # Random Earth points
+            return "home"  # White
         return "general"
 
     def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
@@ -6185,6 +6187,7 @@ class DashboardView(ColorViews):
                     province2: str = self.config.followcities[city_cnt]["province"]
                     province2 = self.presconf.abbreviate_name(province2)
                     country2: str = self.config.followcities[city_cnt]["country"]
+                    country2_code2: str = self.config.followcities[city_cnt]["country_code2"]
                     weather_code2: str = city_data["weather_code"]
                     sky2: str = city_data["sky"]
 
@@ -6197,7 +6200,7 @@ class DashboardView(ColorViews):
                         f"{city_cnt+1}. {city2}{province2:.12}, {country2:.10}",
                         x=wx,
                         y=wy,
-                        theme=self._get_city_cp(city2),
+                        theme=self._get_city_cp(city2, country2_code2),
                     )
                     followcities_window.print(
                         f"{temp}°{tsuffix}".rjust(6),

@@ -54,6 +54,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-25 v.1.2.18: Followed Random Earth Points as cities, now appear in white in the Cities window.
 - 2026-08-25: New video tutorials for Windows10 and Linux has been created and uploaded to Youtube. Readme is updated with the new URLs.
 - 2026-08-25 v.1.2.17: Fixed: Crasher bug when a random Earth point is set as home location. Crasher in the auto-update.
 - 2026-08-24 v.1.2.16: Fixed: Crasher URL issue.
