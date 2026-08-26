@@ -3033,6 +3033,7 @@ class Configuration:
         self.last_appupdate_check: str = ""
         self.last_known_appversion: str = __version__
         self.appautoupdate: bool = True
+        self.cities_sorting: str = "unsorted"
 
         self.followcities: list[dict[str | int]] = []
 
@@ -3156,6 +3157,7 @@ Timezone: {self.timezone}"""
             "lastappupdatecheck": self.last_appupdate_check,
             "lastknownappversion": self.last_known_appversion,
             "appautoupdate": str(self.appautoupdate).lower(),
+            "citiessorting": str(self.cities_sorting).lower(),
         }
 
         config["HOLIDAYS"] = self.holidays
@@ -3217,6 +3219,12 @@ Timezone: {self.timezone}"""
         self.appautoupdate = config.getboolean(
             "PREFERENCES", "appautoupdate", fallback=True
         )
+        self.cities_sorting = (
+            config["PREFERENCES"].get("citiessorting") or "unsorted"
+        )
+
+        if self.cities_sorting not in ["unsorted", "city", "country"]:
+            raise ValueError(f"Invalid value of '{self.cities_sorting}' for key 'citiessorting' in the config file. Valid: unsorted, city, country.")
 
         self.holidays = dict(config["HOLIDAYS"])
 
@@ -4101,6 +4109,10 @@ class WeatherData:
         # self.warnings: list[list[str]] = []
         self.week: list[BriefDailyForecast] = []
         self.cities_data: list[list[str | int]] = []
+        # Preserved in original (unsorted) build order so that sorting can
+        # be re-applied against the current config even when serving from
+        # a cached payload, without losing the true unsorted ordering.
+        self.cities_data_raw: list[list[str | int]] = []
 
         # This was never planned originally
         # but I decided to add it in the last moment
@@ -4627,6 +4639,23 @@ class WeatherForecaster:
             )
 
         return warnings
+    
+    def _sort_cities(self, cities: list[dict], sort_key: str) -> list[dict]:
+        """Ascending sort either by city or country and city."""
+
+        mode = sort_key.lower()
+
+        if mode == "city":
+            # Sort strictly by the "city" field
+            return sorted(cities, key=lambda x: x["city"])
+
+        if mode == "country":
+            # Sort by "country_code2" first, then by "city"
+            # In Python, returning a tuple (A, B) sorts by A first, then breaks ties with B
+            return sorted(cities, key=lambda x: (x["country_code2"], x["city"]))
+
+        # Unsorted
+        return list(cities)
 
     def get_data(self) -> None:
         # Build the API URL with your config preferences
@@ -4639,6 +4668,13 @@ class WeatherForecaster:
         self.cache.register("weather_data", self.data)
         if self.cache.too_soon and not self.cache.loaded:
             self.cache.load()
+
+            # Re-sorting the cached data
+            cities_data_raw = getattr(self.data, "cities_data_raw", None)
+            if cities_data_raw:
+                self.data.cities_data = self._sort_cities(
+                    cities_data_raw, self.config.cities_sorting
+                )
             return
 
         warnings: WarningsManager = WarningsManager()
@@ -4812,8 +4848,10 @@ class WeatherForecaster:
                         ),
                         "is_day": followcities_result["current"]["is_day"],
                         "city": self.config.followcities[-1]["city"],
+                        "country": self.config.followcities[-1]["country"],
                         "country_code2": self.config.followcities[-1]["country_code2"],
                         "province": self.config.followcities[-1]["province"],
+                        "timezone": self.config.followcities[-1]["timezone"],
                         "weather_code": followcities_result["current"]["weather_code"],
                         "sky": self.__get_weather_description(
                             followcities_result["current"]["weather_code"]
@@ -4829,14 +4867,24 @@ class WeatherForecaster:
                             ),
                             "is_day": combodata[1]["current"]["is_day"],
                             "city": combodata[0]["city"],
+                            "country": combodata[0]["country"],
                             "country_code2": combodata[0]["country_code2"],
                             "province": combodata[0]["province"],
+                            "timezone": combodata[0]["timezone"],
                             "weather_code": combodata[1]["current"]["weather_code"],
                             "sky": self.__get_weather_description(
                                 combodata[1]["current"]["weather_code"]
                             ),
                         }
                         self.data.cities_data.append(city_data)
+
+                # Keep an untouched copy of the build order so that a
+                # cached payload can still be re-sorted correctly later
+                # (see the cache-hit branch above), including "unsorted".
+                self.data.cities_data_raw = list(self.data.cities_data)
+
+                # Sorting the cities for output
+                self.data.cities_data = self._sort_cities(self.data.cities_data, self.config.cities_sorting)
 
             # 7 day forecast
             for i in range(1, 8):
@@ -5620,10 +5668,14 @@ Barometric Press.| {baropressure} hPa
             if city_data["is_day"]:
                 day = "(day)"
             temp: int = city_data["temperature"]
-            city2: str = self.config.followcities[city_cnt]["city"]
-            province2: str = self.config.followcities[city_cnt]["province"]
-            country2: str = self.config.followcities[city_cnt]["country"]
-            citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+            # city2: str = self.config.followcities[city_cnt]["city"]
+            # province2: str = self.config.followcities[city_cnt]["province"]
+            # country2: str = self.config.followcities[city_cnt]["country"]
+            # citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+            city2: str = city_data["city"]
+            province2: str = city_data["province"]
+            country2: str = city_data["country"]
+            citytimezone: str = city_data["timezone"]
             city_time: str = self.presconf.get_time_for_timezone(citytimezone)
             # weather_code2: str = city_data["weather_code"]
             sky2: str = city_data["sky"]
@@ -5997,7 +6049,8 @@ class DashboardView(ColorViews):
             # The followed cities
             for city_cnt, city_data in enumerate(follow_cities):
                 city_wx: int = 59
-                citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+                # citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+                citytimezone: str = city_data["timezone"]
                 city_time: str = self.presconf.get_time_for_timezone(citytimezone)
                 followcities_window.print(f"{city_time} ", x=city_wx, y=city_cnt)
 
@@ -6180,14 +6233,18 @@ class DashboardView(ColorViews):
                     # if city_data["is_day"]:
                     #     day = "day"
                     temp: int = city_data["temperature"]
-                    city2: str = self.config.followcities[city_cnt]["city"]
+                    # city2: str = self.config.followcities[city_cnt]["city"]
+                    city2: str = city_data["city"]
                     city2 = self.presconf.abbreviate_name(city2)
                     if not "STN" in city2:
                         city2 = city2[:15]
-                    province2: str = self.config.followcities[city_cnt]["province"]
+                    # province2: str = self.config.followcities[city_cnt]["province"]
+                    province2: str = city_data["province"]
                     province2 = self.presconf.abbreviate_name(province2)
-                    country2: str = self.config.followcities[city_cnt]["country"]
-                    country2_code2: str = self.config.followcities[city_cnt]["country_code2"]
+                    # country2: str = self.config.followcities[city_cnt]["country"]
+                    # country2_code2: str = self.config.followcities[city_cnt]["country_code2"]
+                    country2: str = city_data["country"]
+                    country2_code2: str = city_data["country_code2"]
                     weather_code2: str = city_data["weather_code"]
                     sky2: str = city_data["sky"]
 
@@ -6880,6 +6937,12 @@ class CommandlineParser:
             default=None,
             help=f"Specifies a longitude",
         )
+        cli_parser.add_argument(
+            "--citiessorting",
+            choices=["unsorted", "city", "country"],
+            default="",
+            help="Select how to sort the cities (default: unsorted)",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
@@ -7163,6 +7226,10 @@ if __name__ == "__main__":
 
         config.load()
 
+        if cli_arguments["citiessorting"]:
+            config.cities_sorting = cli_arguments["citiessorting"]
+            config.save()
+            logger.info(f"Cities sorting changed to: {config.cities_sorting}")
         if cli_arguments["theme"]:
             config.theme = cli_arguments["theme"]
             config.save()
