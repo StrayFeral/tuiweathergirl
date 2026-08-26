@@ -3219,12 +3219,12 @@ Timezone: {self.timezone}"""
         self.appautoupdate = config.getboolean(
             "PREFERENCES", "appautoupdate", fallback=True
         )
-        self.cities_sorting = (
-            config["PREFERENCES"].get("citiessorting") or "unsorted"
-        )
+        self.cities_sorting = config["PREFERENCES"].get("citiessorting") or "unsorted"
 
         if self.cities_sorting not in ["unsorted", "city", "country"]:
-            raise ValueError(f"Invalid value of '{self.cities_sorting}' for key 'citiessorting' in the config file. Valid: unsorted, city, country.")
+            raise ValueError(
+                f"Invalid value of '{self.cities_sorting}' for key 'citiessorting' in the config file. Valid: unsorted, city, country."
+            )
 
         self.holidays = dict(config["HOLIDAYS"])
 
@@ -3851,9 +3851,7 @@ class Locator:
         self.logger.debug(f"URL={url}")
 
         try:
-            response = requests.get(
-                url, headers=HTTPHEADERS, timeout=config.reqtimeout
-            )
+            response = requests.get(url, headers=HTTPHEADERS, timeout=config.reqtimeout)
         except Exception:
             # Just making it more user-friendly
             raise Exception(
@@ -4639,7 +4637,7 @@ class WeatherForecaster:
             )
 
         return warnings
-    
+
     def _sort_cities(self, cities: list[dict], sort_key: str) -> list[dict]:
         """Ascending sort either by city or country and city."""
 
@@ -4884,7 +4882,9 @@ class WeatherForecaster:
                 self.data.cities_data_raw = list(self.data.cities_data)
 
                 # Sorting the cities for output
-                self.data.cities_data = self._sort_cities(self.data.cities_data, self.config.cities_sorting)
+                self.data.cities_data = self._sort_cities(
+                    self.data.cities_data, self.config.cities_sorting
+                )
 
             # 7 day forecast
             for i in range(1, 8):
