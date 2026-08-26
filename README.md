@@ -17,7 +17,7 @@
 - [Updating](#updating)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
-- [Troubleshooting](#troubleshooting)
+- [TROUBLESHOOTING](#troubleshooting)
 - [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
 - [Screenshots](#screenshots)
 
