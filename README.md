@@ -301,6 +301,10 @@ If anything goes wrong: Inspect the log file. Where is the log file? This comman
 tuiweathergirl --listfiles
 ```
 
+### TERMINAL IS NOT LARGE ENOUGH
+
+Just resize your terminal, make it larger to fit the application view or just maximize it. Or maybe you want to try another view? The "basic" and the "motivate" views would work in absolutely any terminal.
+
 ### IN CASE OF INCORRECTLY DETECTED HOME LOCATION OR IF YOU'RE BEHIND A VPN
 
 ```bash
