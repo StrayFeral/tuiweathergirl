@@ -17,6 +17,7 @@
 - [Updating](#updating)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
+- [Troubleshooting](#troubleshooting)
 - [VIDEO TUTORIALS - installation, in-depth app overview](#video-tutorials-installation-in-depth-app-overview)
 - [Screenshots](#screenshots)
 
@@ -283,6 +284,54 @@ tuiweathergirl --view basic
 The next time you run just `tuiweathergirl` it will assume that `basic` view is now your default view and will use it from now on, unless you run again with `--view` parameter to change the default view to something else. `--theme` and `--requesttimeout` work the same way - if you run the app with any of these set, they would change their defaults in the config file.
 
 You may take a look what's in the config file under `[PREFERENCES]`, in case you want to change the metric/imperial system or temperature units or 24 to 12 hours time format. You may also want to change the language there, but beware - I never tested this. For now I prefer to keep all data in plain English format.
+
+## TROUBLESHOOTING
+
+### FOR ANY HELP - READ THE HELP
+
+```bash
+tuiweathergirl --help
+```
+
+### INSPECT THE LOGFILE
+
+If anything goes wrong: Inspect the log file. Where is the log file? This command will tell you:
+
+```bash
+tuiweathergirl --listfiles
+```
+
+### IN CASE OF INCORRECTLY DETECTED HOME LOCATION OR IF YOU'RE BEHIND A VPN
+
+```bash
+tuiweathergirl --addcity <YOURCITYNAME> --country <YOURCOUNTRYNAME>
+tuiweathergirl --view setup
+# Each added new city is recorded with some number and this will tell you 
+# under what number the city was recorded. The very first added city is 1.
+tuiweathergirl --sethome <CITYNUMBER>
+tuiweathergirl --removecity <CITYNUMBER>
+tuiweathergirl --clearcache  # Just in case
+```
+
+EXAMPLE:
+
+Scenario: You just downloaded and installed TUIWEATHERGIRL. You run it for the very first time.
+
+```bash
+tuiweathergirl
+```
+
+You are behing a VPN and you realize your home location was incorrectly set to "Whitby, ON, Canada", while you live in New York, USA. Let's fix this:
+
+```bash
+# This is the very first added city, so it will be as number 1
+tuiweathergirl --addcity "new york" --country usa
+tuiweathergirl --sethome 1
+tuiweathergirl --removecity 1
+tuiweathergirl --clearcache
+```
+
+Next time you run the application you would notice your home location is now set to New York and the old location of Whitby has been deleted.
 
 ## VIDEO TUTORIALS (INSTALLATION, IN-DEPTH APP OVERVIEW)
 
