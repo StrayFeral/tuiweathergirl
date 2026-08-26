@@ -4852,10 +4852,10 @@ class WeatherForecaster:
                 self.data.weather_code
             )  # Rain, Snow, Storm, Precip
             self.data.humidity_level_min = self.__get_humidity_assessment(
-                self.data.hmin, self.data.temperature, tunit
+                self.data.hmin, self.data.min, tunit
             )
             self.data.humidity_level_max = self.__get_humidity_assessment(
-                self.data.hmax, self.data.temperature, tunit
+                self.data.hmax, self.data.max, tunit
             )
             self.data.humidity = self.__get_humidity_assessment(
                 self.data.hcur, self.data.temperature, tunit
@@ -6105,7 +6105,7 @@ class DashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(temperature), tsuffix
+                        int(self.forecaster.data.hmin), int(tmin), tsuffix
                     ),
                 )
                 airquality_window.print("/", x=data_x + len(humidity_str), y=3)
@@ -6114,7 +6114,7 @@ class DashboardView(ColorViews):
                     x=data_x + len(humidity_str) + 1,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(temperature), tsuffix
+                        int(self.forecaster.data.hmax), int(tmax), tsuffix
                     ),
                 )
 
@@ -6627,7 +6627,7 @@ class TTYDashboardView(ColorViews):
                     x=data_x,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(temperature), tsuffix
+                        int(self.forecaster.data.hmin), int(tmin), tsuffix
                     ),
                 )
                 airquality_window.print("/", x=data_x + len(humidity_str), y=3)
@@ -6636,7 +6636,7 @@ class TTYDashboardView(ColorViews):
                     x=data_x + len(humidity_str) + 1,
                     y=3,
                     theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(temperature), tsuffix
+                        int(self.forecaster.data.hmax), int(tmax), tsuffix
                     ),
                 )
 
