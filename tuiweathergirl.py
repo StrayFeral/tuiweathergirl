@@ -6941,7 +6941,7 @@ class CommandlineParser:
             "--citiessorting",
             choices=["unsorted", "city", "country"],
             default="",
-            help="Select how to sort the cities (default: unsorted)",
+            help="Select how to sort the cities",
         )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
