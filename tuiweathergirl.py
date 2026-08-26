@@ -6858,7 +6858,7 @@ class CommandlineParser:
             nargs="?",
             const=True,
             # default=True,
-            help="Enable or disable auto-updates (true/false, on/off)",
+            help="Enable or disable auto-updates (on/off)",
         )
         cli_parser.add_argument(
             "--view",
@@ -6876,24 +6876,24 @@ class CommandlineParser:
             "--addcity",
             dest="newcity",
             default="",
-            help="Add a new city to follow",
+            help="Add a new city to follow (city name)",
         )
         action_group.add_argument(
             "--removecity",
             type=int,
-            help="Remove a city which is currently followed",
+            help="Remove a city which is currently followed (city number)",
         )
         action_group.add_argument(
             "--sethome",
             dest="homecity",
             type=int,
-            help="Set which city is home (city must be already added)",
+            help="Set which city is home (city must be already added)(city number)",
         )
         cli_parser.add_argument(
             "--country",
             dest="country",
             default="",
-            help="Which country is that city in",
+            help="Which country is that city in (country name)",
         )
         cli_parser.add_argument(
             "-d",
