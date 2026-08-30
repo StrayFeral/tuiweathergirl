@@ -54,6 +54,7 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
+- 2026-08-30 v.1.2.19: Fixed: TimeZoneDB API KEY NO longer NEEDED! Thanks to Reddit user recycledcoder. Code optimized a bit. Some comand-line parameters now have shorter versions.
 - 2026-08-25 v.1.2.18: Fixed: Improper forecasted humidity assessment and color coding. Followed Random Earth Points as cities, now appear in white in the Cities window. Sorting for the followed cities. Help changed.
 - 2026-08-25: New video tutorials for Windows10 and Linux has been created and uploaded to Youtube. Readme is updated with the new URLs.
 - 2026-08-25 v.1.2.17: Fixed: Crasher bug when a random Earth point is set as home location. Crasher in the auto-update.
@@ -144,14 +145,6 @@ In case of difficulties, please see [VIDEO TUTORIALS - installation, in-depth ap
 ### MANDATORY COMPONENTS AND DATA
 
 1. PYTHON3: Please get the latest: https://www.python.org/downloads/
-2. TIMEZONEDB API KEY (*FREE*):
-
-- Create an account on https://timezonedb.com/
-- Get a *FREE* API key
-- Create an environment variable called TIMEZONEAPIKEY and set the API key as a value. See the examples below.
-
-> [!WARNING]
-> The application will NOT WORK without this API key set in the environment.
 
 > [!WARNING]
 > FOR WINDOWS 10 DO NOT USE THE OLD CMD.EXE: USE "WINDOWS TERMINAL" INSTEAD! You can install it from the Microsoft Store. See my Windows 10 video below for details.
@@ -169,8 +162,6 @@ If you want detailed wildfire information provided, please consider getting a *F
 > 📥 RIGHT-CLICK TO Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 ```bash
-printf "export TIMEZONEAPIKEY=PUT_YOUR_API_KEY_HERE\n" >> ~/.profile
-source ~/.profile
 linux_install.sh
 ```
 

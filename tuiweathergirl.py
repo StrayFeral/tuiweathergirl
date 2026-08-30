@@ -42,7 +42,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.18"
+__version__: str = "1.2.19"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -76,8 +76,6 @@ HOW DOES TUIWEATHERGIRL WORKS:
       will show them
 
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
-Variable TIMEZONEAPIKEY must be set with a free API key
-from https://timezonedb.com/
 For detailed wildfires info set variable NASAFIRMSAPIKEY with a free API key
 from: https://firms.modaps.eosdis.nasa.gov/api/map_key
 """
@@ -88,7 +86,6 @@ HTTPHEADERS: dict[str, str] = {
     "User-Agent": USERAGENT,
     "Accept-Language": "en",
 }
-TIMEZONE_APIKEY_ENV_VARNAME: str = "TIMEZONEAPIKEY"
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 LOGFILENAME: Path = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
 LOGFILENAME = LOGFILENAME.expanduser()
@@ -3779,60 +3776,6 @@ class Locator:
             "Unknown",
         )
 
-    def get_timezone_name(self, lat: float, lon: float) -> str:
-        apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
-
-        if not apikey:
-            raise Exception(
-                f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Please get API key and set it in this variable before running this application."
-            )
-
-        if self.tzapi_calls > 0:
-            time.sleep(1)  # API limit
-
-        self.logger.info("** Querying TimezoneDB **")
-
-        base_url: str = "http://api.timezonedb.com/v2.1/get-time-zone"
-        url_params: dict[str, str | float] = {
-            "key": apikey,
-            "format": "json",
-            "by": "position",
-            "lat": lat,
-            "lng": lon,
-        }
-        prepared: requests.PreparedRequest = requests.PreparedRequest()
-        prepared.prepare_url(base_url, url_params)
-        url: str = prepared.url
-        self.logger.debug(f"URL={url}")
-
-        try:
-            response: requests.Response = requests.get(url, timeout=config.reqtimeout)
-        except Exception:
-            # Just making it more user-friendly
-            raise Exception(
-                f"Cannot get timezone data. Try again in a minute. Request timeout ({config.reqtimeout})."
-            )
-
-        self.logger.debug(f"RESPONSE={pf(response)}")
-        self.tzapi_calls += 1
-
-        if not response.ok:
-            raise Exception(
-                f"Timezone API server error. Error {response.status_code}: {APIIssues.get_api_problem(response.status_code)}"
-            )
-
-        if not response:
-            raise Exception(
-                f"Cannot obtain timezone for '{city}/{country}'. Please check your syntax and try again."
-            )
-
-        response = response.json()
-
-        if response.get("status") == "FAILED":
-            raise Exception("Timezone request failed. Try again later.")
-
-        return response.get("zoneName", "")
-
     def _get_city_details(self, city: str, country: str) -> dict:
         # Attempt to get information for the city and the country
 
@@ -3941,8 +3884,6 @@ class Locator:
             lat: str = location.get("lat", "")
             lon: str = location.get("lon", "")
 
-            timezone_name: str = self.get_timezone_name(lat, lon)
-
             city_entry: dict[str, str | int] = {
                 "city": self.__get_short_city(
                     location.get("name", "").title().replace(" Stn", " STN")
@@ -3958,7 +3899,7 @@ class Locator:
                 "continent_code": self.__get_continent_code(
                     addr.get("country_code", "").upper()
                 ),
-                "timezone": timezone_name,
+                "timezone": "",
             }
 
             time.sleep(1)  # API requirement
@@ -4391,20 +4332,19 @@ class WeatherForecaster:
             return current_utc_hour >= utc_rise or current_utc_hour <= utc_set
 
     def _get_main_location_weather_data(
-        self, lat: str, lon: str, timezone: str, tunit: str, wunit: str
+        self, lat: str, lon: str, tunit: str, wunit: str
     ) -> requests.Response:
         r"""Gets various weather data for the main location"""
 
         self.logger.info("** Querying Open-Meteo (home weather) **")
 
-        #  &timezone=auto # current
         base_url: str = "https://api.open-meteo.com/v1/forecast"
         url_params: dict[str, str | int] = {
             "latitude": lat,
             "longitude": lon,
             "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,pressure_msl",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max",
-            "timezone": timezone,
+            "timezone": "auto",
             "temperature_unit": tunit,
             "wind_speed_unit": wunit,
             "forecast_days": 8,
@@ -4434,7 +4374,7 @@ class WeatherForecaster:
         return response.json()
 
     def _get_brief_weather_data(
-        self, lats: str, lons: str, timezones: str, tunit: str
+        self, lats: str, lons: str, tunit: str
     ) -> requests.Response:
         r"""Gets only current temperatures, weather codes for a given location"""
 
@@ -4448,7 +4388,7 @@ class WeatherForecaster:
             "latitude": lats,
             "longitude": lons,
             "current": "temperature_2m,is_day,weather_code",
-            "timezone": timezones,
+            "timezone": "auto",
             "temperature_unit": tunit,
         }
         prepared: requests.PreparedRequest = requests.PreparedRequest()
@@ -4702,7 +4642,6 @@ class WeatherForecaster:
                 self._get_main_location_weather_data,
                 self.config.lat,
                 self.config.lon,
-                self.config.timezone,
                 tunit,
                 wunit,
             )
@@ -4714,7 +4653,6 @@ class WeatherForecaster:
                     self._get_brief_weather_data,
                     ",".join([e["lat"] for e in self.config.followcities]),
                     ",".join([e["lon"] for e in self.config.followcities]),
-                    ",".join([e["timezone"] for e in self.config.followcities]),
                     tunit,
                 )
             future_motivation = executor.submit(
@@ -4810,9 +4748,17 @@ class WeatherForecaster:
             # Extract Data
             current: dict[str, str] = weather_result["current"]
             daily: dict[str, str] = weather_result["daily"]
+            home_timezone_name: str = weather_result["timezone"]
             # Air quality, pollen, UV
             aqi_pollen_uv_result_data = aqi_pollen_uv_result.get("current", {})
             aqi: str = aqi_pollen_uv_result_data["us_aqi"] or 0
+
+            # Okay let's get this straight - so we're getting the timezone name
+            # after ip-location discovery, but still just in case this does
+            # not hurt to be here as an insurance
+            if self.config.timezone == "":
+                self.config.timezone = home_timezone_name
+                self.config.save()
 
             # Fill the object with data
             # self.data.is_day = True if current["is_day"] == "1" else False
@@ -4837,6 +4783,7 @@ class WeatherForecaster:
 
             # followcities_result[i]["current"]["temperature_2m"]
             # followcities_result[i]["current"]["is_day"]
+            modification_was_done: bool = False
             if self.config.followcities:
                 self.data.cities_data = []
                 if isinstance(followcities_result, dict):
@@ -4855,10 +4802,20 @@ class WeatherForecaster:
                             followcities_result["current"]["weather_code"]
                         ),
                     }
+
+                    if city_data["timezone"] == "":
+                        city_data["timezone"] = followcities_result["timezone"]
+                        self.config.followcities[-1]["timezone"] = followcities_result[
+                            "timezone"
+                        ]
+                        modification_was_done = True
+
                     self.data.cities_data = [city_data]
                 if isinstance(followcities_result, list):
                     # followcities_result = followcities_result
-                    for combodata in zip(self.config.followcities, followcities_result):
+                    for i, combodata in enumerate(
+                        zip(self.config.followcities, followcities_result)
+                    ):
                         city_data: dict = {
                             "temperature": round(
                                 float(combodata[1]["current"]["temperature_2m"])
@@ -4874,7 +4831,19 @@ class WeatherForecaster:
                                 combodata[1]["current"]["weather_code"]
                             ),
                         }
+
+                        if city_data["timezone"] == "":
+                            city_data["timezone"] = followcities_result[i]["timezone"]
+                            self.config.followcities[i]["timezone"] = (
+                                followcities_result[i]["timezone"]
+                            )
+                            modification_was_done = True
+
                         self.data.cities_data.append(city_data)
+
+                # Did we filled any missing config info? Timezone names maybe?
+                if modification_was_done:
+                    self.config.save()
 
                 # Keep an untouched copy of the build order so that a
                 # cached payload can still be re-sorted correctly later
@@ -6843,16 +6812,19 @@ class CommandlineParser:
         )
         action_group = cli_parser.add_mutually_exclusive_group()
         cli_parser.add_argument(
+            "-ver",
             "--version",
             action="store_true",
             help="Print the version",
         )
         cli_parser.add_argument(
+            "-u",
             "--updateapp",
             action="store_true",
             help="Check for updates, download and install updates.",
         )
         cli_parser.add_argument(
+            "-au",
             "--autoupdateapp",
             type=self.str2bool,
             nargs="?",
@@ -6902,21 +6874,25 @@ class CommandlineParser:
             help="A bit more printing on errors",
         )
         cli_parser.add_argument(
+            "-clr",
             "--clearcache",
             action="store_true",
             help="Clears the cache, the app log and the warnings log",
         )
         cli_parser.add_argument(
+            "-reqt",
             "--requesttimeout",
             type=int,
             help=f"Changes the request timeout (default: {REQTIMEOUT})",
         )
         cli_parser.add_argument(
+            "-ls",
             "--listfiles",
             action="store_true",
             help="List all the application files: LOG, config etc.",
         )
         cli_parser.add_argument(
+            "-lsps",
             "--listpolarstations",
             action="store_true",
             help="List all the Polar Stations you can follow",
@@ -6938,6 +6914,7 @@ class CommandlineParser:
             help=f"Specifies a longitude",
         )
         cli_parser.add_argument(
+            "-csort",
             "--citiessorting",
             choices=["unsorted", "city", "country"],
             default="",
@@ -7085,9 +7062,7 @@ class LocationManager:
                 "timezone" not in config.followcities[i]
                 or not config.followcities[i]["timezone"]
             ):
-                config.followcities[i]["timezone"] = locator.get_timezone_name(
-                    config.followcities[i]["lat"], config.followcities[i]["lon"]
-                )
+                config.followcities[i]["timezone"] = ""
         config.save()  # Update config
 
         self.logger.info(f"Followed new city: {city}, {country}")
@@ -7141,13 +7116,6 @@ if __name__ == "__main__":
         ):
             raise ValueError(
                 "If latitude or longitude is specified, all four arguments (latitude, longitude, city and country) must be specified."
-            )
-
-        # No point to run anything if this is not set
-        timezone_apikey: str = os.getenv(TIMEZONE_APIKEY_ENV_VARNAME)
-        if not timezone_apikey:
-            raise Exception(
-                f"Environment variable {TIMEZONE_APIKEY_ENV_VARNAME} is not set. Run the app with --help"
             )
 
         # This is nice to have, but not mandatory
