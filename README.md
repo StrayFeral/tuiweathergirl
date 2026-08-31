@@ -54,39 +54,14 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## WHAT'S NEW (CHANGELOG)
 
-- 2026-08-30 v.1.2.19: Fixed: TimeZoneDB API KEY NO LONGER NEEDED! Thanks to Reddit user recycledcoder. Code optimized a bit. Some comand-line parameters now have shorter versions.
-- 2026-08-25 v.1.2.18: Fixed: Improper forecasted humidity assessment and color coding. Followed Random Earth Points as cities, now appear in white in the Cities window. Sorting for the followed cities. Help changed.
-- 2026-08-25: New video tutorials for Windows10 and Linux has been created and uploaded to Youtube. Readme is updated with the new URLs.
-- 2026-08-25 v.1.2.17: Fixed: Crasher bug when a random Earth point is set as home location. Crasher in the auto-update.
-- 2026-08-24 v.1.2.16: Fixed: Crasher URL issue.
-- 2026-08-24 v.1.2.15: Basic view extended to show all warnings and a bit more info. Help reformatted. Small terminal exception message wording changed.
-- 2026-08-23 v.1.2.14: Fixed: Windows10 installation issues. Terminal no longer force-maximized. Added recent Win10 screenshot. Added directories for screenshots of known bugs.
-- 2026-08-22 v.1.2.13: Application update is now fully working.
-- 2026-08-22 v.1.2.6: Fixed: Bugs with the application updates.
-- 2026-08-21 v.1.2.0: Implemented application auto-update and force-update.
-- 2026-08-21 v.1.1.6: Abbreviation "ppl." expanded back to "people.".
-- 2026-08-20 v.1.1.5: Fixed duplicate wildfire warnings.
-- 2026-08-20 v.1.1.4: Electrostatic warning texts shortened to better fit the screen.
-- 2026-08-17 v.1.1.3: Fixed: Sky condition overlap in cities of interest.
-- 2026-08-17 v.1.1.2: Fixed: Abbreviation in cities of interest sky condition.
-- 2026-08-16 v.1.1.1: Fixed: Too long city/province names for cities of interest. Bug in holidays update.
-- 2026-08-16 v.1.1.0: Code refactored. Fixed: Bug in right-aligned text. Bug in TTYDashboard view. Bug in NASA Fireballs query. Optimized the 
-- 2026-08-13 v.1.0.13: Fixed: Temperature assessments now takes Fahrenheit into account too. Now Polar Stations could be followed too.
-- 2026-08-13 v.1.0.12: Fixed small bug in showing the current home time. Shortened the names of cities, countries and provinces.
-- 2026-08-08 v.1.0.11: Fixed bug: Now application could be closed with capital "Q" too.
-- 2026-08-08 v.1.0.10: Maximum cities of interest increased to 10. One error message changed.
-- 2026-08-08 v.1.0.9: Makefile now supports all major linux distros.
-- 2026-08-07 v.1.0.8: Terminal close and Ctrl-C now intercepted. Fixed minor bugs. Makefile fixed.
-- 2026-08-03 v.1.0.6: More defensive parsing of the NASA FIRMS response.
-- 2026-08-03 v.1.0.5: Now the "setup" view is not saved in the config, so your actual default view is preserved.
-- 2026-08-03 v.1.0.4: Fixed how the exception stacktrace is being printed.
-- 2026-08-03 v.1.0.3: Exception stacktrace is now always logged in the log file, so in case of found bug, just paste me the log.
+See [CHANGELOG.md](CHANGELOG.md) for a full history of changes and releases.
 
 ## TESTED ON
 
 1. Lubuntu 24.04.4 LTS x86_64 linux, 256 color terminal
 2. Windows 10
 3. Debian 13.3.0, 8 color terminal
+4. The official `python:3.9-bookworm` Docker image
 
 > [!WARNING]
 > The application was never tested on MacOS. I am providing installation instructions, but please do let me know if you had any installation issues and how you solved them. Thanks!
@@ -131,12 +106,15 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 ## DEPENDENCIES
 
-1. Python 3
+1. Python 3.9 or higher version
 2. `python3-babel`
 3. `python3-requests`
 4. `libncurses6`
 5. `tzdata`
 6. `python3-packaging`
+
+> [!TIP]
+> This application was written on `Python 3.12.3`
 
 ## INSTALLATION PREREQUISITES
 

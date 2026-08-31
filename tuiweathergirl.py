@@ -3,6 +3,20 @@
 # TUIWEATHERGIRL
 # 2026 by Evgueni Antonov (StrayF)
 
+# NOTE: This application was written on Python 3.12.3
+# and was tested on the official Python 3.9:bookworm Docker image for
+# compatibility.
+
+from __future__ import annotations
+import sys
+
+# Let's handle this in the very begining to avoid losing time later
+if sys.version_info < (3, 9):
+    raise RuntimeError(
+        f"This application requires Python 3.9 or higher. "
+        f"You are currently running Python {sys.version.split()[0]}."
+    )
+
 import argparse
 import concurrent.futures
 import configparser
@@ -19,7 +33,6 @@ import signal
 import socket
 import stat
 import subprocess
-import sys
 import tempfile
 import textwrap
 import time
@@ -42,7 +55,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.19"
+__version__: str = "1.2.20"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
@@ -2918,7 +2931,7 @@ class HolidaysManager:
         logger.debug(f"JSONDATA={pf(data)}")
         for holiday in data:
             new_holidays[holiday["date"]] = (
-                f"{holiday["countryCode"]}{separator}{holiday["name"]}"
+                f"{holiday['countryCode']}{separator}{holiday['name']}"
             )
 
         return new_holidays
@@ -3846,7 +3859,7 @@ class Locator:
         response = response.json()
 
         if response.get("status") == "fail":
-            raise Exception(f"Request failed: {response.get("message")}. Try again!")
+            raise Exception(f"Request failed: {response.get('message')}. Try again!")
 
         return response or {}
 
@@ -5524,10 +5537,10 @@ HOME CITY         |  {city}, {province}{country}""")
         else:
             for i, c in enumerate(followed_cities):
                 (
-                    print(f"{i+1}) {c["city"]}, {c["country"]}")
+                    print(f"{i+1}) {c['city']}, {c['country']}")
                     if i == 0
                     else print(
-                        f"                  |  {i+1}) {c["city"]}, {c["country"]}"
+                        f"                  |  {i+1}) {c['city']}, {c['country']}"
                     )
                 )
 
@@ -5620,14 +5633,14 @@ Barometric Press.| {baropressure} hPa
         print("\nCELESTIAL")
         print(hr)
         print(
-            f"Sunrise | {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}"
+            f"Sunrise | {self.forecaster.data.misc_data['celestial']['sun']['sunrise']}"
         )
         print(
-            f"Sunset  | {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}"
+            f"Sunset  | {self.forecaster.data.misc_data['celestial']['sun']['sunset']}"
         )
-        print(f"Moon    | {self.forecaster.data.misc_data["celestial"]["moon"]}")
-        print(f"Zodiac  | {self.forecaster.data.misc_data["celestial"]["zodiac"]}")
-        print(f"Chinese | {self.forecaster.data.misc_data["celestial"]["chinese"]}")
+        print(f"Moon    | {self.forecaster.data.misc_data['celestial']['moon']}")
+        print(f"Zodiac  | {self.forecaster.data.misc_data['celestial']['zodiac']}")
+        print(f"Chinese | {self.forecaster.data.misc_data['celestial']['chinese']}")
 
         print("\nCITIES OF INTEREST")
         print(hr)
@@ -6245,7 +6258,7 @@ class DashboardView(ColorViews):
                         y=wy,
                     )
                     followcities_window.print(
-                        f"{self._get_weather_description_icon(weather_code2, city_data["is_day"])} {sky_condition[:10]}",
+                        f"{self._get_weather_description_icon(weather_code2, city_data['is_day'])} {sky_condition[:10]}",
                         x=data_x2,
                         y=wy,
                         theme=self._get_sky_cp(sky2),
@@ -6294,7 +6307,7 @@ class DashboardView(ColorViews):
 
                 if "celestial" in self.forecaster.data.misc_data:
                     celestial_window.clear()
-                    spc: str = f"{" " * 6}|{" " * 6}"  # Spacer
+                    spc: str = " " * 6 + "|" + " " * 6  # Spacer
                     s: str = (
                         f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon"])}  {self.forecaster.data.misc_data["celestial"]["moon"]}'
                     )
@@ -6740,7 +6753,7 @@ class TTYDashboardView(ColorViews):
 
                 if "celestial" in self.forecaster.data.misc_data:
                     celestial_window.clear()
-                    spc: str = f"{" " * 2}|{" " * 2}"  # Spacer
+                    spc: str = " " * 2 + "|" + " " * 2  # Spacer
                     s: str = (
                         f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}'
                     )
