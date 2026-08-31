@@ -18,7 +18,7 @@ tag_message = "Bump version: {current_version} → {new_version}"
 allow_dirty = false
 commit = true
 message = "Bump version: {current_version} → {new_version}"
-push = true  # Automatically pushes commits and tags to origin
+post_commit_hooks = ["git push origin main", "git push origin --tags"]
 
 # List all files where the version string needs to be bumped
 [[tool.bumpversion.files]]
