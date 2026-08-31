@@ -6,4 +6,5 @@ isort
 pytest
 Babel
 requests
+bump-my-version
 

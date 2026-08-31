@@ -4,6 +4,8 @@
 
 ## CONTENTS
 
+`CURRENT APPLICATION VERSION: v1.2.20`
+
 - [Download](#download)
 - [Description](#description)
 - [What's new (Changelog)](#whats-new-changelog)
