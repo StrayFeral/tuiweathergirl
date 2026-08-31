@@ -55,7 +55,7 @@ from packaging.version import parse as parse_version
 # I intentionally left these here, as I tend to change them time to time
 # and don't want to scroll too much to find them
 
-__version__: str = "1.2.21"
+__version__: str = "1.2.22"
 
 DEBUG_MODE: bool = False
 DEFAULT_VIEW: str = "dashboard"
