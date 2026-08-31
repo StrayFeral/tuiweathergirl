@@ -144,10 +144,10 @@ In case of difficulties, please see [VIDEO TUTORIALS - installation, in-depth ap
 
 ### MANDATORY COMPONENTS AND DATA
 
+1. PYTHON3: Please get the latest: https://www.python.org/downloads/
+
 > [!TIP]
 > UPDATE 2026-08-31: THE TIMEZONEDB API KEY IS NO LONGER NEEDED! (at all)
-
-1. PYTHON3: Please get the latest: https://www.python.org/downloads/
 
 > [!WARNING]
 > FOR WINDOWS 10 DO NOT USE THE OLD CMD.EXE: USE "WINDOWS TERMINAL" INSTEAD! You can install it from the Microsoft Store. See my Windows 10 video below for details.
