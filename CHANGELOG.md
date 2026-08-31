@@ -162,4 +162,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.3] - 2026-08-03
 ### Added
 - Exception stacktrace is now always logged in the log file, so in case of found bug, just paste me the log.
-- 
