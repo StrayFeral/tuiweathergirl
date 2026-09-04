@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Some strings tried to print variables, but weren't declared as f-strings.
-- The USGS earthquake query logic
+- The USGS earthquake query logic: Now minimum magnitude is set to 2.0M and radius is 220km.
 
 ## [1.2.20] - 2026-08-31
 ### Added
