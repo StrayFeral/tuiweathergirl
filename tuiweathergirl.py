@@ -133,7 +133,7 @@ class InstanceGuard:
             LOCKSOCKET.bind((ip, port))
         except socket.error:
             raise Exception(
-                "Error: Application is already running. If you suspect another instance stalled, please check applications listening at {ip}:{port}."
+                f"Error: Application is already running. If you suspect another instance stalled, please check applications listening at {ip}:{port}."
             )
 
 
@@ -2539,7 +2539,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get wildfire data (FIRMS): HTTP Err {response.status_code}: {response.text}",
+                    f" Cannot get wildfire data (FIRMS): HTTP Err {response.status_code}: {response.text}",
                 ]
             )
             return fire_list
@@ -2554,7 +2554,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get wildfire data (FIRMS): Not a CSV: {response.text}",
+                    f" Cannot get wildfire data (FIRMS): Not a CSV: {response.text}",
                 ]
             )
             return fire_list
@@ -2570,7 +2570,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get wildfire data (FIRMS): {text}",
+                    f" Cannot get wildfire data (FIRMS): {text}",
                 ]
             )
             return fire_list
@@ -2682,27 +2682,71 @@ class DisasterAdvisor:
                 fire_list.append(["DISASTER", location, "WILDFIRE", message])
 
         return fire_list
+    
+    @staticmethod
+    def _felt_category(mmi: float) -> str:
+        """Translates a Modified Mercalli Intensity (MMI) value into a
+        plain-English description of how strongly a quake is typically
+        felt on the surface.
+        """
 
-    def get_detailed_quakes(self, lat: str, lon: str) -> list[list[str]]:
-        """USGS query"""
+        if mmi < 2:
+            return "NOT.FELT"
+        elif mmi < 4:
+            return "WEAK.FELT"
+        elif mmi < 6:
+            return "MOD.FELT"
+        elif mmi < 8:
+            return "STRONG.FELT"
+        else:
+            return "MONSTER QUAKE"
+
+    def _estimate_mmi(self, magnitude: float, distance_km: float) -> float:
+        """Rough fallback estimate of the Modified Mercalli Intensity (MMI),
+        used only when a data source doesn't hand us an official measured
+        value (EMSC never does; USGS only does for events with a ShakeMap).
+
+        This is a coarse magnitude/distance heuristic, NOT a real ShakeMap.
+        It exists purely so every quake gets a sensible felt-strength label
+        instead of being silently dropped or mislabeled "not felt" just
+        because the official mmi field was missing.
+        """
+
+        distance_km = max(distance_km, 1.0)
+        mmi: float = 1.5 * magnitude - 2.5 * math.log10(distance_km) + 2.5
+        return max(1.0, min(mmi, 10.0))
+
+    def _get_usgs_quakes(
+        self,
+        lat: str,
+        lon: str,
+        start_time: str,
+        max_distance_km: float,
+        min_magnitude: float,
+    ) -> tuple[list[dict], list[list[str]]]:
+        """Pulls earthquakes from the USGS FDSN event web service.
+
+        Returns (raw_quakes, errors) - raw, not yet formatted, since the
+        caller still needs to de-duplicate against other sources before
+        turning these into display strings.
+        """
 
         self.logger.info("** Querying USGS **")
 
-        min_mmi: float = 2  # I'm not interested in weaker ones
+        raw_quakes: list[dict] = []
+        errors: list[list[str]] = []
 
-        start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
+        url: str = (
+            "https://earthquake.usgs.gov/fdsnws/event/1/query"
+            f"?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}"
+            f"&maxradiuskm={max_distance_km}&minmagnitude={min_magnitude}"
         )
-        start_time: date = start_of_yesterday.isoformat()
-
-        quakes: list[list[str]] = []
-        url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={start_time}&latitude={lat}&longitude={lon}&maxradiuskm=200&minmagnitude=2.5"
         self.logger.debug(f"URL={url}")
 
         try:
-            response = requests.get(url, timeout=self.reqtimeout)
+            response: requests.Response = requests.get(url, timeout=self.reqtimeout)
         except Exception:
-            quakes.append(
+            errors.append(
                 [
                     "ERROR",
                     "ALL",
@@ -2710,37 +2754,256 @@ class DisasterAdvisor:
                     " Cannot get earthquakes (USGS). Will try again on the next refresh.",
                 ]
             )
-            return quakes
+            return raw_quakes, errors
 
         self.logger.debug(f"RESPONSE={pf(response)}")
         if response.status_code != 200:
+            return raw_quakes, errors
+
+        data = response.json()
+
+        for feature in data.get("features", []):
+            properties: dict = feature["properties"]
+            mmi_raw = properties.get("mmi")
+
+            raw_quakes.append(
+                {
+                    "source": "USGS",
+                    "time": datetime.fromtimestamp(
+                        properties["time"] / 1000, tz=timezone.utc
+                    ),
+                    "magnitude": float(properties["mag"]),
+                    "lat": float(feature["geometry"]["coordinates"][1]),
+                    "lon": float(feature["geometry"]["coordinates"][0]),
+                    "depth": float(feature["geometry"]["coordinates"][-1]),
+                    "place": properties["place"],
+                    "mmi": float(mmi_raw) if mmi_raw is not None else None,
+                    "tsunami": bool(properties.get("tsunami") or 0),
+                    "alert": properties.get("alert") or "",
+                }
+            )
+
+        return raw_quakes, errors
+
+    def _get_emsc_quakes(
+        self,
+        lat: str,
+        lon: str,
+        start_time: str,
+        max_distance_km: float,
+        min_magnitude: float,
+    ) -> tuple[list[dict], list[list[str]]]:
+        """Pulls earthquakes from the EMSC (European-Mediterranean Seismological
+        Centre) FDSN event web service. EMSC picks up many small regional
+        quakes - e.g. in the Balkans - that never make it into USGS's global
+        catalogue, since it aggregates feeds from national networks.
+
+        Returns (raw_quakes, errors) - see _get_usgs_quakes().
+        """
+
+        self.logger.info("** Querying EMSC **")
+
+        raw_quakes: list[dict] = []
+        errors: list[list[str]] = []
+
+        # EMSC's circle-search radius is in degrees, not km (unlike USGS).
+        # ~111.195 km per degree, assuming a spherical Earth - consistent
+        # with the mean radius used in _haversine().
+        km_per_degree: float = 111.195
+        max_radius_degrees: float = max_distance_km / km_per_degree
+
+        url: str = (
+            "https://www.seismicportal.eu/fdsnws/event/1/query"
+            f"?format=json&starttime={start_time}&latitude={lat}&longitude={lon}"
+            f"&maxradius={max_radius_degrees:.4f}&minmagnitude={min_magnitude}"
+        )
+        self.logger.debug(f"URL={url}")
+
+        try:
+            response: requests.Response = requests.get(url, timeout=self.reqtimeout)
+        except Exception:
+            errors.append(
+                [
+                    "ERROR",
+                    "ALL",
+                    "ERROR",
+                    " Cannot get earthquakes (EMSC). Will try again on the next refresh.",
+                ]
+            )
+            return raw_quakes, errors
+
+        self.logger.debug(f"RESPONSE={pf(response)}")
+        # EMSC returns HTTP 204 (No Content) when nothing matches - that's
+        # not an error, just an empty result.
+        if response.status_code != 200:
+            return raw_quakes, errors
+
+        data = response.json()
+
+        for feature in data.get("features", []):
+            properties: dict = feature["properties"]
+
+            raw_quakes.append(
+                {
+                    "source": "EMSC",
+                    "time": datetime.fromisoformat(
+                        properties["time"].replace("Z", "+00:00")
+                    ),
+                    "magnitude": float(properties["mag"]),
+                    "lat": float(properties["lat"]),
+                    "lon": float(properties["lon"]),
+                    "depth": float(properties.get("depth") or 0.0),
+                    "place": properties.get("flynn_region") or "Unknown location",
+                    "mmi": None,  # EMSC doesn't supply a measured intensity
+                    "tsunami": False,  # EMSC doesn't supply a tsunami flag
+                    "alert": "",  # EMSC doesn't supply a PAGER-style alert
+                }
+            )
+
+        return raw_quakes, errors
+
+    def _dedupe_quakes(self, raw_quakes: list[dict]) -> list[dict]:
+        """Merges duplicate reports of the same physical earthquake seen
+        from multiple sources (USGS and EMSC very often both report the
+        same event, each with its own slightly different magnitude and
+        epicenter estimate).
+
+        Two records are treated as the same event if they're close in
+        time, close in space, and reasonably close in magnitude. The
+        tolerances below are generous on purpose - different networks
+        commonly disagree on the exact origin time, location and
+        magnitude of the very same earthquake.
+        """
+
+        TIME_TOLERANCE_SECONDS: int = 120
+        DISTANCE_TOLERANCE_KM: float = 50.0
+        MAGNITUDE_TOLERANCE: float = 1.0
+
+        merged: list[dict] = []
+
+        for quake in raw_quakes:
+            match: dict | None = None
+
+            for existing in merged:
+                time_diff: float = abs(
+                    (quake["time"] - existing["time"]).total_seconds()
+                )
+                if time_diff > TIME_TOLERANCE_SECONDS:
+                    continue
+
+                distance: float = self._haversine(
+                    quake["lat"], quake["lon"], existing["lat"], existing["lon"]
+                )
+                if distance > DISTANCE_TOLERANCE_KM:
+                    continue
+
+                if abs(quake["magnitude"] - existing["magnitude"]) > MAGNITUDE_TOLERANCE:
+                    continue
+
+                match = existing
+                break
+
+            if match is None:
+                quake["sources"] = [quake["source"]]
+                merged.append(quake)
+                continue
+
+            # Same physical event - fold it into the existing record
+            # rather than reporting it twice.
+            if quake["source"] not in match["sources"]:
+                match["sources"].append(quake["source"])
+
+            if match["mmi"] is None and quake["mmi"] is not None:
+                match["mmi"] = quake["mmi"]
+
+            # Prefer whichever report gives the larger magnitude and its
+            # matching place name, since that's usually the more complete
+            # / more reviewed estimate.
+            if quake["magnitude"] > match["magnitude"]:
+                match["magnitude"] = quake["magnitude"]
+                match["place"] = quake["place"]
+
+            match["tsunami"] = match["tsunami"] or quake["tsunami"]
+            if not match["alert"] and quake["alert"]:
+                match["alert"] = quake["alert"]
+
+        return merged
+
+    def get_detailed_quakes(
+        self, lat: str, lon: str, continent_code: str | None
+    ) -> list[list[str]]:
+        """Pulls earthquakes from USGS, and additionally from EMSC when the
+        location is in Europe, starting midnight of the previous day.
+        Duplicate reports of the same event are merged. Each quake is
+        labeled with how strongly it's expected to be felt on the surface.
+
+        continent_code is the two-letter continent code from the config
+        (e.g. "EU", "AS", "AF", ...). If it's missing, empty, or "XX"
+        (the sentinel used for manually-entered, ungeocoded locations),
+        we have no reliable way to judge which sources even apply here,
+        so we skip earthquake monitoring entirely for this location.
+        """
+
+        if not continent_code or continent_code.upper() == "XX":
             return []
 
-        data: requests.Response = response.json()
+        # self.logger.info("** Querying USGS and EMSC for earthquakes **")
 
-        for feature in data["features"]:
-            magnitude: float = float(feature["properties"]["mag"])
-            place: str = feature["properties"]["place"]
-            alert: str = feature["properties"]["alert"]
-            tsunami: int = feature["properties"].get("tsunami") or 0
-            mmi_raw = feature["properties"].get("mmi")
-            mmi: float = float(mmi_raw) if mmi_raw is not None else 0.0
-            depth: float = float(feature["geometry"]["coordinates"][-1])
-            plane: str = "EARTH"
+        max_distance_km: float = 220.0
+        min_magnitude: float = 2.0
 
-            if depth < 0:
-                plane = "UNDERWATER"
+        start_of_yesterday: date = (datetime.now() - timedelta(days=1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        start_time: str = start_of_yesterday.isoformat()
 
-            tsunami_str: str = ""
-            if tsunami:
-                tsunami_str = "[TSUNAMI!]"
+        raw_quakes: list[dict] = []
+        errors: list[list[str]] = []
 
-            if mmi < min_mmi:
-                continue
+        usgs_quakes, usgs_errors = self._get_usgs_quakes(
+            lat, lon, start_time, max_distance_km, min_magnitude
+        )
+        raw_quakes.extend(usgs_quakes)
+        errors.extend(usgs_errors)
+
+        # EMSC only usefully covers Europe and the Mediterranean basin.
+        # Continent codes are too coarse to detect "Mediterranean"
+        # precisely (e.g. Turkey sits in "AS" and Egypt in "AF", right
+        # alongside countries nowhere near the Mediterranean), so this is
+        # deliberately conservative and only queries EMSC for "EU". If you
+        # regularly want EMSC coverage for a Mediterranean-adjacent
+        # non-European home location, this check would need to move to a
+        # country-code list instead.
+        if continent_code.upper() == "EU":
+            emsc_quakes, emsc_errors = self._get_emsc_quakes(
+                lat, lon, start_time, max_distance_km, min_magnitude
+            )
+            raw_quakes.extend(emsc_quakes)
+            errors.extend(emsc_errors)
+
+        merged_quakes: list[dict] = self._dedupe_quakes(raw_quakes)
+
+        quakes: list[list[str]] = list(errors)
+        for quake in merged_quakes:
+            distance: float = self._haversine(
+                float(lat), float(lon), quake["lat"], quake["lon"]
+            )
+            mmi: float = (
+                quake["mmi"]
+                if quake["mmi"] is not None
+                else self._estimate_mmi(quake["magnitude"], distance)
+            )
+            felt: str = self._felt_category(mmi)
+
+            plane: str = "UNDERWATER" if quake["depth"] < 0 else "EARTH"
+            tsunami_str: str = "[TSUNAMI]" if quake["tsunami"] else ""
+            alert_str: str = f"[{quake['alert'].upper()}]" if quake["alert"] else ""
+            source_str: str = "+".join(quake["sources"])
 
             location: str = "***"
             message: str = (
-                f"[{magnitude}][{alert.upper()}][{plane}]{tsunami_str} {place}"
+                f"[{quake['magnitude']:.1f}M][{felt}]{alert_str}[{plane}]{tsunami_str} "
+                f"{distance:.0f}km away - {quake['place']} ({source_str})"
             )
             quakes.append(["DISASTER", location, "EARTHQUAKE", message])
 
@@ -4703,7 +4966,10 @@ class WeatherForecaster:
                 self.config.timezone,
             )
             future_quakes = executor.submit(
-                disaster_advisor.get_detailed_quakes, self.config.lat, self.config.lon
+                disaster_advisor.get_detailed_quakes,
+                self.config.lat,
+                self.config.lon,
+                self.config.continent_code,
             )
             future_fireballs = executor.submit(disaster_advisor.get_fireballs)
             future_geomagnetic_scales = executor.submit(
@@ -7225,11 +7491,11 @@ if __name__ == "__main__":
         # the user set manually some insane values
         if config.reqtimeout < 5:
             raise ValueError(
-                "Too small value for request timeout ({config.reqtimeout}). Better set values of 5 or larger."
+                f"Too small value for request timeout ({config.reqtimeout}). Better set values of 5 or larger."
             )
         if config.reqtimeout > 30:
             raise ValueError(
-                "Very large value for request timeout ({config.reqtimeout}). Better set values of 5 to 10."
+                f"Very large value for request timeout ({config.reqtimeout}). Better set values of 5 to 10."
             )
 
         # Location management
