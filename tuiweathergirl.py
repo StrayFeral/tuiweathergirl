@@ -8,6 +8,7 @@
 # compatibility.
 
 from __future__ import annotations
+
 import sys
 
 # Let's handle this in the very begining to avoid losing time later
@@ -110,6 +111,7 @@ SUBMIT_BUG: str = (
     "Submit a bug to the project GitHub page, attach your config file and your logfile."
 )
 REFRESH_INTERVAL: int = 30  # minutes
+REFRESH_INTERVAL_ON_FAIL: int = 3  # minutes
 DEFAULT_LOCALE: str = "en_US"  # The fallback plan
 
 # Color indexes
@@ -2682,7 +2684,7 @@ class DisasterAdvisor:
                 fire_list.append(["DISASTER", location, "WILDFIRE", message])
 
         return fire_list
-    
+
     @staticmethod
     def _felt_category(mmi: float) -> str:
         """Translates a Modified Mercalli Intensity (MMI) value into a
@@ -2897,7 +2899,10 @@ class DisasterAdvisor:
                 if distance > DISTANCE_TOLERANCE_KM:
                     continue
 
-                if abs(quake["magnitude"] - existing["magnitude"]) > MAGNITUDE_TOLERANCE:
+                if (
+                    abs(quake["magnitude"] - existing["magnitude"])
+                    > MAGNITUDE_TOLERANCE
+                ):
                     continue
 
                 match = existing
@@ -4931,9 +4936,9 @@ class WeatherForecaster:
                     ",".join([e["lon"] for e in self.config.followcities]),
                     tunit,
                 )
-            future_motivation = executor.submit(
-                Motivator.get_motivation, self.config.reqtimeout
-            )
+            # future_motivation = executor.submit(
+            #     Motivator.get_motivation, self.config.reqtimeout
+            # )
             # future_fact = executor.submit(
             #     bulgarian.get_history_fact,
             #     self.config.reqtimeout,
@@ -4991,7 +4996,7 @@ class WeatherForecaster:
             spaceweather_warnings: list[list[str]] = spaceweather_advisor.get_warnings(
                 kp_index, geomagnetic_scales
             )
-            motivation: list[str] = future_motivation.result()
+            # motivation: list[str] = future_motivation.result()
             disasters: list[list[str]] = future_disasters.result()
             electrostatic_xray_flux: str = future_electrostatic_xray_flux.result()
             electrostatic_warning: str = (
@@ -5368,6 +5373,7 @@ class Views:
         self.warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
+        self.refresh_interval_on_fail: int = REFRESH_INTERVAL_ON_FAIL
         self.height: int | None = None
         self.width: int | None = None
         self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
@@ -6229,385 +6235,433 @@ class DashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
+            refresh_fail_counter: int = 0
 
             # Data update
-            if elapsed >= timedelta(minutes=self.weather_refresh_interval):
-                self.logger.info("--- DATA REFRESH ---")
-                self.forecaster.get_data()
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval) or (
+                refresh_fail_counter > 0
+                and elapsed >= timedelta(minutes=self.weather_refresh_interval_on_fail)
+            ):
+                if refresh_fail_counter == 0:
+                    self.logger.info("--- DATA REFRESH ---")
+                else:
+                    self.logger.info("--- RETRYING DATA REFRESH ---")
+
+                try:
+                    self.forecaster.get_data()
+                    refresh_fail_counter = 0
+                    
+                    # Restoring fail refresh interval to the short one
+                    weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
+                except Exception as e:
+                    refresh_fail_counter += 1
+
+                    if refresh_fail_counter > 3:
+                        # First let's increase the refresh interval
+                        # so we don't bother the APIs that much
+                        weather_refresh_interval_on_fail = REFRESH_INTERVAL
+                        
+                        warningsman: WarningsManager = WarningsManager()
+                        warningsman.home_location = (
+                            f"{self.config.city}-{self.config.country_code2}"
+                        )
+                        errmessage: list[str] = [
+                            "ERROR",
+                            "ALL",
+                            "ERROR",
+                            f"[DATA] {e}",
+                        ]
+                        warningsman.append(*errmessage)
+
                 start_time: datetime = datetime.now()
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
 
-            # Technically we do not need this, but filling up the addstr()s
-            # later would be more messy without it
-            weather_code: int = self.forecaster.data.weather_code
-            sky: str = self.forecaster.data.sky
-            temperature: int = self.forecaster.data.temperature
-            tmin: int = self.forecaster.data.min
-            tmax: int = self.forecaster.data.max
-            hmin: int = self.forecaster.data.hmin
-            hmax: int = self.forecaster.data.hmax
-            hcur: int = self.forecaster.data.hcur
-            baropressure: float = self.forecaster.data.baropressure
-            tsuffix: str = self.presconf.tsuffix
-            wunit: str = self.presconf.wunit
-            wind: int = self.forecaster.data.wind
-            winddir: str = self.forecaster.data.wind_direction
-            aqi: int = self.forecaster.data.aqi
-            airquality: str = self.forecaster.data.air_quality
-            precipitation: int = self.forecaster.data.precipitation
-            is_day: bool = self.forecaster.data.is_day
-            wind_type: str = self.forecaster.data.wind_type
-            # precipitation_type: str = self.forecaster.data.precipitation_type
-            humidity_level_min: str = self.forecaster.data.humidity_level_min
-            humidity_level_max: str = self.forecaster.data.humidity_level_max
-            humidity: str = self.forecaster.data.humidity
-            wind_direction_long: str = self.forecaster.data.wind_direction_long
-            # ---
-            # warnings: list[list[str]] = self.forecaster.data.warnings
-            week: list[BriefDailyForecast] = self.forecaster.data.week
-            follow_cities: list = self.forecaster.data.cities_data
+            # --------------------------------------------- SCREEN REFRESH START
+            if refresh_fail_counter == 0:
+                # Technically we do not need this, but filling up the addstr()s
+                # later would be more messy without it
+                weather_code: int = self.forecaster.data.weather_code
+                sky: str = self.forecaster.data.sky
+                temperature: int = self.forecaster.data.temperature
+                tmin: int = self.forecaster.data.min
+                tmax: int = self.forecaster.data.max
+                hmin: int = self.forecaster.data.hmin
+                hmax: int = self.forecaster.data.hmax
+                hcur: int = self.forecaster.data.hcur
+                baropressure: float = self.forecaster.data.baropressure
+                tsuffix: str = self.presconf.tsuffix
+                wunit: str = self.presconf.wunit
+                wind: int = self.forecaster.data.wind
+                winddir: str = self.forecaster.data.wind_direction
+                aqi: int = self.forecaster.data.aqi
+                airquality: str = self.forecaster.data.air_quality
+                precipitation: int = self.forecaster.data.precipitation
+                is_day: bool = self.forecaster.data.is_day
+                wind_type: str = self.forecaster.data.wind_type
+                # precipitation_type: str = self.forecaster.data.precipitation_type
+                humidity_level_min: str = self.forecaster.data.humidity_level_min
+                humidity_level_max: str = self.forecaster.data.humidity_level_max
+                humidity: str = self.forecaster.data.humidity
+                wind_direction_long: str = self.forecaster.data.wind_direction_long
+                # ---
+                # warnings: list[list[str]] = self.forecaster.data.warnings
+                week: list[BriefDailyForecast] = self.forecaster.data.week
+                follow_cities: list = self.forecaster.data.cities_data
 
-            # Saving the cache
-            # cache = CacheManager()
-            # cache.register("weather_data", self.forecaster.data)
-            # cache.save()
+                # Saving the cache
+                # cache = CacheManager()
+                # cache.register("weather_data", self.forecaster.data)
+                # cache.save()
 
-            # home_day: str = "night"
-            # if is_day:
-            #     home_day = "day"
-            home_day_icon: str = self._get_daynight_icon(is_day)
+                # home_day: str = "night"
+                # if is_day:
+                #     home_day = "day"
+                home_day_icon: str = self._get_daynight_icon(is_day)
 
-            # ----------------------------------------- Screen update
-            # Today's date and time - we need this to refresh more often
-            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
-            # day_season: str = f"({home_day}) {season}"
-            day_season: str = f"{home_day_icon} {season}"
-            location_window.print(
-                day_now,
-                x=-location_window.vislen(day_season),
-                align="right",
-                theme="home",
-            )
-            location_window.print(
-                day_season, align="right"  # , theme=self._get_daynight_cp(is_day)
-            )
-
-            # The followed cities
-            for city_cnt, city_data in enumerate(follow_cities):
-                city_wx: int = 59
-                # citytimezone: str = self.config.followcities[city_cnt]["timezone"]
-                citytimezone: str = city_data["timezone"]
-                city_time: str = self.presconf.get_time_for_timezone(citytimezone)
-                followcities_window.print(f"{city_time} ", x=city_wx, y=city_cnt)
-
-            if force_screen_update:
-                self.logger.info("--- screen update ---")
-                force_screen_update = False
-
-                # Current sky, temperature and temperature range
-                currently_window.clear()
-                currently_window.print("Sky   :", x=labels_x, y=0)
-                currently_window.print("Temp  :", x=labels_x, y=1)
-                currently_window.print("Range :", x=labels_x, y=2)
-                currently_window.print("Humidt:", x=labels_x, y=3)
-                currently_window.print(
-                    f"{self._get_weather_description_icon(weather_code, is_day)}  {sky}",
-                    x=data_x,
-                    y=0,
-                    theme=self._get_sky_cp(sky),
+                # ----------------------------------------- Screen update
+                # Today's date and time - we need this to refresh more often
+                day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+                # day_season: str = f"({home_day}) {season}"
+                day_season: str = f"{home_day_icon} {season}"
+                location_window.print(
+                    day_now,
+                    x=-location_window.vislen(day_season),
+                    align="right",
+                    theme="home",
                 )
-                currently_window.print(
-                    f"{temperature}°{tsuffix}",
-                    x=data_x,
-                    y=1,
-                    theme=self._get_temp_cp(temperature, tsuffix),
+                location_window.print(
+                    day_season, align="right"  # , theme=self._get_daynight_cp(is_day)
                 )
-
-                currently_window.print(
-                    f"{tmin}°{tsuffix}",
-                    x=data_x,
-                    y=2,
-                    theme=self._get_temp_cp(tmin, tsuffix),
-                )
-                currently_window.print("/", x=data_x + 4, y=2)
-                currently_window.print(
-                    f"{tmax}°{tsuffix}",
-                    x=data_x + 5,
-                    y=2,
-                    theme=self._get_temp_cp(tmax, tsuffix),
-                )
-
-                # Wind, air quality and precipitation labels
-                airquality_window.clear()
-                airquality_window.print("Wind  :", x=labels_x, y=0)
-                airquality_window.print("Air Q :", x=labels_x, y=1)
-                airquality_window.print(
-                    self.forecaster.data.precipitation_type,
-                    x=labels_x,
-                    y=2,
-                    theme=self._get_precipitation_type_cp(
-                        self.forecaster.data.precipitation_type
-                    ),
-                )
-                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
-                airquality_window.print("Humidt:", x=labels_x, y=3)
-
-                currently_window.print(
-                    f"{self.forecaster.data.hcur}% ({humidity})",
-                    x=data_x,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hcur), int(temperature), tsuffix
-                    ),
-                )
-                # Wind, air quality and precipitation
-                airquality_window.print(
-                    f"{wind_type}, {winddir} {wind}{wunit}",
-                    x=data_x,
-                    y=0,
-                    theme=self._get_wind_cp(wind, wunit),
-                )
-                airquality_window.print(
-                    self.forecaster.data.precipitation_type,
-                    x=labels_x,
-                    y=2,
-                    theme=self._get_precipitation_type_cp(
-                        self.forecaster.data.precipitation_type
-                    ),
-                )
-                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
-                airquality_window.print(
-                    f"{airquality} ({aqi})",
-                    x=data_x,
-                    y=1,
-                    theme=self._get_aqistr_cp(airquality),
-                )
-                airquality_window.print("[", x=data_x, y=2, theme="border")
-                airquality_window.print(
-                    self.prog_bar(precipitation, "●", "○"),
-                    x=data_x + 1,
-                    y=2,
-                    theme=self._get_progbar_cp(precipitation),
-                )
-                airquality_window.print("]", x=data_x + 10, y=2, theme="border")
-                airquality_window.print(
-                    f"{precipitation}%  ",
-                    x=data_x + 12,
-                    y=2,
-                    theme=self._get_progbar_cp(precipitation),
-                )
-                humidity_str: str = (
-                    f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
-                )
-                airquality_window.print(
-                    humidity_str,
-                    x=data_x,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(tmin), tsuffix
-                    ),
-                )
-                airquality_window.print("/", x=data_x + len(humidity_str), y=3)
-                airquality_window.print(
-                    f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
-                    x=data_x + len(humidity_str) + 1,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(tmax), tsuffix
-                    ),
-                )
-
-                # 7 day forecast
-                forecast_window.clear()
-                forecast_window.draw_line(
-                    x=first_two_windows_width - 2,
-                    y=0,
-                    direction="vertical",
-                    length=4,
-                    theme="border",
-                )
-                for day_cnt, day in enumerate(week):
-                    wy: int = day_cnt % 4
-                    wx: int = labels_x if day_cnt < 4 else first_two_windows_width + 1
-                    data_x2: int = wx + 5
-                    precip_x: int = data_x2 + 10
-
-                    dmin: int = day.min
-                    dmax: int = day.max
-                    dprecip: int = day.precip
-                    dow: str = day.dow
-
-                    forecast_window.print(f"{dow}:", x=wx, y=wy)
-                    forecast_window.print(
-                        f"{dmin}°{tsuffix}",
-                        x=data_x2,
-                        y=wy,
-                        theme=self._get_temp_cp(dmin, tsuffix),
-                    )
-                    forecast_window.print("/", x=data_x2 + 4, y=wy)
-                    forecast_window.print(
-                        f"{dmax}°{tsuffix}",
-                        x=data_x2 + 5,
-                        y=wy,
-                        theme=self._get_temp_cp(dmax, tsuffix),
-                    )
-
-                    forecast_window.print("[", x=precip_x, y=wy, theme="border")
-                    forecast_window.print(
-                        self.prog_bar(dprecip, "●", "○"),
-                        x=precip_x + 1,
-                        y=wy,
-                        theme=self._get_progbar_cp(dprecip),
-                    )
-                    forecast_window.print("]", x=precip_x + 10, y=wy, theme="border")
-                    forecast_window.print(
-                        f"{dprecip}%  ",
-                        x=precip_x + 12,
-                        y=wy,
-                        theme=self._get_progbar_cp(dprecip),
-                    )
 
                 # The followed cities
                 for city_cnt, city_data in enumerate(follow_cities):
-                    wy: int = city_cnt  # % 9
-                    wx: int = 1  # if city_cnt < 9 else 15
-                    data_x1: int = wx + 38
-                    data_x2: int = data_x1 + 7
-                    daynight_icon_x: int = 65
+                    city_wx: int = 59
+                    # citytimezone: str = self.config.followcities[city_cnt]["timezone"]
+                    citytimezone: str = city_data["timezone"]
+                    city_time: str = self.presconf.get_time_for_timezone(citytimezone)
+                    followcities_window.print(f"{city_time} ", x=city_wx, y=city_cnt)
 
-                    # day: str = "night"
-                    # if city_data["is_day"]:
-                    #     day = "day"
-                    temp: int = city_data["temperature"]
-                    # city2: str = self.config.followcities[city_cnt]["city"]
-                    city2: str = city_data["city"]
-                    city2 = self.presconf.abbreviate_name(city2)
-                    if not "STN" in city2:
-                        city2 = city2[:15]
-                    # province2: str = self.config.followcities[city_cnt]["province"]
-                    province2: str = city_data["province"]
-                    province2 = self.presconf.abbreviate_name(province2)
-                    # country2: str = self.config.followcities[city_cnt]["country"]
-                    # country2_code2: str = self.config.followcities[city_cnt]["country_code2"]
-                    country2: str = city_data["country"]
-                    country2_code2: str = city_data["country_code2"]
-                    weather_code2: str = city_data["weather_code"]
-                    sky2: str = city_data["sky"]
+                if force_screen_update:
+                    self.logger.info("--- screen update ---")
+                    force_screen_update = False
 
-                    if province2.isdigit():
-                        province2 = ""
-                    elif len(province2) > 0:
-                        province2 = f", {province2}"
+                    # Current sky, temperature and temperature range
+                    currently_window.clear()
+                    currently_window.print("Sky   :", x=labels_x, y=0)
+                    currently_window.print("Temp  :", x=labels_x, y=1)
+                    currently_window.print("Range :", x=labels_x, y=2)
+                    currently_window.print("Humidt:", x=labels_x, y=3)
+                    currently_window.print(
+                        f"{self._get_weather_description_icon(weather_code, is_day)}  {sky}",
+                        x=data_x,
+                        y=0,
+                        theme=self._get_sky_cp(sky),
+                    )
+                    currently_window.print(
+                        f"{temperature}°{tsuffix}",
+                        x=data_x,
+                        y=1,
+                        theme=self._get_temp_cp(temperature, tsuffix),
+                    )
 
-                    followcities_window.print(
-                        f"{city_cnt+1}. {city2}{province2:.12}, {country2:.10}",
-                        x=wx,
-                        y=wy,
-                        theme=self._get_city_cp(city2, country2_code2),
+                    currently_window.print(
+                        f"{tmin}°{tsuffix}",
+                        x=data_x,
+                        y=2,
+                        theme=self._get_temp_cp(tmin, tsuffix),
                     )
-                    followcities_window.print(
-                        f"{temp}°{tsuffix}".rjust(6),
-                        x=data_x1,
-                        y=wy,
-                        theme=self._get_temp_cp(temp, tsuffix),
+                    currently_window.print("/", x=data_x + 4, y=2)
+                    currently_window.print(
+                        f"{tmax}°{tsuffix}",
+                        x=data_x + 5,
+                        y=2,
+                        theme=self._get_temp_cp(tmax, tsuffix),
                     )
-                    sky_condition: str = sky2
-                    if sky_condition != "Clear" and sky_condition != "Cloudy":
-                        sky_condition = sky_condition.replace("Clear", "Clr")
-                        sky_condition = sky_condition.replace("Cloudy", "Cld")
-                    # Yes, yes, very barbaric way to clear the field
-                    followcities_window.print(
-                        "             ",
-                        x=data_x2,
-                        y=wy,
-                    )
-                    followcities_window.print(
-                        f"{self._get_weather_description_icon(weather_code2, city_data['is_day'])} {sky_condition[:10]}",
-                        x=data_x2,
-                        y=wy,
-                        theme=self._get_sky_cp(sky2),
-                    )
-                    followcities_window.print(
-                        # f"({day})".ljust(7),
-                        self._get_daynight_icon(city_data["is_day"]),
-                        x=daynight_icon_x,
-                        y=wy,
-                        theme=self._get_daynight_cp(city_data["is_day"]),
-                    )
-                if not self.config.followcities:
-                    followcities_window.print("No cities of interest", x=1, y=0)
 
-                # WARNINGS
-                warnings_window.clear()
-                warnings: list[list[str]] = self.warnings.get_warnings(
-                    warnings_window_height - 2
-                )
+                    # Wind, air quality and precipitation labels
+                    airquality_window.clear()
+                    airquality_window.print("Wind  :", x=labels_x, y=0)
+                    airquality_window.print("Air Q :", x=labels_x, y=1)
+                    airquality_window.print(
+                        self.forecaster.data.precipitation_type,
+                        x=labels_x,
+                        y=2,
+                        theme=self._get_precipitation_type_cp(
+                            self.forecaster.data.precipitation_type
+                        ),
+                    )
+                    airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                    airquality_window.print("Humidt:", x=labels_x, y=3)
 
-                # Sure, the window is not 99 lines high.
-                # Printing on a greater line will simply make it print on the
-                # last line. I have a safeguard to make it happen.
-                for msgy, warning in enumerate(warnings):
-                    warnings_window.print(
-                        self.warnings.apply_format(warning)[
-                            : required_terminal_size.columns - 4
-                        ],
-                        x=0,
-                        y=msgy,
-                        newline=True,
-                        theme=self._get_warnings_cp(
-                            warning[2], warning[4], warning[-1]
+                    currently_window.print(
+                        f"{self.forecaster.data.hcur}% ({humidity})",
+                        x=data_x,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hcur), int(temperature), tsuffix
+                        ),
+                    )
+                    # Wind, air quality and precipitation
+                    airquality_window.print(
+                        f"{wind_type}, {winddir} {wind}{wunit}",
+                        x=data_x,
+                        y=0,
+                        theme=self._get_wind_cp(wind, wunit),
+                    )
+                    airquality_window.print(
+                        self.forecaster.data.precipitation_type,
+                        x=labels_x,
+                        y=2,
+                        theme=self._get_precipitation_type_cp(
+                            self.forecaster.data.precipitation_type
+                        ),
+                    )
+                    airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                    airquality_window.print(
+                        f"{airquality} ({aqi})",
+                        x=data_x,
+                        y=1,
+                        theme=self._get_aqistr_cp(airquality),
+                    )
+                    airquality_window.print("[", x=data_x, y=2, theme="border")
+                    airquality_window.print(
+                        self.prog_bar(precipitation, "●", "○"),
+                        x=data_x + 1,
+                        y=2,
+                        theme=self._get_progbar_cp(precipitation),
+                    )
+                    airquality_window.print("]", x=data_x + 10, y=2, theme="border")
+                    airquality_window.print(
+                        f"{precipitation}%  ",
+                        x=data_x + 12,
+                        y=2,
+                        theme=self._get_progbar_cp(precipitation),
+                    )
+                    humidity_str: str = (
+                        f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
+                    )
+                    airquality_window.print(
+                        humidity_str,
+                        x=data_x,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hmin), int(tmin), tsuffix
+                        ),
+                    )
+                    airquality_window.print("/", x=data_x + len(humidity_str), y=3)
+                    airquality_window.print(
+                        f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
+                        x=data_x + len(humidity_str) + 1,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hmax), int(tmax), tsuffix
                         ),
                     )
 
-                # if "histfact" in self.forecaster.data.misc_data:
-                #     history_window.clear()
-                #     history_window.print(
-                #         self.forecaster.data.misc_data["histfact"]["text"],
-                #         align="center",
-                #         x=0,
-                #         y=0,
-                #         maxlines=history_window_height - 2,
-                #     )
-
-                if "celestial" in self.forecaster.data.misc_data:
-                    celestial_window.clear()
-                    spc: str = " " * 6 + "|" + " " * 6  # Spacer
-                    s: str = (
-                        f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon"])}  {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                    # 7 day forecast
+                    forecast_window.clear()
+                    forecast_window.draw_line(
+                        x=first_two_windows_width - 2,
+                        y=0,
+                        direction="vertical",
+                        length=4,
+                        theme="border",
                     )
-                    celestial_window.print(s, align="center", y=0)
+                    for day_cnt, day in enumerate(week):
+                        wy: int = day_cnt % 4
+                        wx: int = (
+                            labels_x if day_cnt < 4 else first_two_windows_width + 1
+                        )
+                        data_x2: int = wx + 5
+                        precip_x: int = data_x2 + 10
 
-                if "misc" in self.forecaster.data.misc_data:
-                    misc_window.clear()
-                    misc_window.print(
-                        self.forecaster.data.misc_data["misc"], align="center", x=0, y=0
-                    )
+                        dmin: int = day.min
+                        dmax: int = day.max
+                        dprecip: int = day.precip
+                        dow: str = day.dow
 
-                if "seasonals" in self.forecaster.data.misc_data:
-                    seasonals: dict[str, list[str]] = self.forecaster.data.misc_data[
-                        "seasonals"
-                    ]
-                    veggies: str = ",".join(seasonals["veggies"])
-                    fruits: str = ",".join(seasonals["fruits"])
-
-                    healthy: str = f"SEASONAL FRUITS: {fruits} | VEGETABLES: {veggies}"
-
-                    healthy_window.clear()
-                    healthy_window.print(healthy, align="center", x=0, y=0)
-
-                    if "health_motivation" in self.forecaster.data.misc_data:
-                        health_motivation: str = self.forecaster.data.misc_data[
-                            "health_motivation"
-                        ]
-                        healthy_window.print(
-                            f"CHALLENGE: {health_motivation}", align="center", x=0, y=1
+                        forecast_window.print(f"{dow}:", x=wx, y=wy)
+                        forecast_window.print(
+                            f"{dmin}°{tsuffix}",
+                            x=data_x2,
+                            y=wy,
+                            theme=self._get_temp_cp(dmin, tsuffix),
+                        )
+                        forecast_window.print("/", x=data_x2 + 4, y=wy)
+                        forecast_window.print(
+                            f"{dmax}°{tsuffix}",
+                            x=data_x2 + 5,
+                            y=wy,
+                            theme=self._get_temp_cp(dmax, tsuffix),
                         )
 
-            # Pushing the changes
-            layout_manager.refresh_screen()
-            self.update_screen()
+                        forecast_window.print("[", x=precip_x, y=wy, theme="border")
+                        forecast_window.print(
+                            self.prog_bar(dprecip, "●", "○"),
+                            x=precip_x + 1,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+                        forecast_window.print(
+                            "]", x=precip_x + 10, y=wy, theme="border"
+                        )
+                        forecast_window.print(
+                            f"{dprecip}%  ",
+                            x=precip_x + 12,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+
+                    # The followed cities
+                    for city_cnt, city_data in enumerate(follow_cities):
+                        wy: int = city_cnt  # % 9
+                        wx: int = 1  # if city_cnt < 9 else 15
+                        data_x1: int = wx + 38
+                        data_x2: int = data_x1 + 7
+                        daynight_icon_x: int = 65
+
+                        # day: str = "night"
+                        # if city_data["is_day"]:
+                        #     day = "day"
+                        temp: int = city_data["temperature"]
+                        # city2: str = self.config.followcities[city_cnt]["city"]
+                        city2: str = city_data["city"]
+                        city2 = self.presconf.abbreviate_name(city2)
+                        if not "STN" in city2:
+                            city2 = city2[:15]
+                        # province2: str = self.config.followcities[city_cnt]["province"]
+                        province2: str = city_data["province"]
+                        province2 = self.presconf.abbreviate_name(province2)
+                        # country2: str = self.config.followcities[city_cnt]["country"]
+                        # country2_code2: str = self.config.followcities[city_cnt]["country_code2"]
+                        country2: str = city_data["country"]
+                        country2_code2: str = city_data["country_code2"]
+                        weather_code2: str = city_data["weather_code"]
+                        sky2: str = city_data["sky"]
+
+                        if province2.isdigit():
+                            province2 = ""
+                        elif len(province2) > 0:
+                            province2 = f", {province2}"
+
+                        followcities_window.print(
+                            f"{city_cnt+1}. {city2}{province2:.12}, {country2:.10}",
+                            x=wx,
+                            y=wy,
+                            theme=self._get_city_cp(city2, country2_code2),
+                        )
+                        followcities_window.print(
+                            f"{temp}°{tsuffix}".rjust(6),
+                            x=data_x1,
+                            y=wy,
+                            theme=self._get_temp_cp(temp, tsuffix),
+                        )
+                        sky_condition: str = sky2
+                        if sky_condition != "Clear" and sky_condition != "Cloudy":
+                            sky_condition = sky_condition.replace("Clear", "Clr")
+                            sky_condition = sky_condition.replace("Cloudy", "Cld")
+                        # Yes, yes, very barbaric way to clear the field
+                        followcities_window.print(
+                            "             ",
+                            x=data_x2,
+                            y=wy,
+                        )
+                        followcities_window.print(
+                            f"{self._get_weather_description_icon(weather_code2, city_data['is_day'])} {sky_condition[:10]}",
+                            x=data_x2,
+                            y=wy,
+                            theme=self._get_sky_cp(sky2),
+                        )
+                        followcities_window.print(
+                            # f"({day})".ljust(7),
+                            self._get_daynight_icon(city_data["is_day"]),
+                            x=daynight_icon_x,
+                            y=wy,
+                            theme=self._get_daynight_cp(city_data["is_day"]),
+                        )
+                    if not self.config.followcities:
+                        followcities_window.print("No cities of interest", x=1, y=0)
+
+                    # WARNINGS
+                    warnings_window.clear()
+                    warnings: list[list[str]] = self.warnings.get_warnings(
+                        warnings_window_height - 2
+                    )
+
+                    # Sure, the window is not 99 lines high.
+                    # Printing on a greater line will simply make it print on the
+                    # last line. I have a safeguard to make it happen.
+                    for msgy, warning in enumerate(warnings):
+                        warnings_window.print(
+                            self.warnings.apply_format(warning)[
+                                : required_terminal_size.columns - 4
+                            ],
+                            x=0,
+                            y=msgy,
+                            newline=True,
+                            theme=self._get_warnings_cp(
+                                warning[2], warning[4], warning[-1]
+                            ),
+                        )
+
+                    # if "histfact" in self.forecaster.data.misc_data:
+                    #     history_window.clear()
+                    #     history_window.print(
+                    #         self.forecaster.data.misc_data["histfact"]["text"],
+                    #         align="center",
+                    #         x=0,
+                    #         y=0,
+                    #         maxlines=history_window_height - 2,
+                    #     )
+
+                    if "celestial" in self.forecaster.data.misc_data:
+                        celestial_window.clear()
+                        spc: str = " " * 6 + "|" + " " * 6  # Spacer
+                        s: str = (
+                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon"])}  {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                        )
+                        celestial_window.print(s, align="center", y=0)
+
+                    if "misc" in self.forecaster.data.misc_data:
+                        misc_window.clear()
+                        misc_window.print(
+                            self.forecaster.data.misc_data["misc"],
+                            align="center",
+                            x=0,
+                            y=0,
+                        )
+
+                    if "seasonals" in self.forecaster.data.misc_data:
+                        seasonals: dict[str, list[str]] = (
+                            self.forecaster.data.misc_data["seasonals"]
+                        )
+                        veggies: str = ",".join(seasonals["veggies"])
+                        fruits: str = ",".join(seasonals["fruits"])
+
+                        healthy: str = (
+                            f"SEASONAL FRUITS: {fruits} | VEGETABLES: {veggies}"
+                        )
+
+                        healthy_window.clear()
+                        healthy_window.print(healthy, align="center", x=0, y=0)
+
+                        if "health_motivation" in self.forecaster.data.misc_data:
+                            health_motivation: str = self.forecaster.data.misc_data[
+                                "health_motivation"
+                            ]
+                            healthy_window.print(
+                                f"CHALLENGE: {health_motivation}",
+                                align="center",
+                                x=0,
+                                y=1,
+                            )
+
+                # Pushing the changes
+                layout_manager.refresh_screen()
+                self.update_screen()
+            # --------------------------------------------- SCREEN REFRESH END
 
     def display(self) -> None:
         curses.wrapper(self.screen)
@@ -6776,258 +6830,300 @@ class TTYDashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
+            refresh_fail_counter: int = 0
 
             # Data update
-            if elapsed >= timedelta(minutes=self.weather_refresh_interval):
-                self.logger.info("--- DATA REFRESH ---")
-                self.forecaster.get_data()
+            if elapsed >= timedelta(minutes=self.weather_refresh_interval) or (
+                refresh_fail_counter > 0
+                and elapsed >= timedelta(minutes=self.weather_refresh_interval_on_fail)
+            ):
+                if refresh_fail_counter == 0:
+                    self.logger.info("--- DATA REFRESH ---")
+                else:
+                    self.logger.info("--- RETRYING DATA REFRESH ---")
+
+                try:
+                    self.forecaster.get_data()
+                    refresh_fail_counter = 0
+                    
+                    # Restoring fail refresh interval to the short one
+                    weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
+                except Exception as e:
+                    refresh_fail_counter += 1
+
+                    if refresh_fail_counter > 3:
+                        # First let's increase the refresh interval
+                        # so we don't bother the APIs that much
+                        weather_refresh_interval_on_fail = REFRESH_INTERVAL
+                        
+                        warningsman: WarningsManager = WarningsManager()
+                        warningsman.home_location = (
+                            f"{self.config.city}-{self.config.country_code2}"
+                        )
+                        errmessage: list[str] = [
+                            "ERROR",
+                            "ALL",
+                            "ERROR",
+                            f"[DATA] {e}",
+                        ]
+                        warningsman.append(*errmessage)
+
                 start_time: datetime = datetime.now()
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
 
-            # Technically we do not need this, but filling up the addstr()s
-            # later would be more messy without it
-            sky: str = self.forecaster.data.sky
-            temperature: int = self.forecaster.data.temperature
-            tmin: int = self.forecaster.data.min
-            tmax: int = self.forecaster.data.max
-            hmin: int = self.forecaster.data.hmin
-            hmax: int = self.forecaster.data.hmax
-            hcur: int = self.forecaster.data.hcur
-            baropressure: float = self.forecaster.data.baropressure
-            tsuffix: str = self.presconf.tsuffix
-            wunit: str = self.presconf.wunit
-            wind: int = self.forecaster.data.wind
-            winddir: str = self.forecaster.data.wind_direction
-            aqi: int = self.forecaster.data.aqi
-            airquality: str = self.forecaster.data.air_quality
-            precipitation: int = self.forecaster.data.precipitation
-            is_day: bool = self.forecaster.data.is_day
-            wind_type: str = self.forecaster.data.wind_type
-            # precipitation_type: str = self.forecaster.data.precipitation_type
-            humidity_level_min: str = self.forecaster.data.humidity_level_min
-            humidity_level_max: str = self.forecaster.data.humidity_level_max
-            humidity: str = self.forecaster.data.humidity
-            wind_direction_long: str = self.forecaster.data.wind_direction_long
-            # ---
-            # warnings: list[list[str]] = self.forecaster.data.warnings
-            week: list[BriefDailyForecast] = self.forecaster.data.week
-            follow_cities: list = self.forecaster.data.cities_data
+            # --------------------------------------------- SCREEN REFRESH START
+            if refresh_fail_counter == 0:
+                # Technically we do not need this, but filling up the addstr()s
+                # later would be more messy without it
+                sky: str = self.forecaster.data.sky
+                temperature: int = self.forecaster.data.temperature
+                tmin: int = self.forecaster.data.min
+                tmax: int = self.forecaster.data.max
+                hmin: int = self.forecaster.data.hmin
+                hmax: int = self.forecaster.data.hmax
+                hcur: int = self.forecaster.data.hcur
+                baropressure: float = self.forecaster.data.baropressure
+                tsuffix: str = self.presconf.tsuffix
+                wunit: str = self.presconf.wunit
+                wind: int = self.forecaster.data.wind
+                winddir: str = self.forecaster.data.wind_direction
+                aqi: int = self.forecaster.data.aqi
+                airquality: str = self.forecaster.data.air_quality
+                precipitation: int = self.forecaster.data.precipitation
+                is_day: bool = self.forecaster.data.is_day
+                wind_type: str = self.forecaster.data.wind_type
+                # precipitation_type: str = self.forecaster.data.precipitation_type
+                humidity_level_min: str = self.forecaster.data.humidity_level_min
+                humidity_level_max: str = self.forecaster.data.humidity_level_max
+                humidity: str = self.forecaster.data.humidity
+                wind_direction_long: str = self.forecaster.data.wind_direction_long
+                # ---
+                # warnings: list[list[str]] = self.forecaster.data.warnings
+                week: list[BriefDailyForecast] = self.forecaster.data.week
+                follow_cities: list = self.forecaster.data.cities_data
 
-            home_day: str = "night"
-            if is_day:
-                home_day = "day"
+                home_day: str = "night"
+                if is_day:
+                    home_day = "day"
 
-            # ----------------------------------------- Screen update
-            # Today's date and time - we need this to refresh more often
-            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
-            day_season: str = f"({home_day}) {season}"
-            location_window.print(
-                day_now,
-                x=-len(day_season),
-                align="right",
-                theme="home",
-            )
-            location_window.print(
-                day_season, align="right", theme=self._get_daynight_cp(is_day)
-            )
-
-            if force_screen_update:
-                self.logger.info("--- screen update ---")
-                force_screen_update = False
-
-                # Current sky, temperature and temperature range
-                currently_window.clear()
-                currently_window.print("Sky   :", x=labels_x, y=0)
-                currently_window.print("Temp  :", x=labels_x, y=1)
-                currently_window.print("Range :", x=labels_x, y=2)
-                currently_window.print("Humidt:", x=labels_x, y=3)
-                currently_window.print(sky, x=data_x, y=0, theme=self._get_sky_cp(sky))
-                currently_window.print(
-                    f"{temperature}°{tsuffix}",
-                    x=data_x,
-                    y=1,
-                    theme=self._get_temp_cp(temperature, tsuffix),
+                # ----------------------------------------- Screen update
+                # Today's date and time - we need this to refresh more often
+                day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+                day_season: str = f"({home_day}) {season}"
+                location_window.print(
+                    day_now,
+                    x=-len(day_season),
+                    align="right",
+                    theme="home",
+                )
+                location_window.print(
+                    day_season, align="right", theme=self._get_daynight_cp(is_day)
                 )
 
-                currently_window.print(
-                    f"{tmin}°{tsuffix}",
-                    x=data_x,
-                    y=2,
-                    theme=self._get_temp_cp(tmin, tsuffix),
-                )
-                currently_window.print("/", x=data_x + 4, y=2)
-                currently_window.print(
-                    f"{tmax}°{tsuffix}",
-                    x=data_x + 5,
-                    y=2,
-                    theme=self._get_temp_cp(tmax, tsuffix),
-                )
+                if force_screen_update:
+                    self.logger.info("--- screen update ---")
+                    force_screen_update = False
 
-                # Wind, air quality and precipitation labels
-                airquality_window.clear()
-                airquality_window.print("Wind  :", x=labels_x, y=0)
-                airquality_window.print("Air Q :", x=labels_x, y=1)
-                airquality_window.print(
-                    self.forecaster.data.precipitation_type,
-                    x=labels_x,
-                    y=2,
-                    theme=self._get_precipitation_type_cp(
-                        self.forecaster.data.precipitation_type
-                    ),
-                )
-                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
-                airquality_window.print("Humidt:", x=labels_x, y=3)
-
-                currently_window.print(
-                    f"{self.forecaster.data.hcur}% ({humidity})",
-                    x=data_x,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hcur), int(temperature), tsuffix
-                    ),
-                )
-                # Wind, air quality and precipitation
-                airquality_window.print(
-                    f"{wind_type}, {winddir} {wind}{wunit}",
-                    x=data_x,
-                    y=0,
-                    theme=self._get_wind_cp(wind, wunit),
-                )
-                airquality_window.print(
-                    self.forecaster.data.precipitation_type,
-                    x=labels_x,
-                    y=2,
-                    theme=self._get_precipitation_type_cp(
-                        self.forecaster.data.precipitation_type
-                    ),
-                )
-                airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
-                airquality_window.print(
-                    f"{airquality} ({aqi})",
-                    x=data_x,
-                    y=1,
-                    theme=self._get_aqistr_cp(airquality),
-                )
-                airquality_window.print("[", x=data_x, y=2, theme="border")
-                airquality_window.print(
-                    self.prog_bar(precipitation),
-                    x=data_x + 1,
-                    y=2,
-                    theme=self._get_progbar_cp(precipitation),
-                )
-                airquality_window.print("]", x=data_x + 10, y=2, theme="border")
-                airquality_window.print(
-                    f"{precipitation}%  ",
-                    x=data_x + 12,
-                    y=2,
-                    theme=self._get_progbar_cp(precipitation),
-                )
-                humidity_str: str = (
-                    f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
-                )
-                airquality_window.print(
-                    humidity_str,
-                    x=data_x,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmin), int(tmin), tsuffix
-                    ),
-                )
-                airquality_window.print("/", x=data_x + len(humidity_str), y=3)
-                airquality_window.print(
-                    f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
-                    x=data_x + len(humidity_str) + 1,
-                    y=3,
-                    theme=self._get_humidity_cp(
-                        int(self.forecaster.data.hmax), int(tmax), tsuffix
-                    ),
-                )
-
-                # 7 day forecast
-                forecast_window.clear()
-                forecast_window.draw_line(
-                    x=first_two_windows_width - 2,
-                    y=0,
-                    direction="vertical",
-                    length=4,
-                    theme="border",
-                )
-                for day_cnt, day in enumerate(week):
-                    wy: int = day_cnt % 4
-                    wx: int = labels_x if day_cnt < 4 else first_two_windows_width + 4
-                    data_x2: int = wx + 5
-                    precip_x: int = data_x2 + 10
-
-                    dmin: int = day.min
-                    dmax: int = day.max
-                    dprecip: int = day.precip
-                    dow: str = day.dow
-
-                    forecast_window.print(f"{dow}:", x=wx, y=wy)
-                    forecast_window.print(
-                        f"{dmin}°{tsuffix}",
-                        x=data_x2,
-                        y=wy,
-                        theme=self._get_temp_cp(dmin, tsuffix),
+                    # Current sky, temperature and temperature range
+                    currently_window.clear()
+                    currently_window.print("Sky   :", x=labels_x, y=0)
+                    currently_window.print("Temp  :", x=labels_x, y=1)
+                    currently_window.print("Range :", x=labels_x, y=2)
+                    currently_window.print("Humidt:", x=labels_x, y=3)
+                    currently_window.print(
+                        sky, x=data_x, y=0, theme=self._get_sky_cp(sky)
                     )
-                    forecast_window.print("/", x=data_x2 + 4, y=wy)
-                    forecast_window.print(
-                        f"{dmax}°{tsuffix}",
-                        x=data_x2 + 5,
-                        y=wy,
-                        theme=self._get_temp_cp(dmax, tsuffix),
+                    currently_window.print(
+                        f"{temperature}°{tsuffix}",
+                        x=data_x,
+                        y=1,
+                        theme=self._get_temp_cp(temperature, tsuffix),
                     )
 
-                    forecast_window.print("[", x=precip_x, y=wy, theme="border")
-                    forecast_window.print(
-                        self.prog_bar(dprecip),
-                        x=precip_x + 1,
-                        y=wy,
-                        theme=self._get_progbar_cp(dprecip),
+                    currently_window.print(
+                        f"{tmin}°{tsuffix}",
+                        x=data_x,
+                        y=2,
+                        theme=self._get_temp_cp(tmin, tsuffix),
                     )
-                    forecast_window.print("]", x=precip_x + 10, y=wy, theme="border")
-                    forecast_window.print(
-                        f"{dprecip}%  ",
-                        x=precip_x + 12,
-                        y=wy,
-                        theme=self._get_progbar_cp(dprecip),
+                    currently_window.print("/", x=data_x + 4, y=2)
+                    currently_window.print(
+                        f"{tmax}°{tsuffix}",
+                        x=data_x + 5,
+                        y=2,
+                        theme=self._get_temp_cp(tmax, tsuffix),
                     )
 
-                # WARNINGS
-                warnings_window.clear()
-                warnings: list[list[str]] = self.warnings.get_warnings(
-                    warnings_window_height - 2
-                )
+                    # Wind, air quality and precipitation labels
+                    airquality_window.clear()
+                    airquality_window.print("Wind  :", x=labels_x, y=0)
+                    airquality_window.print("Air Q :", x=labels_x, y=1)
+                    airquality_window.print(
+                        self.forecaster.data.precipitation_type,
+                        x=labels_x,
+                        y=2,
+                        theme=self._get_precipitation_type_cp(
+                            self.forecaster.data.precipitation_type
+                        ),
+                    )
+                    airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                    airquality_window.print("Humidt:", x=labels_x, y=3)
 
-                # Sure, the window is not 99 lines high.
-                # Printing on a greater line will simply make it print on the
-                # last line. I have a safeguard to make it happen.
-                for msgy, warning in enumerate(warnings):
-                    warnings_window.print(
-                        self.warnings.apply_format(warning)[
-                            : required_terminal_size.columns - 4
-                        ],
-                        x=0,
-                        y=msgy,
-                        newline=True,
-                        theme=self._get_warnings_cp(
-                            warning[2], warning[4], warning[-1]
+                    currently_window.print(
+                        f"{self.forecaster.data.hcur}% ({humidity})",
+                        x=data_x,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hcur), int(temperature), tsuffix
+                        ),
+                    )
+                    # Wind, air quality and precipitation
+                    airquality_window.print(
+                        f"{wind_type}, {winddir} {wind}{wunit}",
+                        x=data_x,
+                        y=0,
+                        theme=self._get_wind_cp(wind, wunit),
+                    )
+                    airquality_window.print(
+                        self.forecaster.data.precipitation_type,
+                        x=labels_x,
+                        y=2,
+                        theme=self._get_precipitation_type_cp(
+                            self.forecaster.data.precipitation_type
+                        ),
+                    )
+                    airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
+                    airquality_window.print(
+                        f"{airquality} ({aqi})",
+                        x=data_x,
+                        y=1,
+                        theme=self._get_aqistr_cp(airquality),
+                    )
+                    airquality_window.print("[", x=data_x, y=2, theme="border")
+                    airquality_window.print(
+                        self.prog_bar(precipitation),
+                        x=data_x + 1,
+                        y=2,
+                        theme=self._get_progbar_cp(precipitation),
+                    )
+                    airquality_window.print("]", x=data_x + 10, y=2, theme="border")
+                    airquality_window.print(
+                        f"{precipitation}%  ",
+                        x=data_x + 12,
+                        y=2,
+                        theme=self._get_progbar_cp(precipitation),
+                    )
+                    humidity_str: str = (
+                        f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
+                    )
+                    airquality_window.print(
+                        humidity_str,
+                        x=data_x,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hmin), int(tmin), tsuffix
+                        ),
+                    )
+                    airquality_window.print("/", x=data_x + len(humidity_str), y=3)
+                    airquality_window.print(
+                        f"{self.forecaster.data.hmax}%({humidity_level_max:.7})",
+                        x=data_x + len(humidity_str) + 1,
+                        y=3,
+                        theme=self._get_humidity_cp(
+                            int(self.forecaster.data.hmax), int(tmax), tsuffix
                         ),
                     )
 
-                if "celestial" in self.forecaster.data.misc_data:
-                    celestial_window.clear()
-                    spc: str = " " * 2 + "|" + " " * 2  # Spacer
-                    s: str = (
-                        f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                    # 7 day forecast
+                    forecast_window.clear()
+                    forecast_window.draw_line(
+                        x=first_two_windows_width - 2,
+                        y=0,
+                        direction="vertical",
+                        length=4,
+                        theme="border",
                     )
-                    celestial_window.print(s, align="center", y=0)
+                    for day_cnt, day in enumerate(week):
+                        wy: int = day_cnt % 4
+                        wx: int = (
+                            labels_x if day_cnt < 4 else first_two_windows_width + 4
+                        )
+                        data_x2: int = wx + 5
+                        precip_x: int = data_x2 + 10
 
-            # Pushing the changes
-            layout_manager.refresh_screen()
-            self.update_screen()
+                        dmin: int = day.min
+                        dmax: int = day.max
+                        dprecip: int = day.precip
+                        dow: str = day.dow
+
+                        forecast_window.print(f"{dow}:", x=wx, y=wy)
+                        forecast_window.print(
+                            f"{dmin}°{tsuffix}",
+                            x=data_x2,
+                            y=wy,
+                            theme=self._get_temp_cp(dmin, tsuffix),
+                        )
+                        forecast_window.print("/", x=data_x2 + 4, y=wy)
+                        forecast_window.print(
+                            f"{dmax}°{tsuffix}",
+                            x=data_x2 + 5,
+                            y=wy,
+                            theme=self._get_temp_cp(dmax, tsuffix),
+                        )
+
+                        forecast_window.print("[", x=precip_x, y=wy, theme="border")
+                        forecast_window.print(
+                            self.prog_bar(dprecip),
+                            x=precip_x + 1,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+                        forecast_window.print(
+                            "]", x=precip_x + 10, y=wy, theme="border"
+                        )
+                        forecast_window.print(
+                            f"{dprecip}%  ",
+                            x=precip_x + 12,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+
+                    # WARNINGS
+                    warnings_window.clear()
+                    warnings: list[list[str]] = self.warnings.get_warnings(
+                        warnings_window_height - 2
+                    )
+
+                    # Sure, the window is not 99 lines high.
+                    # Printing on a greater line will simply make it print on the
+                    # last line. I have a safeguard to make it happen.
+                    for msgy, warning in enumerate(warnings):
+                        warnings_window.print(
+                            self.warnings.apply_format(warning)[
+                                : required_terminal_size.columns - 4
+                            ],
+                            x=0,
+                            y=msgy,
+                            newline=True,
+                            theme=self._get_warnings_cp(
+                                warning[2], warning[4], warning[-1]
+                            ),
+                        )
+
+                    if "celestial" in self.forecaster.data.misc_data:
+                        celestial_window.clear()
+                        spc: str = " " * 2 + "|" + " " * 2  # Spacer
+                        s: str = (
+                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                        )
+                        celestial_window.print(s, align="center", y=0)
+
+                # Pushing the changes
+                layout_manager.refresh_screen()
+                self.update_screen()
+            # --------------------------------------------- SCREEN REFRESH END
 
     def display(self) -> None:
         curses.wrapper(self.screen)
