@@ -4863,15 +4863,30 @@ class WeatherForecaster:
         """Ascending sort either by city or country and city."""
 
         mode = sort_key.lower()
+        home_country_code2 = self.config.country_code2
 
         if mode == "city":
-            # Sort strictly by the "city" field
-            return sorted(cities, key=lambda x: x["city"])
+            # Home-country cities first (sorted by city name), then the rest
+            # sorted strictly by the "city" field
+            return sorted(
+                cities,
+                key=lambda x: (
+                    x["country_code2"] != home_country_code2,
+                    x["city"],
+                ),
+            )
 
         if mode == "country":
-            # Sort by "country_code2" first, then by "city"
-            # In Python, returning a tuple (A, B) sorts by A first, then breaks ties with B
-            return sorted(cities, key=lambda x: (x["country_code2"], x["city"]))
+            # Home-country cities first (sorted by city name), then the rest
+            # sorted by "country_code2" first, then by "city"
+            return sorted(
+                cities,
+                key=lambda x: (
+                    x["country_code2"] != home_country_code2,
+                    x["country_code2"],
+                    x["city"],
+                ),
+            )
 
         # Unsorted
         return list(cities)
@@ -6277,6 +6292,22 @@ class DashboardView(ColorViews):
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
+            
+            # Time and date should always be updated, no matter what
+            # Today's date and time - we need this to refresh more often
+            is_day: bool = self.forecaster.data.is_day
+            home_day_icon: str = self._get_daynight_icon(is_day)
+            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+            day_season: str = f"{home_day_icon} {season}"
+            location_window.print(
+                day_now,
+                x=-location_window.vislen(day_season),
+                align="right",
+                theme="home",
+            )
+            location_window.print(
+                day_season, align="right"  # , theme=self._get_daynight_cp(is_day)
+            )
 
             # --------------------------------------------- SCREEN REFRESH START
             if refresh_fail_counter == 0:
@@ -6298,7 +6329,6 @@ class DashboardView(ColorViews):
                 aqi: int = self.forecaster.data.aqi
                 airquality: str = self.forecaster.data.air_quality
                 precipitation: int = self.forecaster.data.precipitation
-                is_day: bool = self.forecaster.data.is_day
                 wind_type: str = self.forecaster.data.wind_type
                 # precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
@@ -6310,31 +6340,7 @@ class DashboardView(ColorViews):
                 week: list[BriefDailyForecast] = self.forecaster.data.week
                 follow_cities: list = self.forecaster.data.cities_data
 
-                # Saving the cache
-                # cache = CacheManager()
-                # cache.register("weather_data", self.forecaster.data)
-                # cache.save()
-
-                # home_day: str = "night"
-                # if is_day:
-                #     home_day = "day"
-                home_day_icon: str = self._get_daynight_icon(is_day)
-
                 # ----------------------------------------- Screen update
-                # Today's date and time - we need this to refresh more often
-                day_now: str = f"Today: {datenow} {timenow}{dstmark} "
-                # day_season: str = f"({home_day}) {season}"
-                day_season: str = f"{home_day_icon} {season}"
-                location_window.print(
-                    day_now,
-                    x=-location_window.vislen(day_season),
-                    align="right",
-                    theme="home",
-                )
-                location_window.print(
-                    day_season, align="right"  # , theme=self._get_daynight_cp(is_day)
-                )
-
                 # The followed cities
                 for city_cnt, city_data in enumerate(follow_cities):
                     city_wx: int = 59
@@ -6872,6 +6878,24 @@ class TTYDashboardView(ColorViews):
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
+            
+            # Time and date should always be updated, no matter what
+            # Today's date and time - we need this to refresh more often
+            is_day: bool = self.forecaster.data.is_day
+            home_day: str = "night"
+            if is_day:
+                home_day = "day"
+            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+            day_season: str = f"({home_day}) {season}"
+            location_window.print(
+                day_now,
+                x=-len(day_season),
+                align="right",
+                theme="home",
+            )
+            location_window.print(
+                day_season, align="right", theme=self._get_daynight_cp(is_day)
+            )
 
             # --------------------------------------------- SCREEN REFRESH START
             if refresh_fail_counter == 0:
@@ -6892,7 +6916,6 @@ class TTYDashboardView(ColorViews):
                 aqi: int = self.forecaster.data.aqi
                 airquality: str = self.forecaster.data.air_quality
                 precipitation: int = self.forecaster.data.precipitation
-                is_day: bool = self.forecaster.data.is_day
                 wind_type: str = self.forecaster.data.wind_type
                 # precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
@@ -6904,24 +6927,7 @@ class TTYDashboardView(ColorViews):
                 week: list[BriefDailyForecast] = self.forecaster.data.week
                 follow_cities: list = self.forecaster.data.cities_data
 
-                home_day: str = "night"
-                if is_day:
-                    home_day = "day"
-
                 # ----------------------------------------- Screen update
-                # Today's date and time - we need this to refresh more often
-                day_now: str = f"Today: {datenow} {timenow}{dstmark} "
-                day_season: str = f"({home_day}) {season}"
-                location_window.print(
-                    day_now,
-                    x=-len(day_season),
-                    align="right",
-                    theme="home",
-                )
-                location_window.print(
-                    day_season, align="right", theme=self._get_daynight_cp(is_day)
-                )
-
                 if force_screen_update:
                     self.logger.info("--- screen update ---")
                     force_screen_update = False
