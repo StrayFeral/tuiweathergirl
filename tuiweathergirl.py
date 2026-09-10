@@ -1742,7 +1742,7 @@ class WarningsManager:
         homeremote: str,
         location: str = "",
         label: str = "general",
-        message: str = "No warnings at the moment. All quiet.",
+        message: str = " No warnings at the moment. All quiet.",
         ogdate: str | None = None,
         ogtime: str | None = None,
     ) -> None:

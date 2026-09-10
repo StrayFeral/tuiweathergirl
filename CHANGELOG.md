@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-10
+### Added
+- If the cities of interest are sorted, the cities of the home country are
+  always shown first.
+
+### Fixed
+- In case of data refresh failure, the application would try few more times in
+  every 3 minutes, then switch to 30 minutes, but will not refresh the screen
+  (time and date would always be refreshed)
+
 ## [1.3.0] - 2026-09-05
 ### Added
 - EMSC earthquake query logic
