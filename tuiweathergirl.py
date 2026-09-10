@@ -6265,7 +6265,7 @@ class DashboardView(ColorViews):
                 try:
                     self.forecaster.get_data()
                     refresh_fail_counter = 0
-                    
+
                     # Restoring fail refresh interval to the short one
                     weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
                 except Exception as e:
@@ -6275,7 +6275,7 @@ class DashboardView(ColorViews):
                         # First let's increase the refresh interval
                         # so we don't bother the APIs that much
                         weather_refresh_interval_on_fail = REFRESH_INTERVAL
-                        
+
                         warningsman: WarningsManager = WarningsManager()
                         warningsman.home_location = (
                             f"{self.config.city}-{self.config.country_code2}"
@@ -6292,7 +6292,7 @@ class DashboardView(ColorViews):
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
-            
+
             # Time and date should always be updated, no matter what
             # Today's date and time - we need this to refresh more often
             is_day: bool = self.forecaster.data.is_day
@@ -6851,7 +6851,7 @@ class TTYDashboardView(ColorViews):
                 try:
                     self.forecaster.get_data()
                     refresh_fail_counter = 0
-                    
+
                     # Restoring fail refresh interval to the short one
                     weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
                 except Exception as e:
@@ -6861,7 +6861,7 @@ class TTYDashboardView(ColorViews):
                         # First let's increase the refresh interval
                         # so we don't bother the APIs that much
                         weather_refresh_interval_on_fail = REFRESH_INTERVAL
-                        
+
                         warningsman: WarningsManager = WarningsManager()
                         warningsman.home_location = (
                             f"{self.config.city}-{self.config.country_code2}"
@@ -6878,7 +6878,7 @@ class TTYDashboardView(ColorViews):
                 last_refresh = f"Last refresh: {datenow} {timenow}       "
                 lastrefresh_window.print(last_refresh, x=1, y=0)
                 force_screen_update = True
-            
+
             # Time and date should always be updated, no matter what
             # Today's date and time - we need this to refresh more often
             is_day: bool = self.forecaster.data.is_day
