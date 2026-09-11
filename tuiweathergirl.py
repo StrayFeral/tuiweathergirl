@@ -3054,11 +3054,11 @@ class DisasterAdvisor:
 
         f: list[str] = data["fields"]
         for datum in data["data"]:
-            date: str = datum[f.index["date"]]
-            # energy: str = datum[f.index["energy"]]
-            impacte: float = float(datum[f.index["impact-e"]])
-            altitude: str = datum[f.index["alt"]]
-            velocity: str = datum[f.index["vel"]]
+            date: str = datum[f.index("date")]
+            # energy: str = datum[f.index("energy")]
+            impacte: float = float(datum[f.index("impact-e")])
+            altitude: str = datum[f.index("alt")]
+            velocity: str = datum[f.index("vel")]
 
             if velocity is None:
                 velocity = "UNKNOWN"
