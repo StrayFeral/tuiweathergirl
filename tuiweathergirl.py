@@ -3075,7 +3075,7 @@ class DisasterAdvisor:
                 homeremote = "DISASTER"
 
             message: str = (
-                f"[{date}][SIZE: {size}] Altitude: {altitude}, velocity: {velocity}, impact-e: {impacte}."
+                f"[{date}][SIZE: {size}] Altitude: {altitude}km, velocity: {velocity}km/s, impact-e: {impacte}kt."
             )
             fireballs.append([homeremote, "SPACE", "FIREBALL", message])
 
