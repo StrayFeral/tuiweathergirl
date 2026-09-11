@@ -3058,6 +3058,11 @@ class DisasterAdvisor:
             # energy: str = datum[f.index("energy")]
             impacte: float = float(datum[f.index("impact-e")])
             altitude: str = datum[f.index("alt")]
+
+            if "vel" not in f:
+                current_fields: str = ",".join(f)
+                raise Exception(f"'vel' no longer in the NASA FIREBALLS API response. Please update code. Current fields: {current_fields}")
+
             velocity: str = datum[f.index("vel")]
 
             if velocity is None:
