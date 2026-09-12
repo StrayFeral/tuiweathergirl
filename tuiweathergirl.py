@@ -4347,6 +4347,7 @@ class WeatherData:
         self.temperature: int = 0
         self.wind: int = 0
         self.precipitation: int = 0
+        self.precipitation_sum: int = 0
         self.min: int = 0
         self.max: int = 0
         self.weather_code: int = 0
@@ -4649,7 +4650,7 @@ class WeatherForecaster:
             return current_utc_hour >= utc_rise or current_utc_hour <= utc_set
 
     def _get_main_location_weather_data(
-        self, lat: str, lon: str, tunit: str, wunit: str
+        self, lat: str, lon: str, tunit: str, wunit: str, punit: str
     ) -> requests.Response:
         r"""Gets various weather data for the main location"""
 
@@ -4660,10 +4661,11 @@ class WeatherForecaster:
             "latitude": lat,
             "longitude": lon,
             "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,pressure_msl",
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_min,relative_humidity_2m_max",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,relative_humidity_2m_min,relative_humidity_2m_max",
             "timezone": "auto",
             "temperature_unit": tunit,
             "wind_speed_unit": wunit,
+            "precipitation_unit": punit,
             "forecast_days": 8,
         }
         prepared: requests.PreparedRequest = requests.PreparedRequest()
@@ -4930,7 +4932,12 @@ class WeatherForecaster:
     def get_data(self) -> None:
         # Build the API URL with your config preferences
         tunit = "celsius" if self.config.celsius else "fahrenheit"
-        wunit = "kmh" if self.config.metric else "mph"
+        wunit: str = "mph"
+        punit: str = "in"
+
+        if self.config.metric:
+            wunit = "kmh"
+            punit = "mm"
 
         # Format Date and Time
         now: datetime = datetime.now(ZoneInfo(self.config.timezone))
@@ -4976,6 +4983,7 @@ class WeatherForecaster:
                 self.config.lon,
                 tunit,
                 wunit,
+                punit,
             )
             future_aqi_pollen_uv = executor.submit(
                 self._get_aqi_pollen_uv_data, self.config.lat, self.config.lon
@@ -5108,6 +5116,7 @@ class WeatherForecaster:
             self.data.aqi = int(aqi)
             self.data.air_quality = self.__get_air_quality_assessment(aqi)
             self.data.precipitation = daily["precipitation_probability_max"][0]
+            self.data.precipitation_sum = daily["precipitation_sum"][0]
             self.data.weather_code = current["weather_code"]
             self.data.wind = int(current["wind_speed_10m"])
             self.data.wind_direction = self.__get_wind_direction(
@@ -5196,6 +5205,7 @@ class WeatherForecaster:
                 day.min = round(float(daily["temperature_2m_min"][i]))
                 day.max = round(float(daily["temperature_2m_max"][i]))
                 day.precip = round(float(daily["precipitation_probability_max"][i]))
+                day.precip_sum = round(float(daily["precipitation_sum"][i]))
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 self.data.week.append(day)
 
@@ -5284,7 +5294,12 @@ class PresentationConfiguration:
         # Units
         self.tsuffix: str = "C" if config.celsius else "F"
         self.tunit: str = "celsius" if config.celsius else "fahrenheit"
-        self.wunit: str = "kmh" if config.metric else "mph"
+        self.wunit: str = "mph"
+        self.punit: str = "in"
+
+        if config.metric:
+            self.wunit = "kmh"
+            self.punit = "mm"
 
         # Removing provinces which contain only numbers
         province_has_letters = bool(re.search(r"\D", config.province))
@@ -5974,6 +5989,7 @@ class BasicView(Views):
         aqi: int = self.forecaster.data.aqi
         airquality: str = self.forecaster.data.air_quality
         precipitation: int = self.forecaster.data.precipitation
+        precipitation_sum: int = self.forecaster.data.precipitation_sum
         is_day: bool = self.forecaster.data.is_day
         wind_type: str = self.forecaster.data.wind_type
         precipitation_type: str = self.forecaster.data.precipitation_type
@@ -6013,6 +6029,7 @@ Barometric Press.| {baropressure} hPa
             dmin: int = day.min
             dmax: int = day.max
             dprecip: int = day.precip
+            dprecip_sum: int = day.precip_sum
             dow: str = day.dow
 
             temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
@@ -6105,6 +6122,7 @@ class MotivationalView(Views):
         aqi: int = self.forecaster.data.aqi
         airquality: str = self.forecaster.data.air_quality
         precipitation: int = self.forecaster.data.precipitation
+        precipitation_sum: int = self.forecaster.data.precipitation_sum
         is_day: bool = self.forecaster.data.is_day
         wind_type: str = self.forecaster.data.wind_type
         precipitation_type: str = self.forecaster.data.precipitation_type
@@ -6149,6 +6167,7 @@ Humidity levels range from a {humidity_level_min.lower()} {hmin}% to a {humidity
             dmin: int = day.min
             dmax: int = day.max
             dprecip: int = day.precip
+            dprecip_sum: int = day.precip_sum
             dow: str = day.dow
 
             temperatures = f"{dmin:>4}° /{dmax:>4}°{tsuffix}"
@@ -6435,6 +6454,7 @@ class DashboardView(ColorViews):
                 aqi: int = self.forecaster.data.aqi
                 airquality: str = self.forecaster.data.air_quality
                 precipitation: int = self.forecaster.data.precipitation
+                precipitation_sum: int = self.forecaster.data.precipitation_sum
                 wind_type: str = self.forecaster.data.wind_type
                 # precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
@@ -6546,8 +6566,8 @@ class DashboardView(ColorViews):
                     )
                     airquality_window.print("]", x=data_x + 10, y=2, theme="border")
                     airquality_window.print(
-                        f"{precipitation}%  ",
-                        x=data_x + 12,
+                        f"{precipitation}% {precipitation_sum}{self.presconf.punit}",
+                        x=data_x + 11,
                         y=2,
                         theme=self._get_progbar_cp(precipitation),
                     )
@@ -6592,6 +6612,7 @@ class DashboardView(ColorViews):
                         dmin: int = day.min
                         dmax: int = day.max
                         dprecip: int = day.precip
+                        dprecip_sum: int = day.precip_sum
                         dow: str = day.dow
 
                         forecast_window.print(f"{dow}:", x=wx, y=wy)
@@ -6620,8 +6641,8 @@ class DashboardView(ColorViews):
                             "]", x=precip_x + 10, y=wy, theme="border"
                         )
                         forecast_window.print(
-                            f"{dprecip}%  ",
-                            x=precip_x + 12,
+                            f"{dprecip}%|{dprecip_sum}",
+                            x=precip_x + 11,
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )
@@ -7027,6 +7048,7 @@ class TTYDashboardView(ColorViews):
                 aqi: int = self.forecaster.data.aqi
                 airquality: str = self.forecaster.data.air_quality
                 precipitation: int = self.forecaster.data.precipitation
+                precipitation_sum: int = self.forecaster.data.precipitation_sum
                 wind_type: str = self.forecaster.data.wind_type
                 # precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
@@ -7127,8 +7149,8 @@ class TTYDashboardView(ColorViews):
                     )
                     airquality_window.print("]", x=data_x + 10, y=2, theme="border")
                     airquality_window.print(
-                        f"{precipitation}%  ",
-                        x=data_x + 12,
+                        f"{precipitation}% {precipitation_sum}{self.presconf.punit}",
+                        x=data_x + 11,
                         y=2,
                         theme=self._get_progbar_cp(precipitation),
                     )
@@ -7173,6 +7195,7 @@ class TTYDashboardView(ColorViews):
                         dmin: int = day.min
                         dmax: int = day.max
                         dprecip: int = day.precip
+                        dprecip_sum: int = day.precip_sum
                         dow: str = day.dow
 
                         forecast_window.print(f"{dow}:", x=wx, y=wy)
@@ -7201,8 +7224,8 @@ class TTYDashboardView(ColorViews):
                             "]", x=precip_x + 10, y=wy, theme="border"
                         )
                         forecast_window.print(
-                            f"{dprecip}%  ",
-                            x=precip_x + 12,
+                            f"{dprecip}% {dprecip_sum}{self.presconf.punit}",
+                            x=precip_x + 11,
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )

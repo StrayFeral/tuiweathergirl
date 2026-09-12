@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   location and in all cities of interest, so now the user could advise their
   friends and relatives what seasonal fruits/veggies they should eat for a
   healthy lifestyle
+- Precipitation amount both for today and the forecasted days. It is now
+  printed right after the precipitation probability percentage. The amount
+  unit depends on the application configuration: If "metric" is True, then
+  the amount unit will be "mm", otherwise it will be "in".
 
 ### Fixed
 - The seasonal fruits/veggies information now excludes the major non-agricultural
