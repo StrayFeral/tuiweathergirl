@@ -389,6 +389,23 @@ facts_sheet: list[str] = [
     "1980-07-18: Joy Division released Closer LP",
 ]
 
+NON_AGRICULTURAL_ZONES: list[tuple[float, float, float, float]] = [
+    # 1. Antarctica
+    (-90.0, -60.0, -180.0, 180.0),
+    # 2. Greenland Interior & High Arctic Cap
+    (72.0, 90.0, -180.0, 180.0),
+    # 3. Core Sahara Desert
+    (18.0, 27.0, -8.0, 28.0),
+    # 4. Rub' al Khali (Empty Quarter - Arabian Peninsula)
+    (17.0, 24.0, 45.0, 55.0),
+    # 5. Core Atacama Desert
+    (-25.0, -18.0, -70.5, -68.0),
+    # 6. Tibetan Plateau (High Elevation Zone)
+    (30.0, 36.0, 80.0, 95.0),
+    # 7. Taklamakan Desert Core
+    (37.0, 41.0, 78.0, 88.0),
+]
+
 SEASONAL_DATA: dict[str, dict[int, dict[str, list[str]]]] = {
     "mediterranean": {
         1: {
@@ -727,6 +744,14 @@ class LocalProduceAdvisor:
         (10, 105): "tropical",  # SE Asia
     }
 
+    @staticmethod
+    def _is_in_dead_zone(lat: float, lon: float) -> bool:
+        """Check if coordinates fall inside any defined non-agricultural region."""
+        for min_lat, max_lat, min_lon, max_lon in NON_AGRICULTURAL_ZONES:
+            if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon:
+                return True
+        return False
+
     @classmethod
     def get_zone(cls, lat: float, lon: float) -> str:
         snapped_lat = round(lat / 5.0) * 5
@@ -737,6 +762,10 @@ class LocalProduceAdvisor:
     def get_seasonal_produce(
         cls, lat: float, lon: float, month: int | None = None
     ) -> dict[str, list[str]]:
+        # Return empty produce dict for dead zones (e.g. Antarctica)
+        if cls._is_in_dead_zone(lat, lon):
+            return {}
+
         if month is None:
             month = datetime.now().month
 
@@ -3061,7 +3090,9 @@ class DisasterAdvisor:
 
             if "vel" not in f:
                 current_fields: str = ",".join(f)
-                raise Exception(f"'vel' no longer in the NASA FIREBALLS API response. Please update code. Current fields: {current_fields}")
+                raise Exception(
+                    f"'vel' no longer in the NASA FIREBALLS API response. Please update code. Current fields: {current_fields}"
+                )
 
             velocity: str = datum[f.index("vel")]
 
@@ -5839,6 +5870,76 @@ HOME CITY         |  {city}, {province}{country}""")
         print("")
 
 
+class SeasonalView(Views):
+    r"""Just prints"""
+
+    def display(self) -> None:
+        self.logger.info("View is running")
+
+        # Data to display
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+        follow_cities: list = self.config.followcities
+
+        seasonals: dict[str, list[str]] = LocalProduceAdvisor.get_seasonal_produce(
+            lat=float(self.config.lat),
+            lon=float(self.config.lon),
+            month=datetime.now().month,
+        )
+        veggies: str = ""
+        fruits: str = ""
+
+        if seasonals:
+            veggies = ",".join(seasonals["veggies"])
+            fruits = ",".join(seasonals["fruits"])
+
+        hr: str = "==============================="
+        naz: str = "    *** Non-Agricultural Zone location ***"
+
+        print("\nSEASONAL FRUITS AND VEGETABLES")
+        print(hr)
+        print(f"HOME: {city}, {province}{country}")
+        if seasonals:
+            print(f"    Fruits     | {fruits}")
+            print(f"    Vegetables | {veggies}")
+        else:
+            print(naz)
+
+        print("\nCITIES OF INTEREST")
+        print(hr)
+
+        for city_cnt, city_data in enumerate(follow_cities):
+            city2: str = city_data["city"]
+            province2: str = city_data["province"]
+            country2: str = city_data["country"]
+            seasonals = LocalProduceAdvisor.get_seasonal_produce(
+                lat=float(city_data["lat"]),
+                lon=float(city_data["lon"]),
+                month=datetime.now().month,
+            )
+            if seasonals:
+                veggies = ",".join(seasonals["veggies"])
+                fruits = ",".join(seasonals["fruits"])
+
+            if province2.isdigit():
+                province2 = ""
+            elif len(province2) > 0:
+                province2 = f", {province2}"
+            s: str = f"{city_cnt+1:>2}. {city2}{province2}, {country2}"
+            print(s)
+            if seasonals:
+                print(f"    Fruits     | {fruits}")
+                print(f"    Vegetables | {veggies}")
+            else:
+                print(naz)
+
+        if not self.config.followcities:
+            print("None")
+
+        print("\n")
+
+
 class BasicView(Views):
     r"""Just prints"""
 
@@ -6648,12 +6749,17 @@ class DashboardView(ColorViews):
                         seasonals: dict[str, list[str]] = (
                             self.forecaster.data.misc_data["seasonals"]
                         )
-                        veggies: str = ",".join(seasonals["veggies"])
-                        fruits: str = ",".join(seasonals["fruits"])
-
                         healthy: str = (
-                            f"SEASONAL FRUITS: {fruits} | VEGETABLES: {veggies}"
+                            "Your home location is set in a Non-Agricultural Zone, so no seasonal fruits and vegetables information is available."
                         )
+
+                        if seasonals:
+                            veggies: str = ",".join(seasonals["veggies"])
+                            fruits: str = ",".join(seasonals["fruits"])
+
+                            healthy = (
+                                f"SEASONAL FRUITS: {fruits} | VEGETABLES: {veggies}"
+                            )
 
                         healthy_window.clear()
                         healthy_window.print(healthy, align="center", x=0, y=0)
@@ -7151,6 +7257,7 @@ class WeatherGirl:
         self.views: dict[str, Views] = {
             "setup": SetupView(config, present_config),
             "basic": BasicView(config, present_config),
+            "seasonal": SeasonalView(config, present_config),
             "motivate": MotivationalView(config, present_config),
             "dashboard": DashboardView(config, present_config),
             "ttydashboard": TTYDashboardView(config, present_config),
@@ -7220,7 +7327,14 @@ class CommandlineParser:
         )
         cli_parser.add_argument(
             "--view",
-            choices=["setup", "basic", "motivate", "dashboard", "ttydashboard"],
+            choices=[
+                "setup",
+                "basic",
+                "motivate",
+                "dashboard",
+                "ttydashboard",
+                "seasonal",
+            ],
             default="",
             help="Select the view",
         )
