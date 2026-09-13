@@ -5205,7 +5205,7 @@ class WeatherForecaster:
                 day.min = round(float(daily["temperature_2m_min"][i]))
                 day.max = round(float(daily["temperature_2m_max"][i]))
                 day.precip = round(float(daily["precipitation_probability_max"][i]))
-                day.precip_sum = round(float(daily["precipitation_sum"][i]))
+                day.precip_sum = daily["precipitation_sum"][i]
                 day.dow = (now + timedelta(days=i)).strftime("%a")
                 self.data.week.append(day)
 
