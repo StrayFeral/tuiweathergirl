@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Added 'depth' to earthquake warnings. Earthquakes message changed.
 
+### Added
+- Detailed application overview and usage documentation.
+
 ## [1.5.2] - 2026-09-15
 ## Fixed
 - The progress bar algorithm is now fixed and shows more accurate progress bars.

@@ -4,7 +4,7 @@
 
 ## CONTENTS
 
-`CURRENT APPLICATION VERSION: v1.5.3`
+`CURRENT APPLICATION VERSION: v1.5.1`
 
 - [Download](#download)
 - [Description](#description)
@@ -17,6 +17,7 @@
 - [Installing on Windows10](#installing-on-windows10)
 - [Installing on MacOS](#installing-on-macos)
 - [Updating](#updating)
+- [RUNNING FOR THE FIRST TIME - APPLICATION OVERVIEW](#running-for-the-first-time-application-overview)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
 - [TROUBLESHOOTING](#troubleshooting)
@@ -215,40 +216,17 @@ You could also manually force-update it by running:
 tuiweathergirl --updateapp
 ```
 
+## RUNNING FOR THE FIRST TIME - APPLICATION OVERVIEW
+
+See: [OVERVIEW.md](OVERVIEW.md)
+
 ## USAGE
 
-> [!TIP]
-> Please consult the help screen for the most up-to-date command-line options
-
-```bash
-tuiweathergirl --help
-```
-
-For a full list of the application files with full path, you can run:
-
-```bash
-tuiweathergirl --listfiles
-```
-
-After the very first run, the application would auto-configure itself and will create the configuration file. You are not required to modify it, as there are command-line options to do it, but you are free to do so if you wish.
-
-If you mess it up and the application start throwing errors, just delete it and run the appliation again. It will create new configuration file, filled with the proper data.
-
-If anything else got messed up, _before_ a new application run you might want to
-
-```bash
-tuiweathergirl --clearcache
-```
-
-But beware - this would gather fresh data from all APIs, so if you do this too often you may choke the APIs and may get banned.
-
-> [!TIP]
-> If you are behind VPN, still let the application detect your location, then add the city you're actually in manually with the `--addcity` option, then use the `--sethome` option to set which city is your actual home and optional you may then remove the fake city using `--removecity`.
-
-> [!TIP]
-> If your internet connection is slow for any reason, you may want to increase the API call request timeout, using `--requesttimeout`
+See: [USAGE.md](USAGE.md)
 
 ### CHANGING THE SETUP
+
+For details, see: [USAGE.md](USAGE.md)
 
 Some of the things could be changed command-line. For example if you run the app just with 
 
@@ -324,6 +302,15 @@ tuiweathergirl --clearcache
 
 Next time you run the application you would notice your home location is now set to New York and the old location of Whitby has been deleted.
 
+### DATA LOOKS INCORRECT
+
+Just clear the cache and launch the application again:
+
+```bash
+tuiweathergirl --clearcache
+tuiweathergirl
+```
+
 ## VIDEO TUTORIALS (INSTALLATION, IN-DEPTH APP OVERVIEW)
 
 [![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/HMTAQ0rKRpM/0.jpg)](https://www.youtube.com/watch?v=HMTAQ0rKRpM)
@@ -331,11 +318,4 @@ Next time you run the application you would notice your home location is now set
 
 ## SCREENSHOTS
 
-Click to enlarge.
-
-[![Dashboard View: Linux](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_1.1.5.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_1.1.5.jpg)
-[![TTYDashboard View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/ttydashboard_view.jpg)
-[![Basic View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/basic_view.jpg)
-[![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/motivate_view.jpg)
-[![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_view_win10.jpg)
-[![Motivate View](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_wildfire.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/screenshots/dashboard_wildfire.jpg)
+See: [screenshots/SCREENSHOTS.md](screenshots/SCREENSHOTS.md)
