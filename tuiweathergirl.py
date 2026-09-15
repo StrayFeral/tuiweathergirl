@@ -5455,7 +5455,7 @@ class Views:
         # DOS Era characters:
         # █ (Full Block) or ▓ (Dark Shade) for progress
         # ░ (Light Shade) for the background/remaining
-        
+
         # Ensure percent stays within 0-100 bounds
         percent = max(0, min(100, percent))
 
@@ -7231,8 +7231,14 @@ class TTYDashboardView(ColorViews):
                             "]", x=precip_x + 10, y=wy, theme="border"
                         )
                         forecast_window.print(
-                            f"{dprecip}% {dprecip_sum}{self.presconf.punit}",
+                            f"{dprecip}%",
                             x=precip_x + 11,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+                        forecast_window.print(
+                            f"{dprecip_sum}{self.presconf.punit}",
+                            x=precip_x + 15,
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )
