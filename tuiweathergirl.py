@@ -3033,11 +3033,17 @@ class DisasterAdvisor:
             tsunami_str: str = "[TSUNAMI]" if quake["tsunami"] else ""
             alert_str: str = f"[{quake['alert'].upper()}]" if quake["alert"] else ""
             source_str: str = "+".join(quake["sources"])
+            depth_str: str = f"{quake['depth']}"
+
+            for prefix in ("REPUBLIC OF ", "KINGDOM OF ", "STATE OF "):
+                if quake["place"].upper().startswith(prefix):
+                    quake["place"] = quake["place"][len(prefix) :]
+                    break
 
             location: str = "***"
             message: str = (
-                f"[{quake['magnitude']:.1f}M][{felt}]{alert_str}[{plane}]{tsunami_str} "
-                f"{distance:.0f}km away - {quake['place']} ({source_str})"
+                f"[{quake['magnitude']:.1f}M][DEPT:{depth_str}KM][{felt}]{alert_str}[{plane}]{tsunami_str} "
+                f"Distance: {distance:.0f}km ({quake['place']})({source_str})"
             )
             quakes.append(["DISASTER", location, "EARTHQUAKE", message])
 
@@ -6638,9 +6644,7 @@ class DashboardView(ColorViews):
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )
-                        forecast_window.print(
-                            "]", x=precip_x + 9, y=wy, theme="border"
-                        )
+                        forecast_window.print("]", x=precip_x + 9, y=wy, theme="border")
                         forecast_window.print(
                             f"{dprecip}%",
                             x=precip_x + 10,
