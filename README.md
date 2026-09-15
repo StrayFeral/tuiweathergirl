@@ -313,6 +313,9 @@ tuiweathergirl
 
 ## VIDEO TUTORIALS (INSTALLATION, IN-DEPTH APP OVERVIEW)
 
+> [!WARNING]
+> UPDATE 2026-08-31: THE TIMEZONEDB API KEY IS NO LONGER NEEDED! (at all)
+
 [![Detailed overview, Linux installation and setup](https://img.youtube.com/vi/HMTAQ0rKRpM/0.jpg)](https://www.youtube.com/watch?v=HMTAQ0rKRpM)
 [![Windows 10 installation, setup and overview](https://img.youtube.com/vi/kSYME9Z-FQs/0.jpg)](https://www.youtube.com/watch?v=kSYME9Z-FQs)
 
