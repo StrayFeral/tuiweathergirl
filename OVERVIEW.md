@@ -5,7 +5,7 @@
 - [Dashboard View - Overview](#dashboard-view-overview)
 - [Home Location](#home-location)
 - [Currently](#currently)
-- [Air & Conditions](#air-conditions)
+- [Air & Conditions](#air---conditions)
 - [7-day Forecast](#7dayforecast)
 - [Warnings](#warnings)
 - [Healthy Living](#healthy-living)

@@ -17,7 +17,7 @@
 - [Installing on Windows10](#installing-on-windows10)
 - [Installing on MacOS](#installing-on-macos)
 - [Updating](#updating)
-- [RUNNING FOR THE FIRST TIME - APPLICATION OVERVIEW](#running-for-the-first-time-application-overview)
+- [RUNNING FOR THE FIRST TIME - APPLICATION OVERVIEW](#running-for-the-first-time---application-overview)
 - [Usage](#usage)
 - [Changing the setup](#changing-the-setup)
 - [TROUBLESHOOTING](#troubleshooting)
