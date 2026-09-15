@@ -22,6 +22,7 @@
 - [Removing a city](#removing-a-city)
 - [Sorting cities](#sorting-cities)
 - [Setting a home location](#setting-a-home-location)
+- [Combining commandline parameters](#combining-commandline-parameters)
 - [QUESTIONS](#questions)
 
 ## HELP
@@ -402,6 +403,14 @@ tuiweathergirl --sethome <LOCATIONNUMBER>
 What this will do is it will swap the two locations. So the specified location number will become the new home location, while the existing home location will become the new city of interest with the specified number.
 
 Lastly - if you do not need the old home location (which now will be moved to the Cities of Interest list) you can simply remove it, using the above-mentioned method.
+
+## COMBINING COMMANDLINE PARAMETERS
+
+Some command-line parameters could be combined. For example:
+
+```bash
+tuiweathergirl --view dashboard --theme arctic
+```
 
 ## QUESTIONS
 
