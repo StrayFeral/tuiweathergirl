@@ -5451,16 +5451,17 @@ class Views:
     def prog_bar(
         self, percent: int, fillchar: str = "#", emptychar: str = ".", maxchar: int = 10
     ) -> str:
-        # Ensure percent stays within 0-100 bounds
-        percent = max(0, min(100, percent))
-
-        count = round(percent / maxchar)
-
+        """Returns a simple progress bar as a string."""
         # DOS Era characters:
         # █ (Full Block) or ▓ (Dark Shade) for progress
         # ░ (Light Shade) for the background/remaining
-        # fill_char = "#"
-        # empty_char = "."
+        
+        # Ensure percent stays within 0-100 bounds
+        percent = max(0, min(100, percent))
+
+        # Convert percent (0-100) into a proportional character count (0-maxchar)
+        count = round(percent / 100 * maxchar)
+        count = max(0, min(maxchar, count))  # safety clamp
 
         bar = (fillchar * count) + (emptychar * (maxchar - count))
         return bar
@@ -6632,17 +6633,23 @@ class DashboardView(ColorViews):
 
                         forecast_window.print("[", x=precip_x, y=wy, theme="border")
                         forecast_window.print(
-                            self.prog_bar(dprecip, "●", "○"),
+                            self.prog_bar(dprecip, "●", "○", 8),
                             x=precip_x + 1,
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )
                         forecast_window.print(
-                            "]", x=precip_x + 10, y=wy, theme="border"
+                            "]", x=precip_x + 9, y=wy, theme="border"
                         )
                         forecast_window.print(
-                            f"{dprecip}%|{dprecip_sum}",
-                            x=precip_x + 11,
+                            f"{dprecip}%",
+                            x=precip_x + 10,
+                            y=wy,
+                            theme=self._get_progbar_cp(dprecip),
+                        )
+                        forecast_window.print(
+                            f"{dprecip_sum}",
+                            x=precip_x + 14,
                             y=wy,
                             theme=self._get_progbar_cp(dprecip),
                         )
