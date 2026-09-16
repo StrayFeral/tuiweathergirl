@@ -5930,11 +5930,21 @@ class SeasonalView(Views):
     def display(self) -> None:
         self.logger.info("View is running")
 
+        abbr: dict[str, str] = {
+            "spring": "SPR",
+            "summer": "SUM",
+            "fall": "FAL",
+            "winter": "WIN",
+        }
+
         # Data to display
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
         follow_cities: list = self.config.followcities
+
+        presconf: PresentationConfiguration = PresentationConfiguration(self.config)
+        season: str = presconf.get_season(self.config.continent_code)
 
         seasonals: dict[str, list[str]] = LocalProduceAdvisor.get_seasonal_produce(
             lat=float(self.config.lat),
@@ -5954,9 +5964,10 @@ class SeasonalView(Views):
         print("\nSEASONAL FRUITS AND VEGETABLES")
         print(hr)
         print(f"HOME: {city}, {province}{country}")
+        # print(f"    Season     | {season}")
         if seasonals:
-            print(f"    Fruits     | {fruits}")
-            print(f"    Vegetables | {veggies}")
+            print(f"    {abbr[season.lower()]}.Fruits     | {fruits}")
+            print(f"    {abbr[season.lower()]}.Vegetables | {veggies}")
         else:
             print(naz)
 
@@ -5980,18 +5991,23 @@ class SeasonalView(Views):
                 province2 = ""
             elif len(province2) > 0:
                 province2 = f", {province2}"
+            season = presconf.get_season(city_data["continent_code"])
             s: str = f"{city_cnt+1:>2}. {city2}{province2}, {country2}"
+
             print(s)
+            # print(f"    Season     | {season}")
             if seasonals:
-                print(f"    Fruits     | {fruits}")
-                print(f"    Vegetables | {veggies}")
+                print(f"    {abbr[season.lower()]}.Fruits     | {fruits}")
+                print(f"    {abbr[season.lower()]}.Vegetables | {veggies}")
             else:
                 print(naz)
 
         if not self.config.followcities:
             print("None")
 
-        print("\n")
+        print("\nAbbreviations: SPR)ing, SUM)mer, FAL)l, WIN)ter\n")
+
+        # print("\n")
 
 
 class BasicView(Views):
