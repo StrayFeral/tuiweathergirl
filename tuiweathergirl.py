@@ -2698,7 +2698,7 @@ class DisasterAdvisor:
                 tzinfo=ZoneInfo("UTC")
             )
             local_dt = utc_dt.astimezone(ZoneInfo(timezone))
-            datetime_str: str = local_dt.strftime("%Y-%m-%d %I:%M %p %Z")
+            datetime_str: str = local_dt.strftime("%Y-%m-%d %H:%M%Z")
 
             if distance <= 100:  # km
                 location: str = f"{f_lat},{f_lon}"
@@ -2792,12 +2792,15 @@ class DisasterAdvisor:
             properties: dict = feature["properties"]
             mmi_raw = properties.get("mmi")
 
+            quake_time: datetime = datetime.fromtimestamp(
+                properties["time"] / 1000, tz=timezone.utc
+            )
+
             raw_quakes.append(
                 {
                     "source": "USGS",
-                    "time": datetime.fromtimestamp(
-                        properties["time"] / 1000, tz=timezone.utc
-                    ),
+                    "time": quake_time,
+                    "datetime": quake_time.strftime("%Y-%m-%d %H:%M") + "UCT",
                     "magnitude": float(properties["mag"]),
                     "lat": float(feature["geometry"]["coordinates"][1]),
                     "lon": float(feature["geometry"]["coordinates"][0]),
@@ -2869,12 +2872,15 @@ class DisasterAdvisor:
         for feature in data.get("features", []):
             properties: dict = feature["properties"]
 
+            quake_time: datetime = datetime.fromisoformat(
+                properties["time"].replace("Z", "+00:00")
+            )
+
             raw_quakes.append(
                 {
                     "source": "EMSC",
-                    "time": datetime.fromisoformat(
-                        properties["time"].replace("Z", "+00:00")
-                    ),
+                    "time": quake_time,
+                    "datetime": quake_time.strftime("%Y-%m-%d %H:%M") + "UCT",
                     "magnitude": float(properties["mag"]),
                     "lat": float(properties["lat"]),
                     "lon": float(properties["lon"]),
@@ -2958,8 +2964,33 @@ class DisasterAdvisor:
 
         return merged
 
+    import re
+
+    def _shorten_directions(self, text: str) -> str:
+        """Shorten uppercase geographical direction words to abbreviations,
+        e.g. 'NORTHWEST' -> 'NW.', 'SOUTH' -> 'S.', with no space after the dot.
+        """
+
+        directions = {
+            "NORTHEAST": "NE.",
+            "NORTHWEST": "NW.",
+            "SOUTHEAST": "SE.",
+            "SOUTHWEST": "SW.",
+            "NORTH": "N.",
+            "SOUTH": "S.",
+            "EAST": "E.",
+            "WEST": "W.",
+        }
+
+        # Longest keys first, so "NORTHWEST" is matched before "NORTH"/"WEST"
+        pattern = re.compile(
+            r"\b(" + "|".join(sorted(directions, key=len, reverse=True)) + r")\b\s*"
+        )
+
+        return pattern.sub(lambda m: directions[m.group(1)], text)
+
     def get_detailed_quakes(
-        self, lat: str, lon: str, continent_code: str | None
+        self, lat: str, lon: str, continent_code: str | None, timezone: str
     ) -> list[list[str]]:
         """Pulls earthquakes from USGS, and additionally from EMSC when the
         location is in Europe, starting midnight of the previous day.
@@ -3035,10 +3066,15 @@ class DisasterAdvisor:
                     quake["place"] = quake["place"][len(prefix) :]
                     break
 
-            location: str = "***"
+            quake["place"] = self._shorten_directions(quake["place"])
+
+            local_dt = quake["time"].astimezone(ZoneInfo(timezone))
+            datetime_str: str = local_dt.strftime("%Y-%m-%d %H:%M%Z")
+
+            location: str = f"{quake['lat']},{quake['lon']}"
             message: str = (
-                f"[{quake['magnitude']:.1f}M][DEPT:{depth_str}KM][{felt}]{alert_str}[{plane}]{tsunami_str} "
-                f"Distance: {distance:.0f}km ({quake['place']})({source_str})"
+                f"[{datetime_str}][{quake['magnitude']:.1f}M][DPT:{depth_str}KM][{felt}]{alert_str}[{plane}]{tsunami_str} "
+                f"Dist: {distance:.0f}km ({quake['place']})({source_str})"
             )
             quakes.append(["DISASTER", location, "EARTHQUAKE", message])
 
@@ -5035,6 +5071,7 @@ class WeatherForecaster:
                 self.config.lat,
                 self.config.lon,
                 self.config.continent_code,
+                self.config.timezone,
             )
             future_fireballs = executor.submit(disaster_advisor.get_fireballs)
             future_geomagnetic_scales = executor.submit(
