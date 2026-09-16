@@ -1813,16 +1813,11 @@ class WarningsManager:
             message_entry[0] = ogdate
             message_entry[1] = ogtime
 
-        # Wildfires special case of duplication
-        # We ignore the date, as we can get same message on the next day
-        if label.lower() == "wildfire":
-            for m in self._messages:
-                if message.lower() == m[-1].lower():
-                    return
-
-        # Duplicate check: same date, same message
+        # Duplicate check: same message, regardless of date
+        # (an event like an earthquake or wildfire can otherwise get
+        # re-logged once the date rolls over, e.g. new day, new time)
         for m in self._messages:
-            if date_str == m[0] and message.lower() == m[-1].lower():
+            if message.lower() == m[-1].lower():
                 return
 
         self._cleanup()
