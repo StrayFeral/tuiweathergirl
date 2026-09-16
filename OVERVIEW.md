@@ -98,6 +98,8 @@ This window will display warnings of mainly two types - nature disasters and war
 
 [![Wildfire Warnings](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/dashboard_wildfire.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/dashboard_wildfire.jpg)
 
+[![Disaster Times](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/disastertimes.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/disastertimes.jpg)
+
 ## HEALTHY LIVING
 
 This window will display only two things: On the upper line you will see the current seasonal fruits and vegetables for your area and on the lower line you will see a quick daily challenge to improve your health.
