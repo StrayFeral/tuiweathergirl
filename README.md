@@ -4,7 +4,7 @@
 
 ## CONTENTS
 
-`CURRENT APPLICATION VERSION: v1.5.9`
+`CURRENT APPLICATION VERSION: v1.5.10`
 
 - [Download](#download)
 - [Description](#description)
