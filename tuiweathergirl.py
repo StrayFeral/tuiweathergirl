@@ -5546,7 +5546,7 @@ class Views:
         self.warnings.home_location = f"{self.config.city}-{self.config.country_code2}"
         self.presconf: PresentationConfiguration = present_config
         self.weather_refresh_interval: int = REFRESH_INTERVAL
-        self.refresh_interval_on_fail: int = REFRESH_INTERVAL_ON_FAIL
+        self.weather_refresh_interval_on_fail: int = REFRESH_INTERVAL_ON_FAIL
         self.height: int | None = None
         self.width: int | None = None
         self.forecaster: WeatherForecaster = WeatherForecaster(self.config)
@@ -6383,6 +6383,7 @@ class DashboardView(ColorViews):
 
         force_screen_update: bool = False
         layout_manager: LayoutManager | None = None
+        refresh_fail_counter: int = 0
 
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
@@ -6523,7 +6524,6 @@ class DashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
-            refresh_fail_counter: int = 0
 
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval) or (
@@ -6540,14 +6540,14 @@ class DashboardView(ColorViews):
                     refresh_fail_counter = 0
 
                     # Restoring fail refresh interval to the short one
-                    weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
+                    self.weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
                 except Exception as e:
                     refresh_fail_counter += 1
 
                     if refresh_fail_counter > 3:
                         # First let's increase the refresh interval
                         # so we don't bother the APIs that much
-                        weather_refresh_interval_on_fail = REFRESH_INTERVAL
+                        self.weather_refresh_interval_on_fail = REFRESH_INTERVAL
 
                         warningsman: WarningsManager = WarningsManager()
                         warningsman.home_location = (
@@ -7031,6 +7031,7 @@ class TTYDashboardView(ColorViews):
 
         force_screen_update: bool = False
         layout_manager: LayoutManager | None = None
+        refresh_fail_counter: int = 0
 
         # -------------------------------------------------- VIEW MAIN LOOP
         start_time: datetime = datetime.now()
@@ -7132,7 +7133,6 @@ class TTYDashboardView(ColorViews):
             dow: str = self.presconf.dow
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
-            refresh_fail_counter: int = 0
 
             # Data update
             if elapsed >= timedelta(minutes=self.weather_refresh_interval) or (
@@ -7149,14 +7149,14 @@ class TTYDashboardView(ColorViews):
                     refresh_fail_counter = 0
 
                     # Restoring fail refresh interval to the short one
-                    weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
+                    self.weather_refresh_interval_on_fail = REFRESH_INTERVAL_ON_FAIL
                 except Exception as e:
                     refresh_fail_counter += 1
 
                     if refresh_fail_counter > 3:
                         # First let's increase the refresh interval
                         # so we don't bother the APIs that much
-                        weather_refresh_interval_on_fail = REFRESH_INTERVAL
+                        self.weather_refresh_interval_on_fail = REFRESH_INTERVAL
 
                         warningsman: WarningsManager = WarningsManager()
                         warningsman.home_location = (

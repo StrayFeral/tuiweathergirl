@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.8] - 2026-09-22
+## Added
+- Precipitation sum assessment. User will be notified by color coding or wording if it's gonna rain a lot.
+- Precipitation sum added to 'basic' view.
+- Basic view wording slightly adjusted.
+
+### Fixed
+- Bug with the data refresh interval on fail.
+
 ## [1.5.7] - 2026-09-16
 ### Added
 - Seasons are printed in the 'seasonal' view.
