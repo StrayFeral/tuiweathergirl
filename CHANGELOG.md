@@ -1,10 +1,14 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [1.5.11] - 2026-09-23
+
 ### Fixed
 - File path resolution now uses `Path.resolve()` instead of `Path.expanduser()`.
 
@@ -15,10 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - If application was installed via the system package manager, updates are disabled.
 
 ## [1.5.10] - 2026-09-22 
+
 ### Fixed
 - Wrong type hintings on some methods.
 
 ## [1.5.9] - 2026-09-22
+
 ### Changed
 - The national holidays now appear accented with asterisks and in green color in the 'dashboard' view.
 
@@ -26,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - National holidays now show-up in 'basic' view too.
 
 ## [1.5.8] - 2026-09-22
+
 ### Added
 - Precipitation sum assessment. User will be notified by color coding or wording if it's gonna rain a lot.
 - Precipitation sum added to 'basic' view.
@@ -35,19 +42,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug with the data refresh interval on fail.
 
 ## [1.5.7] - 2026-09-16
+
 ### Added
 - Seasons are printed in the 'seasonal' view.
 
 ## [1.5.6] - 2026-09-16
+
 ### Fixed
 - Wildfire detected time is not converted to 24h time.
 - Earthquakes now have coordinates and date and time of detection added.
 
 ## [1.5.5] - 2026-09-16
+
 ### Fixed
 - Duplicate earthquake messages
 
 ## [1.5.4] - 2026-09-15
+
 ### Fixed
 - Added 'depth' to earthquake warnings. Earthquakes message changed.
 
@@ -55,15 +66,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detailed application overview and usage documentation.
 
 ## [1.5.2] - 2026-09-15
+
 ### Fixed
 - The progress bar algorithm is now fixed and shows more accurate progress bars.
 - Precipitation sum amounts for the 7-day forecast are now aligned.
 
 ## [1.5.1] - 2026-09-13
+
 ### Fixed
 - The 7-day forecast precipitation sum was previously rounded, which was incorrect.
 
 ## [1.5.0] - 2026-09-12
+
 ### Added
 - New view "seasonal" to show the seasonal fruits and vegetables in the home
   location and in all cities of interest, so now the user could advise their
@@ -79,14 +93,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zones, like Antarctica, the Sahara desert etc.
 
 ## [1.4.2] - 2026-09-11
+
 ### Fixed
 - Added measurement units to FIREBALLS warning. Added a safeguard check for future API version.
 
 ## [1.4.1] - 2026-09-11
+
 ### Fixed
 - Bug in the NASA FIREBALLS method.
 
 ## [1.4.0] - 2026-09-10
+
 ### Added
 - If the cities of interest are sorted, the cities of the home country are
   always shown first.
@@ -97,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (time and date would always be refreshed)
 
 ## [1.3.0] - 2026-09-05
+
 ### Added
 - EMSC earthquake query logic
 
@@ -105,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The USGS earthquake query logic: Now minimum magnitude is set to 2.0M and radius is 220km.
 
 ## [1.2.20] - 2026-08-31
+
 ### Added
 - CHANGELOG.md (this file): Now all release notes are written here, to keep the `README.md` clean.
 - `README.md` now contains link to `CHANGELOG.md`
@@ -113,6 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code fixed to be fully Python 3.9 compatible. Tested on the official `python:3.9-bookworm` Docker image.
 
 ## [1.2.19] - 2026-08-30
+
 ### Added
 - Some comand-line parameters now have shorter versions.
 
@@ -121,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code optimized a bit.
 
 ## [1.2.18] - 2026-08-25
+
 ### Added
 - Followed Random Earth Points as cities, now appear in white in the Cities window.
 - Sorting for the followed cities.
@@ -132,11 +153,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improper forecasted humidity assessment and color coding.
 
 ## [1.2.17] - 2026-08-25
+
 ### Fixed
 - Crasher bug when a random Earth point is set as home location.
 - Crasher in the auto-update.
 
 ## Non-Version Updates - 2026-08-25
+
 ### Added
 - New video tutorials for Windows 10 and Linux has been created and uploaded to Youtube.
 
@@ -144,10 +167,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Readme is updated with the new URLs.
 
 ## [1.2.16] - 2026-08-24
+
 ### Fixed
 - Crasher URL issue.
 
 ## [1.2.15] - 2026-08-24
+
 ### Added
 - Basic view extended to show all warnings and a bit more info.
 
@@ -156,6 +181,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Small terminal exception message wording changed.
 
 ## [1.2.14] - 2026-08-23
+
 ### Added
 - Added recent Windows 10 screenshot.
 - Added directories for screenshots of known bugs.
@@ -167,14 +193,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows 10 installation issues.
 
 ## [1.2.13] - 2026-08-22
+
 ### Changed
 - Application update is now fully working.
 
 ## [1.2.6] - 2026-08-22
+
 ### Fixed
 - Bugs with the application updates.
 
 ## [1.2.0] - 2026-08-21
+
 ### Added
 - Implemented application auto-update and force-update.
 
@@ -183,27 +212,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Abbreviation "ppl." expanded back to "people.".
 
 ## [1.1.5] - 2026-08-20
+
 ### Fixed
 - Fixed duplicate wildfire warnings.
 
 ## [1.1.4] - 2026-08-20
+
 ### Changed
 - Electrostatic warning texts shortened to better fit the screen.
 
 ## [1.1.3] - 2026-08-17
+
 ### Fixed
 - Sky condition overlap in cities of interest.
 
 ## [1.1.2] - 2026-08-17
+
 ### Fixed
 - Abbreviation in cities of interest sky condition.
 
 ## [1.1.1] - 2026-08-16
+
 ### Fixed
 - Too long city/province names for cities of interest.
 - Bug in holidays update.
 
 ## [1.1.0] - 2026-08-16
+
 ### Changed
 - Code refactored.
 
@@ -213,6 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug in NASA Fireballs query.
 
 ## [1.0.13] - 2026-08-13
+
 ### Added
 - Now Polar Stations could be followed too.
 
@@ -220,6 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Temperature assessments now takes Fahrenheit into account too.
 
 ## [1.0.12] - 2026-08-13
+
 ### Changed
 - Shortened the names of cities, countries and provinces.
 
@@ -227,19 +264,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed small bug in showing the current home time.
 
 ## [1.0.11] - 2026-08-08
+
 ### Fixed
 - Now application could be closed with capital "Q" too.
 
 ## [1.0.10] - 2026-08-08
+
 ### Changed
 - Maximum cities of interest increased to 10.
 - One error message changed.
 
 ## [1.0.9] - 2026-08-08
+
 ### Added
 - Makefile now supports all major linux distros.
 
 ## [1.0.8] - 2026-08-07
+
 ### Added
 - Terminal close and Ctrl-C now intercepted.
 
@@ -248,17 +289,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Makefile fixed.
 
 ## [1.0.6] - 2026-08-03
+
 ### Changed
 - More defensive parsing of the NASA FIRMS response.
 
 ## [1.0.5] - 2026-08-03
+
 ### Fixed
 - Now the "setup" view is not saved in the config, so your actual default view is preserved.
 
 ## [1.0.4] - 2026-08-03
+
 ### Fixed
 - Fixed how the exception stacktrace is being printed.
 
 ## [1.0.3] - 2026-08-03
+
 ### Added
 - Exception stacktrace is now always logged in the log file, so in case of found bug, just paste me the log.
+
+[Unreleased]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.11...HEAD
+[1.5.11]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.10...v1.5.11
+[1.5.10]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.9...v1.5.10
+[1.5.9]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.8...v1.5.9
+[1.5.8]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.7...v1.5.8
+[1.5.7]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.6...v1.5.7
+[1.5.6]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.5...v1.5.6
+[1.5.5]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.4...v1.5.5
+[1.5.4]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.2...v1.5.4
+[1.5.2]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.4.2...v1.5.0
+[1.4.2]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.20...v1.3.0
+[1.2.20]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.19...v1.2.20
+[1.2.19]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.18...v1.2.19
+[1.2.18]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.17...v1.2.18
+[1.2.17]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.16...v1.2.17
+[1.2.16]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.15...v1.2.16
+[1.2.15]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.14...v1.2.15
+[1.2.14]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.13...v1.2.14
+[1.2.13]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.6...v1.2.13
+[1.2.6]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.2.0...v1.2.6
+[1.2.0]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.6...v1.2.0
+[1.1.6]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.5...v1.1.6
+[1.1.5]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.4...v1.1.5
+[1.1.4]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.13...v1.1.0
+[1.0.13]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.12...v1.0.13
+[1.0.12]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.11...v1.0.12
+[1.0.11]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.10...v1.0.11
+[1.0.10]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.9...v1.0.10
+[1.0.9]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.8...v1.0.9
+[1.0.8]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.6...v1.0.8
+[1.0.6]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/StrayFeral/tuiweathergirl/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/StrayFeral/tuiweathergirl/releases/tag/v1.0.3
