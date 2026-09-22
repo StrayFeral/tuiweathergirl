@@ -6061,21 +6061,22 @@ class BasicView(Views):
 
         day: str = "day" if is_day else "night"
 
-        hr: str = "==============================="
+        hr: str = "=================================="
 
         print(f"""
-TODAY                     ({dow})
+TODAY                        ({dow})
 {hr}
-Time             | {timenow}{dstmark} ({day}), {datenow} ({season})
-Home             | {city}, {province}{country}
-Sky              | {sky}
-Temperature      | {temperature}°{tsuffix} (Today: {tmin}°/{tmax}°{tsuffix})
-Wind             | {wind_type}, {wind_direction_long} {wind}{wunit}.
-Air Quality      | {airquality} ({aqi})
-{precipitation_type:17}| {precipitation}% chance
-Humidity Now     | {humidity} ({hcur}%)
-Humidity Today   | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
-Barometric Press.| {baropressure} hPa
+Time Now           | {timenow}{dstmark} ({day}), {datenow} ({season})
+Home               | {city}, {province}{country}
+Sky Now            | {sky}
+Temperature Now    | {temperature}°{tsuffix}
+Temperatures Today | {tmin}°/{tmax}°{tsuffix}
+Wind Now           | {wind_type}, {wind_direction_long} {wind}{wunit}.
+Air Quality Now    | {airquality} ({aqi})
+{precipitation_type:17}  | Today: {precipitation}% chance, {precipitation_sum}{self.presconf.punit}
+Humidity Now       | {humidity} ({hcur}%)
+Humidity Today     | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
+Barometric Press.  | Now: {baropressure} hPa
 """)
 
         print("7-DAY FORECAST")
@@ -6088,7 +6089,7 @@ Barometric Press.| {baropressure} hPa
             dow: str = day.dow
 
             temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
-            print(f"  {dow} | {temperatures:<6} | {dprecip:>3}%")
+            print(f"  {dow}   | {temperatures:<6} | {dprecip:>3}%, {dprecip_sum}{self.presconf.punit}")
 
         print("\nWARNINGS")
         print(hr)
