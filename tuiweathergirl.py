@@ -93,6 +93,24 @@ PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 For detailed wildfires info set variable NASAFIRMSAPIKEY with a free API key
 from: https://firms.modaps.eosdis.nasa.gov/api/map_key
 """
+APPLICATION_UPDATE_POLICY: str = f"""
+TUIWEATHERGIRL APPLICATION UPDATE POLICY
+========================================
+
+1) If you installed this application directly from GitHub, you can update
+   it manually (auto-update is ON by default).
+
+2) If you installed this application via the system package manager
+   (apt, dnf, pacman, zypper, apk, ... etc)
+   updates must be managed exclusively through your system's package manager
+   to maintain system integrity. Built-in updates are disabled.
+
+3) To get a newer version not yet available in your distribution's
+   repositories, uninstall the package using your package manager, then install
+   directly from the project GitHub:
+
+   https://github.com/StrayFeral/tuiweathergirl
+"""
 USERAGENT: str = (
     f"TUIWeatherGirl/{__version__} (https://github.com/StrayFeral/tuiweathergirl)"
 )
@@ -102,7 +120,7 @@ HTTPHEADERS: dict[str, str] = {
 }
 NASAFIRMS_APIKEY_ENV_VARNAME: str = "NASAFIRMSAPIKEY"
 LOGFILENAME: Path = Path(tempfile.gettempdir()) / "tuiweathergirl.log"
-LOGFILENAME = LOGFILENAME.expanduser()
+LOGFILENAME = LOGFILENAME.resolve()
 REQTIMEOUT: int = 5
 MIN_COLS: int = 79
 MIN_LINES: int = 22
@@ -1709,7 +1727,7 @@ class WarningsManager:
         if os.name == "nt":
             self.filename: Path = Path.home() / "tuiweathergirl_warnings.log"
 
-        self.filename = self.filename.expanduser()
+        self.filename = self.filename.resolve()
 
     def delete(self) -> None:
         if self.filename.exists():
@@ -3285,7 +3303,7 @@ class CacheManager:
 
     def __init__(self) -> None:
         self.filename: Path = Path(tempfile.gettempdir()) / "tuiweathergirl_cache.pkl"
-        self.filename = self.filename.expanduser()
+        self.filename = self.filename.resolve()
         self.loaded: bool = False
         self._data: dict[str, any] = {}
         self.logger: logging.Logger = logging.getLogger(
@@ -3395,7 +3413,7 @@ class Configuration:
         if os.name == "nt":
             self.filename = Path.home() / "tuiweathergirl.ini"
 
-        self.filename = self.filename.expanduser()
+        self.filename = self.filename.resolve()
 
         self.logger: logging.Logger = logging.getLogger(
             f"{self.__module__}.{self.__class__.__qualname__}"
@@ -3674,6 +3692,17 @@ class UpdateManager:
             f"{self.__module__}.{self.__class__.__qualname__}"
         )
 
+    def _is_system_package(self) -> bool:
+        """Tests if application was installed by the system package manager"""
+
+        # Resolves the true location of the running script
+        application_path = Path(__file__).resolve()
+
+        # Check if installed inside system directories (/usr/bin, /usr/local/bin, /bin, etc.)
+        return application_path.as_posix().startswith(
+            "/usr"
+        ) or application_path.as_posix().startswith("/bin")
+
     def _must_autoupdate(self) -> bool:
         """Returns True if application must auto-update"""
 
@@ -3826,6 +3855,11 @@ class UpdateManager:
     def force_update(self) -> None:
         """Force update the application"""
 
+        if self._is_system_package():
+            raise Exception(
+                "Cannot update. Application was installed as a system package. Run with --updatepolicy for details."
+            )
+
         try:
             today = datetime.now(timezone.utc)
             last_appupdate_check = datetime.fromisoformat(
@@ -3846,6 +3880,11 @@ class UpdateManager:
 
     def auto_update(self) -> None:
         """Application auto-update"""
+
+        if self._is_system_package():
+            raise Exception(
+                "Cannot update. Application was installed as a system package. Run with --updatepolicy for details."
+            )
 
         if not self._must_autoupdate():
             return
@@ -7643,6 +7682,11 @@ class CommandlineParser:
             default="",
             help="Select how to sort the cities",
         )
+        cli_parser.add_argument(
+            "--updatepolicy",
+            action="store_true",
+            help="Prints the application update policy",
+        )
         cli_arguments: argparse.Namespace = cli_parser.parse_args()
         args: dict[str, str | int | bool] = vars(cli_arguments)
 
@@ -7798,6 +7842,10 @@ if __name__ == "__main__":
         parser: CommandlineParser = CommandlineParser()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
 
+        if cli_arguments["updatepolicy"]:
+            print(APPLICATION_UPDATE_POLICY)
+            sys.exit(0)
+
         DEBUG_MODE: str = cli_arguments["debug"]
         debug_mode_str: str = ""
         LOGLEVEL: int = logging.INFO
@@ -7883,7 +7931,7 @@ if __name__ == "__main__":
             warnings: WarningsManager = WarningsManager()
             config: Configuration = Configuration()
             print(
-                f"Application | This is what you are running       | {Path(__file__).expanduser()}"
+                f"Application | This is what you are running       | {Path(__file__).resolve()}"
             )
             print(
                 f"Config      | You may edit it, but no much need  | {config.filename}"

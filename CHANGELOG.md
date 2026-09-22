@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.11] - 2026-09-23
+### Fixed
+- File path resolution now uses `Path.resolve()` instead of `Path.expanduser()`.
+
+### Added
+- Defined an application update policy. This now can be printed via `--updatepolicy`.
+
+### Changed
+- If application was installed via the system package manager, updates are disabled.
+
 ## [1.5.10] - 2026-09-22 
 ### Fixed
 - Wrong type hintings on some methods.
