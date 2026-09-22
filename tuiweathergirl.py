@@ -5606,7 +5606,7 @@ class Views:
 class ColorViews(Views):
     r"""Definition of color views"""
 
-    def _get_warnings_cp(self, homeremote: str, label: str, message: str) -> int | str:
+    def _get_warnings_cp(self, homeremote: str, label: str, message: str) -> str:
         r"""Gets the color pair for warning messages"""
 
         # Idea is to trigger different color on "home" and "remote"
@@ -5728,19 +5728,19 @@ class ColorViews(Views):
         }
         return levels.get(level.upper(), "regular")
 
-    def _get_daynight_cp(self, is_day: bool) -> int:
+    def _get_daynight_cp(self, is_day: bool) -> str:
         r"""Get the day or night color pair"""
         if is_day:
             return "normal"
         return "regular"
 
-    def _get_daynight_icon_cp(self, is_day: bool) -> int:
+    def _get_daynight_icon_cp(self, is_day: bool) -> str:
         r"""Get the day or night color pair"""
         if is_day:
             return "general"
         return "regular"
 
-    def _get_temp_cp(self, t: int, tunit: str) -> int | str:
+    def _get_temp_cp(self, t: int, tunit: str) -> str:
         r"""Get the appropriate temperature color pair"""
 
         # Converting a Fahrenheit into Celsius
@@ -5763,14 +5763,14 @@ class ColorViews(Views):
             return "error"
         return "emergency"
 
-    def _get_city_cp(self, city: str, country_code2: str) -> int | str:
+    def _get_city_cp(self, city: str, country_code2: str) -> str:
         if " STN" in city:  # Polar stations
             return "water"
         if country_code2.lower() == "xx":  # Random Earth points
             return "home"  # White
         return "general"
 
-    def _get_wind_cp(self, wind_speed: int, unit: str) -> int:
+    def _get_wind_cp(self, wind_speed: int, unit: str) -> str:
         r"""Beaufort Scale"""
 
         scale: dict[str, dict[int, int]] = {
@@ -5784,7 +5784,7 @@ class ColorViews(Views):
 
         return "emergency"  # Extreme (Hurricane)
 
-    def _get_sky_cp(self, sky: str) -> int:
+    def _get_sky_cp(self, sky: str) -> str:
         r"""Get the appropriate sky color pair"""
 
         d: dict[str, int] = {
@@ -5821,7 +5821,7 @@ class ColorViews(Views):
 
         return None  # COL_WHITEBLACK
 
-    def _get_aqistr_cp(self, aqistr: str) -> int:
+    def _get_aqistr_cp(self, aqistr: str) -> str:
         r"""Get the appropriate aqi color pair"""
 
         d: dict[str, int] = {
@@ -5839,7 +5839,7 @@ class ColorViews(Views):
             raise ValueError(f"Invalid AQI value '{aqistr}'.")
         return d[aqistr]
 
-    def _get_progbar_cp(self, p: int) -> int:
+    def _get_progbar_cp(self, p: int) -> str:
         if p < 40:
             return "regular"
         return "water"
@@ -6140,7 +6140,7 @@ class BasicView(Views):
         # ---
         week: list[BriefDailyForecast] = self.forecaster.data.week
         follow_cities: list = self.forecaster.data.cities_data
-        
+
         holiday: str = ""
         if "holiday" in self.forecaster.data.misc_data["misc"].lower():
             holiday = f"*** {self.forecaster.data.misc_data['misc'][18:]} ***"
@@ -6236,7 +6236,7 @@ Barometric Press.  | Now: {baropressure} hPa
 
         if not self.config.followcities:
             print("None")
-            
+
         if holiday != "":
             print(f"\nNATIONAL HOLIDAY")
             print(hr)
@@ -6935,15 +6935,17 @@ class DashboardView(ColorViews):
                         if "holiday" in self.forecaster.data.misc_data["misc"].lower():
                             # mtheme = "important"
                             mtheme = "good"
-                            self.forecaster.data.misc_data["misc"] = f"*** {self.forecaster.data.misc_data['misc']} ***"
-                        
+                            self.forecaster.data.misc_data["misc"] = (
+                                f"*** {self.forecaster.data.misc_data['misc']} ***"
+                            )
+
                         misc_window.clear()
                         misc_window.print(
                             self.forecaster.data.misc_data["misc"],
                             align="center",
                             x=0,
                             y=0,
-                            theme=mtheme
+                            theme=mtheme,
                         )
 
                     if "seasonals" in self.forecaster.data.misc_data:
