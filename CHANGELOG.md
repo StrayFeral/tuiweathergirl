@@ -4,8 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.9] - 2026-09-22
+### Changed
+- The national holidays now appear accented with asterisks and in green color in the 'dashboard' view.
+
+### Added
+- National holidays now show-up in 'basic' view too.
+
 ## [1.5.8] - 2026-09-22
-## Added
+### Added
 - Precipitation sum assessment. User will be notified by color coding or wording if it's gonna rain a lot.
 - Precipitation sum added to 'basic' view.
 - Basic view wording slightly adjusted.
@@ -34,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detailed application overview and usage documentation.
 
 ## [1.5.2] - 2026-09-15
-## Fixed
+### Fixed
 - The progress bar algorithm is now fixed and shows more accurate progress bars.
 - Precipitation sum amounts for the 7-day forecast are now aligned.
 

@@ -6140,6 +6140,10 @@ class BasicView(Views):
         # ---
         week: list[BriefDailyForecast] = self.forecaster.data.week
         follow_cities: list = self.forecaster.data.cities_data
+        
+        holiday: str = ""
+        if "holiday" in self.forecaster.data.misc_data["misc"].lower():
+            holiday = f"*** {self.forecaster.data.misc_data['misc'][18:]} ***"
 
         # Getting the last 10 warnings
         warnings: list[list[str]] = self.warnings.get_warnings()
@@ -6232,6 +6236,11 @@ Barometric Press.  | Now: {baropressure} hPa
 
         if not self.config.followcities:
             print("None")
+            
+        if holiday != "":
+            print(f"\nNATIONAL HOLIDAY")
+            print(hr)
+            print(holiday)
 
         print("\n")
 
@@ -6922,12 +6931,19 @@ class DashboardView(ColorViews):
                         celestial_window.print(s, align="center", y=0)
 
                     if "misc" in self.forecaster.data.misc_data:
+                        mtheme: str = "general"
+                        if "holiday" in self.forecaster.data.misc_data["misc"].lower():
+                            # mtheme = "important"
+                            mtheme = "good"
+                            self.forecaster.data.misc_data["misc"] = f"*** {self.forecaster.data.misc_data['misc']} ***"
+                        
                         misc_window.clear()
                         misc_window.print(
                             self.forecaster.data.misc_data["misc"],
                             align="center",
                             x=0,
                             y=0,
+                            theme=mtheme
                         )
 
                     if "seasonals" in self.forecaster.data.misc_data:
