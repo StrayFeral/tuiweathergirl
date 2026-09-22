@@ -114,7 +114,13 @@ This window will display various celestial information. First would be the sunri
 
 ## MISC
 
-This is the "Miscelaneous" window. It will primarily display the current national holiday. However if there is none, it will display random fun facts.
+This is the "Miscelaneous" window.
+
+If there is a national public holiday on the present day, it will be displayed here in GREEN color, as shown on the following image:
+
+[![Holiday](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/holiday.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/holiday.jpg)
+
+However if there is none, it will display random fun facts.
 
 [![Misc](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/misc.jpg)](https://github.com/StrayFeral/tuiweathergirl/blob/main/overview/misc.jpg)
 
