@@ -4529,6 +4529,75 @@ class WeatherForecaster:
         }
         return mapping.get(weather_code, "Cloudy")
 
+    def _get_precipitation_amount_level(
+        self, amount: str, is_snow: bool = False
+    ) -> int:
+        """Assesses liquid precipitation sum (mm) from Open-Meteo.
+
+        Args:
+            amount: Raw precipitation_sum in mm (liquid water equivalent).
+            is_snow: Pass True if temperature/weather code indicates snowfall.
+
+        Returns:
+            0: No precipitation
+            1: Insignificant or low
+            2: Medium
+            3: Heavy
+            50: Very heavy
+            99: Disaster / Extreme
+        """
+        try:
+            mm = float(amount)
+        except (ValueError, TypeError):
+            return 0
+
+        if mm <= 0:
+            return 0
+
+        # Thresholds in liquid water equivalent (mm)
+        # Snow accumulates at ~10x liquid depth, so liquid thresholds are 10x lower for snow
+        low_thresh = 0.25 if is_snow else 2.5
+        med_thresh = 1.0 if is_snow else 10.0
+        heavy_thresh = 3.0 if is_snow else 50.0
+        disaster_thresh = 10.0 if is_snow else 100.0  # ~100mm rain or ~100cm (1m) snow
+
+        if mm < low_thresh:
+            return 1
+        elif mm < med_thresh:
+            return 2
+        elif mm <= heavy_thresh:
+            return 3
+        elif mm < disaster_thresh:
+            return 50  # Very heavy / severe
+        else:
+            return 99  # Disaster level
+
+    def get_precipitation_amount_assessment(
+        self, amount: str, precip_type: str = "Rain"
+    ) -> str:
+        """Returns a human-readable assessment of the precipitation level.
+
+        Args:
+            amount: Raw precipitation_sum in mm.
+            precip_type: String representing type of precipitation (e.g., 'Precip', 'Snow', 'Rain').
+        """
+        assessments: dict[int, str] = {
+            0: "",
+            1: "Low",
+            2: "Moderate",
+            3: "Heavy",
+            50: "Extreme",
+            99: "DISASTER",
+        }
+
+        # Safely evaluate whether the precipitation type string equals "SNOW"
+        is_snow_bool = (
+            isinstance(precip_type, str) and precip_type.strip().upper() == "SNOW"
+        )
+
+        level = self._get_precipitation_amount_level(amount, is_snow=is_snow_bool)
+        return assessments.get(level, "")
+
     def __get_air_quality_assessment(self, aqi: int) -> str:
         r"""Returns a human-readable assessment based on the US EPA AQI scale."""
 
@@ -5621,7 +5690,7 @@ class ColorViews(Views):
 
         return "regular"
 
-    def _get_humidity_cp(self, humidity: int, temperature: int, tunit: str) -> int:
+    def _get_humidity_cp(self, humidity: int, temperature: int, tunit: str) -> str:
         r"""Get the humidity color pair"""
 
         # Converting a Fahrenheit into Celsius
@@ -5647,6 +5716,17 @@ class ColorViews(Views):
             return "good"
 
         return "water"
+
+    def _get_precipitation_amount_cp(self, level: str) -> str:
+        levels: dict[str, int | str] = {
+            "": "regular",
+            "LOW": "regular",
+            "MODERATE": "water",
+            "HEAVY": "important",
+            "EXTREME": "error",
+            "DISASTER": "emergency",
+        }
+        return levels.get(level.upper(), "regular")
 
     def _get_daynight_cp(self, is_day: bool) -> int:
         r"""Get the day or night color pair"""
@@ -6052,6 +6132,11 @@ class BasicView(Views):
         humidity_level_max: str = self.forecaster.data.humidity_level_max
         humidity: str = self.forecaster.data.humidity
         wind_direction_long: str = self.forecaster.data.wind_direction_long
+        precipitation_level: str = self.forecaster.get_precipitation_amount_assessment(
+            precipitation_sum, precipitation_type
+        )
+        if precipitation_level != "":
+            precipitation_level = f"({precipitation_level})"
         # ---
         week: list[BriefDailyForecast] = self.forecaster.data.week
         follow_cities: list = self.forecaster.data.cities_data
@@ -6073,7 +6158,7 @@ Temperature Now    | {temperature}°{tsuffix}
 Temperatures Today | {tmin}°/{tmax}°{tsuffix}
 Wind Now           | {wind_type}, {wind_direction_long} {wind}{wunit}.
 Air Quality Now    | {airquality} ({aqi})
-{precipitation_type:17}  | Today: {precipitation}% chance, {precipitation_sum}{self.presconf.punit}
+{precipitation_type:17}  | Today: {precipitation}% chance, {precipitation_sum}{self.presconf.punit} {precipitation_level}
 Humidity Now       | {humidity} ({hcur}%)
 Humidity Today     | {humidity_level_min}/{humidity_level_max} ({hmin}%/{hmax}%)
 Barometric Press.  | Now: {baropressure} hPa
@@ -6086,10 +6171,17 @@ Barometric Press.  | Now: {baropressure} hPa
             dmax: int = day.max
             dprecip: int = day.precip
             dprecip_sum: int = day.precip_sum
+            dprecip_level: str = self.forecaster.get_precipitation_amount_assessment(
+                dprecip_sum, precipitation_type
+            )
+            if dprecip_level != "":
+                dprecip_level = f"({dprecip_level})"
             dow: str = day.dow
 
             temperatures = f"{dmin:>2}°/{dmax:>2}°{tsuffix}"
-            print(f"  {dow}   | {temperatures:<6} | {dprecip:>3}%, {dprecip_sum}{self.presconf.punit}")
+            print(
+                f"  {dow}   | {temperatures:<6} | {dprecip:>3}%, {dprecip_sum}{self.presconf.punit} {dprecip_level}"
+            )
 
         print("\nWARNINGS")
         print(hr)
@@ -6512,11 +6604,16 @@ class DashboardView(ColorViews):
                 precipitation: int = self.forecaster.data.precipitation
                 precipitation_sum: int = self.forecaster.data.precipitation_sum
                 wind_type: str = self.forecaster.data.wind_type
-                # precipitation_type: str = self.forecaster.data.precipitation_type
+                precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
                 humidity_level_max: str = self.forecaster.data.humidity_level_max
                 humidity: str = self.forecaster.data.humidity
                 wind_direction_long: str = self.forecaster.data.wind_direction_long
+                precipitation_level: str = (
+                    self.forecaster.get_precipitation_amount_assessment(
+                        precipitation_sum, precipitation_type
+                    )
+                )
                 # ---
                 # warnings: list[list[str]] = self.forecaster.data.warnings
                 week: list[BriefDailyForecast] = self.forecaster.data.week
@@ -6573,12 +6670,10 @@ class DashboardView(ColorViews):
                     airquality_window.print("Wind  :", x=labels_x, y=0)
                     airquality_window.print("Air Q :", x=labels_x, y=1)
                     airquality_window.print(
-                        self.forecaster.data.precipitation_type,
+                        precipitation_type,
                         x=labels_x,
                         y=2,
-                        theme=self._get_precipitation_type_cp(
-                            self.forecaster.data.precipitation_type
-                        ),
+                        theme=self._get_precipitation_type_cp(precipitation_type),
                     )
                     airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                     airquality_window.print("Humidt:", x=labels_x, y=3)
@@ -6599,12 +6694,10 @@ class DashboardView(ColorViews):
                         theme=self._get_wind_cp(wind, wunit),
                     )
                     airquality_window.print(
-                        self.forecaster.data.precipitation_type,
+                        precipitation_type,
                         x=labels_x,
                         y=2,
-                        theme=self._get_precipitation_type_cp(
-                            self.forecaster.data.precipitation_type
-                        ),
+                        theme=self._get_precipitation_type_cp(precipitation_type),
                     )
                     airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                     airquality_window.print(
@@ -6622,10 +6715,16 @@ class DashboardView(ColorViews):
                     )
                     airquality_window.print("]", x=data_x + 10, y=2, theme="border")
                     airquality_window.print(
-                        f"{precipitation}% {precipitation_sum}{self.presconf.punit}",
+                        f"{precipitation}%",
                         x=data_x + 11,
                         y=2,
                         theme=self._get_progbar_cp(precipitation),
+                    )
+                    airquality_window.print(
+                        f"{precipitation_sum}{self.presconf.punit}",
+                        x=data_x + 16,
+                        y=2,
+                        theme=self._get_precipitation_amount_cp(precipitation_level),
                     )
                     humidity_str: str = (
                         f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
@@ -6669,6 +6768,11 @@ class DashboardView(ColorViews):
                         dmax: int = day.max
                         dprecip: int = day.precip
                         dprecip_sum: int = day.precip_sum
+                        dprecip_level: str = (
+                            self.forecaster.get_precipitation_amount_assessment(
+                                dprecip_sum, precipitation_type
+                            )
+                        )
                         dow: str = day.dow
 
                         forecast_window.print(f"{dow}:", x=wx, y=wy)
@@ -6704,7 +6808,7 @@ class DashboardView(ColorViews):
                             f"{dprecip_sum}",
                             x=precip_x + 14,
                             y=wy,
-                            theme=self._get_progbar_cp(dprecip),
+                            theme=self._get_precipitation_amount_cp(dprecip_level),
                         )
 
                     # The followed cities
@@ -7110,11 +7214,16 @@ class TTYDashboardView(ColorViews):
                 precipitation: int = self.forecaster.data.precipitation
                 precipitation_sum: int = self.forecaster.data.precipitation_sum
                 wind_type: str = self.forecaster.data.wind_type
-                # precipitation_type: str = self.forecaster.data.precipitation_type
+                precipitation_type: str = self.forecaster.data.precipitation_type
                 humidity_level_min: str = self.forecaster.data.humidity_level_min
                 humidity_level_max: str = self.forecaster.data.humidity_level_max
                 humidity: str = self.forecaster.data.humidity
                 wind_direction_long: str = self.forecaster.data.wind_direction_long
+                precipitation_level: str = (
+                    self.forecaster.get_precipitation_amount_assessment(
+                        precipitation_sum, precipitation_type
+                    )
+                )
                 # ---
                 # warnings: list[list[str]] = self.forecaster.data.warnings
                 week: list[BriefDailyForecast] = self.forecaster.data.week
@@ -7160,12 +7269,10 @@ class TTYDashboardView(ColorViews):
                     airquality_window.print("Wind  :", x=labels_x, y=0)
                     airquality_window.print("Air Q :", x=labels_x, y=1)
                     airquality_window.print(
-                        self.forecaster.data.precipitation_type,
+                        precipitation_type,
                         x=labels_x,
                         y=2,
-                        theme=self._get_precipitation_type_cp(
-                            self.forecaster.data.precipitation_type
-                        ),
+                        theme=self._get_precipitation_type_cp(precipitation_type),
                     )
                     airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                     airquality_window.print("Humidt:", x=labels_x, y=3)
@@ -7186,12 +7293,10 @@ class TTYDashboardView(ColorViews):
                         theme=self._get_wind_cp(wind, wunit),
                     )
                     airquality_window.print(
-                        self.forecaster.data.precipitation_type,
+                        precipitation_type,
                         x=labels_x,
                         y=2,
-                        theme=self._get_precipitation_type_cp(
-                            self.forecaster.data.precipitation_type
-                        ),
+                        theme=self._get_precipitation_type_cp(precipitation_type),
                     )
                     airquality_window.print(":", x=labels_x + 6, y=2, theme="general")
                     airquality_window.print(
@@ -7209,10 +7314,16 @@ class TTYDashboardView(ColorViews):
                     )
                     airquality_window.print("]", x=data_x + 10, y=2, theme="border")
                     airquality_window.print(
-                        f"{precipitation}% {precipitation_sum}{self.presconf.punit}",
+                        f"{precipitation}%",
                         x=data_x + 11,
                         y=2,
                         theme=self._get_progbar_cp(precipitation),
+                    )
+                    airquality_window.print(
+                        f"{precipitation_sum}{self.presconf.punit}",
+                        x=data_x + 16,
+                        y=2,
+                        theme=self._get_precipitation_amount_cp(precipitation_level),
                     )
                     humidity_str: str = (
                         f"{self.forecaster.data.hmin}%({humidity_level_min:.7})"
@@ -7256,6 +7367,11 @@ class TTYDashboardView(ColorViews):
                         dmax: int = day.max
                         dprecip: int = day.precip
                         dprecip_sum: int = day.precip_sum
+                        dprecip_level: str = (
+                            self.forecaster.get_precipitation_amount_assessment(
+                                dprecip_sum, precipitation_type
+                            )
+                        )
                         dow: str = day.dow
 
                         forecast_window.print(f"{dow}:", x=wx, y=wy)
@@ -7293,7 +7409,7 @@ class TTYDashboardView(ColorViews):
                             f"{dprecip_sum}{self.presconf.punit}",
                             x=precip_x + 15,
                             y=wy,
-                            theme=self._get_progbar_cp(dprecip),
+                            theme=self._get_precipitation_amount_cp(dprecip_level),
                         )
 
                     # WARNINGS
