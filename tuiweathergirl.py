@@ -5461,6 +5461,7 @@ class PresentationConfiguration:
         self.date: str = ""
         self.time: str = ""
         self.dow: str = ""
+        self.day_of_week: str = ""
         self.season: str = ""
 
     def get_time_for_timezone(self, timezone_str: str) -> str:
@@ -5508,6 +5509,7 @@ class PresentationConfiguration:
             )
         # self.dow = format_date(now, format="cccccc", locale=self.locale_id).title()
         self.dow = format_date(now, format="EEE", locale=DEFAULT_LOCALE).title()
+        self.day_of_week = format_date(now, format="EEEE", locale=DEFAULT_LOCALE).title()
         self.season = self.get_season(self.continent_code)
 
         # Time 12/24
@@ -6569,7 +6571,7 @@ class DashboardView(ColorViews):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
-            dow: str = self.presconf.dow
+            dow: str = self.presconf.day_of_week
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
 
@@ -6618,7 +6620,7 @@ class DashboardView(ColorViews):
             # Today's date and time - we need this to refresh more often
             is_day: bool = self.forecaster.data.is_day
             home_day_icon: str = self._get_daynight_icon(is_day)
-            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+            day_now: str = f"Today: {dow}, {datenow} {timenow}{dstmark} "
             day_season: str = f"{home_day_icon} {season}"
             location_window.print(
                 day_now,
@@ -7187,7 +7189,7 @@ class TTYDashboardView(ColorViews):
             # Data to display
             timenow: str = self.presconf.update_time()
             datenow: str = self.presconf.date
-            dow: str = self.presconf.dow
+            dow: str = self.presconf.day_of_week
             season: str = self.presconf.season
             dstmark: str = "*" if self.config.dst else ""
 
@@ -7238,7 +7240,7 @@ class TTYDashboardView(ColorViews):
             home_day: str = "night"
             if is_day:
                 home_day = "day"
-            day_now: str = f"Today: {datenow} {timenow}{dstmark} "
+            day_now: str = f"Today: {dow}, {datenow} {timenow}{dstmark} "
             day_season: str = f"({home_day}) {season}"
             location_window.print(
                 day_now,
