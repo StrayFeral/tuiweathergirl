@@ -24,6 +24,18 @@ classifiers = [
     "Environment :: Console :: Curses",
 ]
 
+# Development & Project Tools (PEP 735 standard)
+[dependency-groups]
+dev = [
+    "black",
+    "mypy",
+    "flake8",
+    "bandit",
+    "isort",
+    "pytest",
+    "bump-my-version",
+]
+
 [tool.bumpversion]
 current_version = "1.5.12"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
