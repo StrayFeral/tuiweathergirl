@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Day of week now printed next to the current date.
 
+### Changed
+- Changelog fixed to adhere more to the "Keep a Changelog" rules.
+
 ## [1.5.11] - 2026-09-23
 
 ### Fixed
