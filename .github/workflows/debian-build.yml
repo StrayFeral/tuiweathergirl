@@ -26,10 +26,16 @@ jobs:
             appstream-util \
             build-essential \
             debhelper \
+            devscripts \
             dh-python \
+            equivs \
             fakeroot \
             lintian \
             zip
+
+      - name: Install Declared Build Dependencies
+        run: |
+          sudo mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" debian/control
 
       - name: Validate AppStream Metadata
         run: |
