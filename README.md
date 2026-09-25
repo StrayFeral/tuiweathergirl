@@ -38,7 +38,7 @@
 
 > [!TIP]
 > DEBIAN, UBUNTU, MINT etc: **You could download a DEB package**  
-> 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
+> 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).  
 > In the DEB package version the application auto-update is disabled.
 
 > [!TIP]
