@@ -33,16 +33,16 @@
 ## DOWNLOAD
 
 > [!TIP]
-> LINUX: **Download the LINUX installer** (no need to download anything else)
+> LINUX: **Download the LINUX installer** (no need to download anything else)  
 > 📥 RIGHT-CLICK and "SAVE AS" to Download: [linux_install.sh](https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/linux_install.sh)
 
 > [!TIP]
-> DEBIAN, UBUNTU, MINT etc: **You could download a DEB package**
+> DEBIAN, UBUNTU, MINT etc: **You could download a DEB package**  
 > 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 > In the DEB package version the application auto-update is disabled.
 
 > [!TIP]
-> ANY operating system: **Download the Latest Release**
+> ANY operating system: **Download the Latest Release**  
 > 📥 Download: [tuiweathergirl.zip](https://github.com/StrayFeral/tuiweathergirl/releases/latest/download/tuiweathergirl.zip)
 
 ## DESCRIPTION
@@ -164,7 +164,7 @@ linux_install.sh
 > DISCLAIMER: Since the application was tested on Debian and Lubuntu, my Makefile was created for a Debian or derivative distro. If you are a linux user on another distro (SUSE, Fedora etc), please inspect it and install the required packages manually with your provided distro package manager. I don't know what the package names would be on another distro, so would be grateful if you tell me what was your distro, the version and if you paste me the lines of how you installed it.
 
 > [!TIP]
-> DEBIAN, UBUNTU, MINT etc: **You could download a DEB package**
+> DEBIAN, UBUNTU, MINT etc: **You could download a DEB package**  
 > 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).
 > In the DEB package version the application auto-update is disabled.
 
