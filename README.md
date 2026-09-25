@@ -39,7 +39,7 @@
 > [!TIP]
 > DEBIAN, UBUNTU, MINT etc: **DEB package is available**  
 > 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).  
-> In the DEB package version the application auto-update is disabled.
+> If application was installed from a package manager, the built-in update features will be turned OFF.
 
 > [!TIP]
 > ANY operating system: **Download the Latest Release**  
@@ -166,7 +166,7 @@ linux_install.sh
 > [!TIP]
 > DEBIAN, UBUNTU, MINT etc: **DEB package is available**  
 > 📥 Download the DEB package from the [LATEST RELEASE](https://github.com/StrayFeral/tuiweathergirl/releases/latest/).  
-> In the DEB package version the application auto-update is disabled.
+> If application was installed from a package manager, the built-in update features will be turned OFF.
 
 ### INSTALLING ON WINDOWS10
 
@@ -219,6 +219,9 @@ You could also manually force-update it by running:
 ```bash
 tuiweathergirl --updateapp
 ```
+
+> [!WARNING]
+> If application was installed from a package manager, the built-in update features will be turned OFF.
 
 ## RUNNING FOR THE FIRST TIME - APPLICATION OVERVIEW
 
