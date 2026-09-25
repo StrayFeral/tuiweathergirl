@@ -17,7 +17,7 @@ Depends: python3 (>= 3.9),
          python3-packaging,
          ${python3:Depends},
          ${misc:Depends}
-Description: Terminal weather and disaster monitoring station
+Description: TUI Weathergirl
  Terminal-based weather and disaster monitoring station supporting real-time
  atmospheric monitoring, polar research station tracking, wildfire tracking,
  and space weather metrics.
