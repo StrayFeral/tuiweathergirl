@@ -1,3 +1,15 @@
+tuiweathergirl (1.5.13-4) unstable; urgency=medium
+
+  * Bump release version to 1.5.13
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Fri, 25 Sep 2026 22:20:00 +0000
+
+tuiweathergirl (1.5.13-3) unstable; urgency=medium
+
+  * Fixed package application title
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Fri, 25 Sep 2026 22:20:00 +0000
+
 tuiweathergirl (1.5.13-2) unstable; urgency=medium
 
   * Packaging revision update.
