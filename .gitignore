@@ -208,3 +208,14 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# DEBIAN STUFF
+*.debhelper
+debian/.debhelper/
+debian/tuiweathergirl/
+debian/debhelper-build-stamp
+debian/files
+debian/*.log
+debian/*.substvars
+deb/
+

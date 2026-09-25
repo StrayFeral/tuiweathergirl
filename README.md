@@ -1,5 +1,11 @@
 # TUIWEATHERGIRL: Weather and Disaster Station
 
+<!-- Badges Section -->
+[![Release](https://img.shields.io/github/v/release/StrayFeral/tuiweathergirl?color=blue&logo=debian)](https://github.com/StrayFeral/tuiweathergirl/releases/latest)
+![Python 3](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)
+![Terminal](https://img.shields.io/badge/Terminal-GNU_Bash-4EAA25?logo=gnubash&logoColor=white)
+[![Build and Release Debian Packages](https://github.com/StrayFeral/tuiweathergirl/actions/workflows/debian-build.yml/badge.svg)](https://github.com/StrayFeral/tuiweathergirl/actions/workflows/debian-build.yml)
+
 ![Screenshot](screenshots/thumbnail.gif)
 
 ## CONTENTS
