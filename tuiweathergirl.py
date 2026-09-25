@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TUIWEATHERGIRL
 # 2026 by Evgueni Antonov (StrayF)
