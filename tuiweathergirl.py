@@ -3881,12 +3881,13 @@ class UpdateManager:
     def auto_update(self) -> None:
         """Application auto-update"""
 
+        if not self._must_autoupdate():
+            return
+        
         if self._is_system_package():
-            raise Exception(
+            self.logger.warning(
                 "Cannot update. Application was installed as a system package. Run with --updatepolicy for details."
             )
-
-        if not self._must_autoupdate():
             return
 
         latest_release: str = self._newer_version()

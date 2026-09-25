@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.13] - 2026-09-25
+
+### Fixed
+- Autoupdate now does not throw exception if application was installed via package manager.
+
+### Added
+- Debian build workflow
+
 ## [1.5.12] - 2026-09-23
 
 ### Added
