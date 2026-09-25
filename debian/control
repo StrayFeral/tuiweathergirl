@@ -1,0 +1,25 @@
+Source: tuiweathergirl
+Section: utils
+Priority: optional
+Maintainer: Evgueni Antonov <Evgueni.Antonov@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3-all (>= 3.9)
+X-Python3-Version: >= 3.9
+Standards-Version: 4.6.2
+Homepage: https://github.com/StrayFeral/tuiweathergirl
+
+Package: tuiweathergirl
+Architecture: all
+Depends: python3 (>= 3.9),
+         python3-babel,
+         python3-requests,
+         libncurses6,
+         tzdata,
+         python3-packaging,
+         ${python3:Depends},
+         ${misc:Depends}
+Description: Terminal weather and disaster monitoring station
+ Terminal-based weather and disaster monitoring station supporting real-time
+ atmospheric monitoring, polar research station tracking, wildfire tracking,
+ and space weather metrics.
+ .
+ Developed and tested on Python 3.12.3.

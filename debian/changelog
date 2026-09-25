@@ -1,0 +1,8 @@
+tuiweathergirl (1.5.12-1) unstable; urgency=medium
+
+  * Initial Debian release for TUI Weathergirl.
+  * Added AppStream console metadata specification.
+  * Added man page for tuiweathergirl (section 1).
+  * Packaging setup for GitHub CI/CD automated builds.
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Wed, 23 Sep 2026 12:00:00 +0000

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>org.example.tuiweathergirl</id>
+  
+  <name>TUI Weathergirl</name>
+  <summary>Weather and Disaster monitoring station</summary>
+  
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  
+  <description>
+    <p>
+      TUI Weathergirl is a personal terminal weather and disaster monitoring
+      station which is also very much focused on the users with various
+      medical conditions, visually impaired users and the users with friends
+      and relatives scatered in various places on the planet as it gives them
+      a way to monitor both the time, sky situation and temperature in
+      real time for 10 additional places on Earth. Application also gives
+      opportunity to monitor the weather in any of the Antarctic research
+      stations and just any spot on Earth.
+    </p>
+  </description>
+
+  <provides>
+    <binary>tuiweathergirl</binary>
+  </provides>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main application view</caption>
+      <image type="source">https://raw.githubusercontent.com/StrayFeral/tuiweathergirl/main/screenshots/dashboard_view_1.1.5.jpg</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="1.5.12" date="2026-09-23" />
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <url type="homepage">https://github.com/StrayFeral/tuiweathergirl</url>
+</component>

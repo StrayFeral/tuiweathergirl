@@ -1,0 +1,107 @@
+.\" Manpage for tuiweathergirl
+.\" Contact Evgueni.Antonov@gmail.com to report errors or typos.
+.TH TUIWEATHERGIRL 1 "23 September 2026" "1.5.12" "User Commands"
+.SH NAME
+tuiweathergirl \- A terminal weather and disaster monitoring station
+.SH SYNOPSIS
+.B tuiweathergirl
+[\0\fIoptions\fR\0]
+.SH DESCRIPTION
+\fBtuiweathergirl\fR is a terminal-based weather and disaster monitoring station. It supports real-time monitoring of weather, polar research stations, atmospheric conditions across multiple global locations, and space weather.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show summary of options and exit.
+.TP
+.BR \-ver ", " \-\-version
+Print application version.
+.TP
+.BR \-u ", " \-\-updateapp
+Check for updates, download, and install them. Note: This self-update mechanism is intended only for standalone installations cloned from GitHub. System packages installed via a package manager should be updated through your distribution repository (e.g., \fBapt update && apt upgrade\fR).
+.TP
+\fB\-au\fR [\fIon\fR|\fIoff\fR], \fB\-\-autoupdateapp\fR [\fIon\fR|\fIoff\fR]
+Enable or disable auto-updates (\fBon\fR/\fBoff\fR).
+.TP
+\fB\-\-view\fR \fIVIEWNAME\fR
+Select the application view (\fBsetup\fR, \fBbasic\fR, \fBmotivate\fR, \fBdashboard\fR, \fBttydashboard\fR, \fBseasonal\fR).
+.TP
+\fB\-\-theme\fR \fITHEMENAME\fR
+Select the color scheme (\fBmain\fR, \fBmono\fR, \fBlemon\fR, \fBarctic\fR).
+.TP
+\fB\-\-addcity\fR \fICITYNAME\fR
+Add a new city to follow by city name. Must be used with \fB\-\-country\fR.
+.TP
+\fB\-\-removecity\fR \fICITYNUMBER\fR
+Remove a currently followed city by its index number.
+.TP
+\fB\-\-sethome\fR \fICITYNUMBER\fR
+Set the home city index (city must already be added).
+.TP
+\fB\-\-country\fR \fICOUNTRYNAME\fR
+Specify the country name for \fB\-\-addcity\fR.
+.TP
+.BR \-d ", " \-\-debug
+Enable verbose debug output on errors.
+.TP
+.BR \-clr ", " \-\-clearcache
+Clear application cache, application log, and warnings log.
+.TP
+\fB\-reqt\fR \fISECONDSNUMBER\fR, \fB\-\-requesttimeout\fR \fISECONDSNUMBER\fR
+Set the HTTP request timeout in seconds (default: 5).
+.TP
+.BR \-ls ", " \-\-listfiles
+List paths to application log files, configuration, and runtime data.
+.TP
+.BR \-lsps ", " \-\-listpolarstations
+List all followable Antarctic and Arctic Polar Stations.
+.TP
+\fB\-lat\fR \fILATFLOAT\fR, \fB\-\-latitude\fR \fILATFLOAT\fR
+Specify geographical latitude. Use Google Maps or a GPS to obtain it.
+.TP
+\fB\-lon\fR \fILONFLOAT\fR, \fB\-\-longitude\fR \fILONFLOAT\fR
+Specify geographical longitude. Use Google Maps or a GPS to obtain it.
+.TP
+\fB\-csort\fR \fIORDER\fR, \fB\-\-citiessorting\fR \fIORDER\fR
+Select city sorting order (\fBunsorted\fR, \fBcity\fR, \fBcountry\fR). If chosen \fBcity\fR or \fBcountry\fR, any city from the home country would be sorted at the top.
+.TP
+.B \-\-updatepolicy
+Print the application update policy.
+
+.SH VIEWS
+.TP
+\fBmotivate\fR, \fBbasic\fR
+Best for lightweight terminals or pure virtual TTY consoles (simple STDOUT).
+.TP
+.B ttydashboard
+A colorful ncurses dashboard designed for virtual consoles (requires at least 106x33 terminal geometry).
+.TP
+.B dashboard
+The main interactive dashboard featuring full metrics (requires at least 146x38 terminal geometry).
+.TP
+.B setup
+Prints currently configured cities.
+
+.SH ENVIRONMENT
+.TP
+.B NASAFIRMSAPIKEY
+Optional API key for displaying detailed wildfire data. Request a free key at:
+\fIhttps://firms.modaps.eosdis.nasa.gov/api/map_key\fR
+
+.SH NOTES
+If \fBtuiweathergirl\fR was installed via a system package manager (e.g., \fBdpkg\fR or \fBapt\fR), do not use the built-in \fB\-\-updateapp\fR feature. System installations should be updated exclusively through your system's package management tools to preserve filesystem integrity.
+
+For details on how to use this application, please visit the project GitHub home where you will find a detailed documentation illustrated with screenshots and tutorial videos. The URL is at the bottom of this man page.
+
+.SH TROUBLESHOOTING
+If the config file was manually edited and the application starts throwing exceptions as a result, just delete the config file and run the application again - it will re-create the config from scratch.
+
+For more troubleshooting details, please read the official documentation on the project GitHub page.
+
+.SH BUGS
+No known bugs. Report bugs to the upstream project page.
+
+.SH AUTHOR
+Evgueni Antonov <Evgueni.Antonov@gmail.com>
+
+.SH "SEE ALSO"
+Project Home: \fIhttps://github.com/StrayFeral/tuiweathergirl\fR
