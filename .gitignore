@@ -219,3 +219,5 @@ debian/*.log
 debian/*.substvars
 deb/
 
+*.lock
+
