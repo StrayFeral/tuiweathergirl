@@ -1,7 +1,25 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/debian-policy/4.0/reporting/copyright-format/1.0/
 Upstream-Name: tuiweathergirl
-Source: https://github.com/StrayFeral/tuiweathergirl
+Files-Excluded:
+ screenshots/*
+ known_bug_screenshots/*
+ ascii/*
+ backup/*
+ deb/*
+ misc/*
+ prototypes/*
+ spells/*
+ test_data/*
+ tests/*
+ usage/*
+ term_size.txt
+ issues.txt
+ NOTES.txt
+ APPLY_DEBIAN_REPO.txt
+ uv.lock
+ *.bat
+ *.sh
 
 Files: *
-Copyright: 2026 Evgueni Antonov <Evgueni.Antonov@gmail.com>
-License: GPL-3+
+Copyright: 2026 eantonov <eantonov@example.com>
+License: GPL-3.0-or-later

@@ -1,1 +1,1 @@
-extend-diff-ignore = "(^|/)(ascii|backup|deb|issues\.txt|misc|NOTES\.txt|prototypes|spells|term_size\.txt|test_data|tests|uv\.lock|APPLY_DEBIAN_REPO\.txt|\.mypy_cache)(/|$)"
+extend-diff-ignore = "(^|/)(ascii|backup|deb|issues\.txt|known_bug_screenshots|misc|NOTES\.txt|overview|OVERVIEW\.md|prototypes|screenshots|spells|term_size\.txt|test_data|tests|usage|USAGE\.md|uv\.lock|APPLY_DEBIAN_REPO\.txt|create_win10shortcut\.bat|linux_install\.sh|makedeb\.sh|windows_install\.bat|\.mypy_cache)(/|$)"
