@@ -1,0 +1,4 @@
+version=4
+opts="refs/tags/v@ANY_VERSION@" \
+  https://github.com/StrayFeral/tuiweathergirl/releases \
+  .*/archive/v?(\d[\d\.-]+)\.tar\.gz debian uversionmangle=s/\-rc\d+$//
