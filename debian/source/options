@@ -1,1 +1,1 @@
-extend-diff-ignore = "(^|/)(screenshots|spells|misc|prototypes|backup|test_data)(\.json)?(/|$)"
+extend-diff-ignore = "(^|/)(ascii|backup|deb|issues\.txt|misc|NOTES\.txt|prototypes|spells|term_size\.txt|test_data|tests|uv\.lock|APPLY_DEBIAN_REPO\.txt|\.mypy_cache)(/|$)"
