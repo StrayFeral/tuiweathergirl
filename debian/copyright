@@ -1,4 +1,4 @@
-Format: https://www.debian.org/doc/debian-policy/4.0/reporting/copyright-format/1.0/
+Format: https://www.debian.org/doc/debian-policy/copyright-format/1.0/
 Upstream-Name: tuiweathergirl
 Files-Excluded:
  screenshots/*

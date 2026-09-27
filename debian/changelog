@@ -1,3 +1,10 @@
+tuiweathergirl (1.5.13-8) unstable; urgency=medium
+
+  * Fix Lintian errors: copyright format, python3 helper, changelog
+    date, standards version
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 02:54:16 +0300
+
 tuiweathergirl (1.5.13-7) unstable; urgency=medium
 
   * Initial release into Debian (Closes: #1149182).
@@ -6,7 +13,7 @@ tuiweathergirl (1.5.13-7) unstable; urgency=medium
   * Added DEP-5 license definitions in debian/copyright.
   * Added debian/watch file for automated upstream release tracking.
 
- -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 01:20:00 +0300
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 02:50:14 +0300
 
 tuiweathergirl (1.5.13-6) unstable; urgency=medium
 
