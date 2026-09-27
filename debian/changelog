@@ -1,11 +1,12 @@
-tuiweathergirl (1.5.13-6ubuntu2) UNRELEASED; urgency=medium
+tuiweathergirl (1.5.13-7) unstable; urgency=medium
 
-  * Fix Lintian errors: add 3.0 (quilt) format, dh-python, debian/clean,
-    and DEP-5 license definitions.
-  * Fix Lintian errors: add 3.0 (quilt) format, dh-python, debian/clean,
-    and DEP-5 license definitions.
+  * Initial release into Debian (Closes: #1149182).
+  * Set source format to 3.0 (quilt).
+  * Added dh-python build dependency and debian/clean file.
+  * Added DEP-5 license definitions in debian/copyright.
+  * Added debian/watch file for automated upstream release tracking.
 
- -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 01:17:54 +0300
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 01:20:00 +0300
 
 tuiweathergirl (1.5.13-6) unstable; urgency=medium
 
