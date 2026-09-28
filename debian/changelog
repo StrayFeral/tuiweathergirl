@@ -1,3 +1,9 @@
+tuiweathergirl (1.5.13-9) unstable; urgency=medium
+
+  * Fix remaining Lintian error
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Mon, 28 Sep 2026 03:14:09 +0300
+
 tuiweathergirl (1.5.13-8) unstable; urgency=medium
 
   * Fix Lintian errors: copyright format, python3 helper, changelog
