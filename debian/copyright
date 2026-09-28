@@ -1,5 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: tuiweathergirl
+Upstream-Contact: Evgueni Antonov <Evgueni.Antonov@gmail.com>
+Source: https://github.com/StrayFeral/tuiweathergirl
 Files-Excluded:
  screenshots/*
  known_bug_screenshots/*
@@ -21,5 +23,22 @@ Files-Excluded:
  *.sh
 
 Files: *
-Copyright: 2026 eantonov <eantonov@example.com>
+Copyright: 2026 Evgueni Antonov <Evgueni.Antonov@gmail.com>
 License: GPL-3.0-or-later
+
+Files: debian/org.example.tuiweathergirl.metainfo.xml
+Copyright: 2026 Evgueni Antonov <Evgueni.Antonov@gmail.com>
+License: CC0-1.0
+
+License: GPL-3.0-or-later
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+License: CC0-1.0
+ On Debian systems, the full text of the CC0-1.0 license
+ can be found in "/usr/share/common-licenses/CC0-1.0".
