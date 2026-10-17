@@ -265,6 +265,12 @@ You may take a look what's in the config file under `[PREFERENCES]`, in case you
 tuiweathergirl --help
 ```
 
+### IF YOU INSTALLED FROM A DEB PACKAGE - READ THE MAN PAGE
+
+```bash
+man tuiweathergirl
+```
+
 ### INSPECT THE LOGFILE
 
 If anything goes wrong: Inspect the log file. Where is the log file? This command will tell you:
