@@ -6,6 +6,8 @@ Build-Depends: debhelper-compat (= 13), dh-python, python3 (>= 3.9)
 X-Python3-Version: >= 3.9
 Standards-Version: 4.7.0
 Homepage: https://github.com/StrayFeral/tuiweathergirl
+Vcs-Git: https://github.com/StrayFeral/tuiweathergirl.git
+Vcs-Browser: https://github.com/StrayFeral/tuiweathergirl
 
 Package: tuiweathergirl
 Architecture: all

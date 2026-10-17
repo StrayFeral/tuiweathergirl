@@ -206,13 +206,13 @@ pip3 install requests babel
 
 ## UPDATING
 
-Once installed, application will quietly auto-update each Wednesday by default (or if you didn't ran it more than 8 days), unless you turn the auto-update OFF with:
+Once installed, by default the application will quietly auto-update each Wednesday (or if you didn't ran it more than 8 days), unless you turn the auto-update OFF with:
 
 ```bash
 tuiweathergirl --autoupdateapp off
 ```
 
-(later you could always turn it back ON, by simply running the same command with: --autoupdateapp on)
+(later you could always turn it back ON, by running the same command with: `--autoupdateapp on`)
 
 You could also manually force-update it by running:
 
@@ -235,7 +235,7 @@ See: [USAGE.md](USAGE.md)
 
 For details, see: [USAGE.md](USAGE.md)
 
-Some of the things could be changed command-line. For example if you run the app just with 
+Some things could be changed command-line. For example if you run the app without any command-line parameters: 
 
 ```bash
 tuiweathergirl
@@ -273,17 +273,40 @@ If anything goes wrong: Inspect the log file. Where is the log file? This comman
 tuiweathergirl --listfiles
 ```
 
+### COULD NOT GET DATA FOR XXX
+
+This applies for the exception messages `Cannot get home weather data. Try again in a minute. Request timeout (5).` and `Cannot get weather data for the followed cities. Try again in a minute. Request timeout (5).`.
+
+#### POSSIBLE REASONS
+
+1. No internet connection
+2. Your internet connection is slow
+3. The application cannot connect to one of the main APIs to get data
+
+#### SOLUTION
+
+If the problem is a slow internet connection or no connection to any of the APIs, you can increase the request timeout time `Request timeout (5)` tells you that current request timeout is 5 seconds, which is the application default.
+
+Here is how to change the request timeout:
+
+```bash
+tuiweathergirl --requesttimeout 7
+```
+
+This will change the request timeout to `7` seconds, which is what I personally use. You can put any number, but there is no need to put large numbers like `100`.
+
 ### TERMINAL IS NOT LARGE ENOUGH
 
-Just resize your terminal, make it larger to fit the application view or just maximize it. Or maybe you want to try another view? The "basic" and the "motivate" views would work in absolutely any terminal.
+Resize your terminal, make it larger to fit the application view or simply maximize it. Or maybe you want to try another view? The `"basic"` and the `"motivate"` views would work in absolutely any terminal.
 
 ### IN CASE OF INCORRECTLY DETECTED HOME LOCATION OR IF YOU'RE BEHIND A VPN
 
 ```bash
 tuiweathergirl --addcity <YOURCITYNAME> --country <YOURCOUNTRYNAME>
 tuiweathergirl --view setup
-# Each added new city is recorded with some number and this will tell you 
-# under what number the city was recorded. The very first added city is 1.
+# Each added new city is recorded with some number and checking the "setup view"
+# will tell you under what number the new city was recorded.
+# The very first added city is 1.
 tuiweathergirl --sethome <CITYNUMBER>
 tuiweathergirl --removecity <CITYNUMBER>
 tuiweathergirl --clearcache  # Just in case
@@ -311,7 +334,7 @@ Next time you run the application you would notice your home location is now set
 
 ### DATA LOOKS INCORRECT
 
-Just clear the cache and launch the application again:
+Clear the cache and launch the application again:
 
 ```bash
 tuiweathergirl --clearcache
