@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed wording in the CHANGELOG.md.
 - Added VCS fields in debian/control.
 - Updated debian/changelog for the VCS fields.
+- Changed word 'Range' with word 'Today' in the 'Currently' window.
 
 ## [1.5.13] - 2026-09-25
 

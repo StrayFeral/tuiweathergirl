@@ -6687,7 +6687,7 @@ class DashboardView(ColorViews):
                     currently_window.clear()
                     currently_window.print("Sky   :", x=labels_x, y=0)
                     currently_window.print("Temp  :", x=labels_x, y=1)
-                    currently_window.print("Range :", x=labels_x, y=2)
+                    currently_window.print("Today :", x=labels_x, y=2)
                     currently_window.print("Humidt:", x=labels_x, y=3)
                     currently_window.print(
                         f"{self._get_weather_description_icon(weather_code, is_day)}  {sky}",
@@ -7298,7 +7298,7 @@ class TTYDashboardView(ColorViews):
                     currently_window.clear()
                     currently_window.print("Sky   :", x=labels_x, y=0)
                     currently_window.print("Temp  :", x=labels_x, y=1)
-                    currently_window.print("Range :", x=labels_x, y=2)
+                    currently_window.print("Today :", x=labels_x, y=2)
                     currently_window.print("Humidt:", x=labels_x, y=3)
                     currently_window.print(
                         sky, x=data_x, y=0, theme=self._get_sky_cp(sky)
