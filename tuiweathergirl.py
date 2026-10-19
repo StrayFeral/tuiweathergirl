@@ -2449,7 +2449,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get disasters (GDACS). Will try again on the next refresh.",
+                    "[DISASTER] Cannot get disasters (GDACS). Will try again on the next refresh.",
                 ]
             )
             return disasters
@@ -2509,7 +2509,7 @@ class DisasterAdvisor:
                         "ERROR",
                         "ALL",
                         "ERROR",
-                        " Cannot get disaster details (GDACS). Will try again on the next refresh.",
+                        "[DISASTER] Cannot get disaster details (GDACS). Will try again on the next refresh.",
                     ]
                 )
                 return disasters
@@ -2567,7 +2567,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
+                    "[WILDFIRE] Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
                 ]
             )
             return fire_list
@@ -2583,7 +2583,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    f" Cannot get wildfire data (FIRMS): HTTP Err {response.status_code}: {response.text}",
+                    f"[WILDFIRE] Cannot get wildfire data (FIRMS): HTTP Err {response.status_code}: {response.text}",
                 ]
             )
             return fire_list
@@ -2598,7 +2598,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    f" Cannot get wildfire data (FIRMS): Not a CSV: {response.text}",
+                    f"[WILDFIRE] Cannot get wildfire data (FIRMS): Not a CSV: {response.text}",
                 ]
             )
             return fire_list
@@ -2614,7 +2614,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    f" Cannot get wildfire data (FIRMS): {text}",
+                    f"[WILDFIRE] Cannot get wildfire data (FIRMS): {text}",
                 ]
             )
             return fire_list
@@ -2630,7 +2630,7 @@ class DisasterAdvisor:
                             "ERROR",
                             "ALL",
                             "ERROR",
-                            " Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
+                            "[WILDFIRE] Cannot get wildfire data (FIRMS). Will try again on the next refresh.",
                         ]
                     )
                     return fire_list
@@ -2641,7 +2641,7 @@ class DisasterAdvisor:
                             "ERROR",
                             "ALL",
                             "ERROR",
-                            f" Cannot get wildfire data (FIRMS): {line}",
+                            f"[WILDFIRE] Cannot get wildfire data (FIRMS): {line}",
                         ]
                     )
                     return fire_list
@@ -2661,7 +2661,7 @@ class DisasterAdvisor:
                         "ERROR",
                         "ALL",
                         "ERROR",
-                        f" Cannot get wildfire data (FIRMS): {line}",
+                        f"[WILDFIRE] Cannot get wildfire data (FIRMS): {line}",
                     ]
                 )
                 return fire_list
@@ -2795,7 +2795,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get earthquakes (USGS). Will try again on the next refresh.",
+                    "[EARTHQUAKE] Cannot get earthquakes (USGS). Will try again on the next refresh.",
                 ]
             )
             return raw_quakes, errors
@@ -2874,7 +2874,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get earthquakes (EMSC). Will try again on the next refresh.",
+                    "[EARTHQUAKE] Cannot get earthquakes (EMSC). Will try again on the next refresh.",
                 ]
             )
             return raw_quakes, errors
@@ -2998,6 +2998,10 @@ class DisasterAdvisor:
             "SOUTH": "S.",
             "EAST": "E.",
             "WEST": "W.",
+            "NORTHERN": "N.",
+            "SOUTHERN": "S.",
+            "EASTERN": "E.",
+            "WESTERN": "W.",
         }
 
         # Longest keys first, so "NORTHWEST" is matched before "NORTH"/"WEST"
@@ -3122,7 +3126,7 @@ class DisasterAdvisor:
                     "ERROR",
                     "ALL",
                     "ERROR",
-                    " Cannot get space falling objects data (FIREBALLS). Will try again on the next refresh.",
+                    "[FIREBALL] Cannot get space falling objects data (FIREBALLS). Will try again on the next refresh.",
                 ]
             )
             return fireballs

@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added VCS fields in debian/control.
 - Updated debian/changelog for the VCS fields.
 - Changed word 'Range' with word 'Today' in the 'Currently' window.
+- Changed some error messages.
+- Added words 'Eastern', 'Western', 'Southern' and 'Northern' for abbreviation.
 
 ## [1.5.13] - 2026-09-25
 
