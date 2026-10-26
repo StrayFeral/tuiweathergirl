@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed word 'Range' with word 'Today' in the 'Currently' window.
 - Changed some error messages.
 - Added words 'Eastern', 'Western', 'Southern' and 'Northern' for abbreviation.
+- Created a new view 'moon' to display info focused on the Moon.
 
 ## [1.5.13] - 2026-09-25
 
