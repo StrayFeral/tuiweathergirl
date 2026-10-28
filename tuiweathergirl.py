@@ -92,6 +92,8 @@ HOW DOES TUIWEATHERGIRL WORKS:
 PROJECT URL: https://github.com/StrayFeral/tuiweathergirl
 For detailed wildfires info set variable NASAFIRMSAPIKEY with a free API key
 from: https://firms.modaps.eosdis.nasa.gov/api/map_key
+
+Lunar phases ASCII art by Joan G. Stark (Spunk).
 """
 APPLICATION_UPDATE_POLICY: str = f"""
 TUIWEATHERGIRL APPLICATION UPDATE POLICY
@@ -183,8 +185,20 @@ class APIIssues:
         )
 
 
-# Yes, I know you have questions by looking at this.
+# Yes, I know you have questions by looking at the following.
 # No worries. I have questions too.
+
+lunar_phase_messages: dict[str, str] = {
+    "New Moon": """This is the mark of the new beginnings. Now is the time to start something new or plant something new.
+A new era approaches and begins today. This is Amavasya, the time for spiritual cleansing.
+""",
+    "Waxing Crescent": """Today is Hilal, the beginning of a new lunar month, but also today we mark the shift
+from subterranean focus to upward growth.
+""",
+    "Full Moon": """Today is a moment of clarity, illumination and celebration.
+""",
+}
+
 facts_sheet: list[str] = [
     "1948-01-01: Konrad Zuse completes Plankalkül, the earliest high-level non-von Neumann programming language.",
     "1949-01-01: John Mauchly proposes Short Code, the first electronic programming language for computers.",
@@ -1987,6 +2001,49 @@ class Astronomer:
             return "Waning Crescent"
 
         return "New Moon"
+
+    def days_to_moon_phase(self, phase_name: str) -> int:
+        """Returns the approximate number of days from today to the specified moon phase (never returns 0)."""
+
+        phase_targets = {
+            "New Moon": 0.0,
+            "Waxing Crescent": 3.685,
+            "First Quarter": 7.375,
+            "Waxing Gibbous": 11.065,
+            "Full Moon": 14.755,
+            "Waning Gibbous": 18.445,
+            "Last Quarter": 22.135,
+            "Waning Crescent": 25.825,
+        }
+
+        if phase_name not in phase_targets:
+            raise ValueError(
+                f"Unknown phase name: '{phase_name}'. Valid phases are: {list(phase_targets.keys())}"
+            )
+
+        synodic_month = 29.530588853
+        now: datetime = datetime.now()
+        diff = now - datetime(2000, 1, 6, 18, 14)
+        days = diff.total_seconds() / 86400
+        lunation = days % synodic_month
+
+        target_day = phase_targets[phase_name]
+
+        # Calculate the days remaining until the target phase
+        delta = target_day - lunation
+
+        # If the target phase has already passed this cycle, look to the next cycle
+        if delta <= 0:
+            delta += synodic_month
+
+        result = round(delta)
+
+        # If rounding results in 0 (meaning it's happening today), push it to the next cycle
+        if result == 0:
+            delta += synodic_month
+            result = round(delta)
+
+        return result
 
 
 class Bulgarian:
@@ -3887,7 +3944,7 @@ class UpdateManager:
 
         if not self._must_autoupdate():
             return
-        
+
         if self._is_system_package():
             self.logger.warning(
                 "Cannot update. Application was installed as a system package. Run with --updatepolicy for details."
@@ -5224,7 +5281,12 @@ class WeatherForecaster:
                 "sun": future_sun_times.result(),  # dict[str, str]
                 "zodiac": astronomer.get_zodiac_sign(),  # str
                 "chinese": astronomer.get_chinese_zodiac(),  # str
-                "moon": astronomer.get_moon_phase(),  # str
+                "moon_phase": astronomer.get_moon_phase(),  # str
+                "days_to_new_moon": astronomer.days_to_moon_phase("New Moon"),
+                "days_to_full_moon": astronomer.days_to_moon_phase("Full Moon"),
+                "days_to_waxing_crescent": astronomer.days_to_moon_phase(
+                    "Waxing Crescent"
+                ),
             }
 
             # if history_fact == "":  # More motivation. Because why not?
@@ -5514,7 +5576,9 @@ class PresentationConfiguration:
             )
         # self.dow = format_date(now, format="cccccc", locale=self.locale_id).title()
         self.dow = format_date(now, format="EEE", locale=DEFAULT_LOCALE).title()
-        self.day_of_week = format_date(now, format="EEEE", locale=DEFAULT_LOCALE).title()
+        self.day_of_week = format_date(
+            now, format="EEEE", locale=DEFAULT_LOCALE
+        ).title()
         self.season = self.get_season(self.continent_code)
 
         # Time 12/24
@@ -5577,6 +5641,87 @@ class PresentationConfiguration:
         result = result.replace(".-", ".")
 
         return result
+
+    def get_ascii_moon_phase(self, phase_name: str) -> list[str]:
+        """Returns an ASCII graphic of the current Lunar Phase
+        as a list of 6 lines, 11 chars each.
+
+        ASCII art by Joan G. Stark (Spunk).
+        """
+
+        phase_graphics: dict[str, list[str]] = {
+            "New Moon": [
+                "   _..._   ",
+                " .'     `. ",
+                ":         :",
+                ":         :",
+                "`.       .'",
+                "  `-...-'  ",
+            ],
+            "Waxing Crescent": [
+                "   _..._   ",
+                " .'   `::. ",
+                ":       :::",
+                ":       :::",
+                "`.     .::'",
+                "  `-..:''  ",
+            ],
+            "First Quarter": [
+                "   _..._   ",
+                " .'  ::::. ",
+                ":    ::::::",
+                ":    ::::::",
+                "`.   :::::'",
+                "  `-.::''  ",
+            ],
+            "Waxing Gibbous": [
+                "   _..._   ",
+                " .' .::::. ",
+                ":  ::::::::",
+                ":  ::::::::",
+                "`. '::::::'",
+                "  `-.::''  ",
+            ],
+            "Full Moon": [
+                "   _..._   ",
+                " .:::::::. ",
+                ":::::::::::",
+                ":::::::::::",
+                "`:::::::::'",
+                "  `':::''  ",
+            ],
+            "Waning Gibbous": [
+                "   _..._   ",
+                " .::::. `. ",
+                ":::::::.  :",
+                "::::::::  :",
+                "`::::::' .'",
+                "  `'::'-'  ",
+            ],
+            "Last Quarter": [
+                "   _..._   ",
+                " .::::  `. ",
+                "::::::    :",
+                "::::::    :",
+                "`:::::   .'",
+                "  `'::.-'  ",
+            ],
+            "Waning Crescent": [
+                "   _..._   ",
+                " .::'   `. ",
+                ":::       :",
+                ":::       :",
+                "`::.     .'",
+                "  `':..-'  ",
+            ],
+        }
+
+        if phase_name not in phase_graphics:
+            raise ValueError(
+                f"Unknown phase name: '{phase_name}'. Valid phases are: {list(phase_graphics.keys())}"
+            )
+
+        return phase_graphics[phase_name]
 
 
 class Views:
@@ -6246,7 +6391,7 @@ Barometric Press.  | Now: {baropressure} hPa
         print(
             f"Sunset  | {self.forecaster.data.misc_data['celestial']['sun']['sunset']}"
         )
-        print(f"Moon    | {self.forecaster.data.misc_data['celestial']['moon']}")
+        print(f"Moon    | {self.forecaster.data.misc_data['celestial']['moon_phase']}")
         print(f"Zodiac  | {self.forecaster.data.misc_data['celestial']['zodiac']}")
         print(f"Chinese | {self.forecaster.data.misc_data['celestial']['chinese']}")
 
@@ -6289,6 +6434,115 @@ Barometric Press.  | Now: {baropressure} hPa
             print(holiday)
 
         print("\n")
+
+
+class MoonView(Views):
+    r"""Just prints"""
+
+    def display(self) -> None:
+        self.logger.info("View is running")
+
+        # Initial data collection
+        self.forecaster.get_data()
+
+        # Data to display
+        timenow: str = self.presconf.update_time()
+        datenow: str = self.presconf.date
+        dow: str = self.presconf.dow
+        season: str = self.presconf.season
+        dstmark: str = "*" if self.config.dst else ""
+        # ---
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+        sky: str = self.forecaster.data.sky
+        temperature: int = self.forecaster.data.temperature
+        tmin: int = self.forecaster.data.min
+        tmax: int = self.forecaster.data.max
+        hmin: int = self.forecaster.data.hmin
+        hmax: int = self.forecaster.data.hmax
+        baropressure: float = self.forecaster.data.baropressure
+        hcur: int = self.forecaster.data.hcur
+        tsuffix: str = self.presconf.tsuffix
+        wunit: str = self.presconf.wunit
+        wind: int = self.forecaster.data.wind
+        winddir: str = self.forecaster.data.wind_direction
+        aqi: int = self.forecaster.data.aqi
+        airquality: str = self.forecaster.data.air_quality
+        precipitation: int = self.forecaster.data.precipitation
+        precipitation_sum: int = self.forecaster.data.precipitation_sum
+        is_day: bool = self.forecaster.data.is_day
+        wind_type: str = self.forecaster.data.wind_type
+        precipitation_type: str = self.forecaster.data.precipitation_type
+        humidity_level_min: str = self.forecaster.data.humidity_level_min
+        humidity_level_max: str = self.forecaster.data.humidity_level_max
+        humidity: str = self.forecaster.data.humidity
+        wind_direction_long: str = self.forecaster.data.wind_direction_long
+        precipitation_level: str = self.forecaster.get_precipitation_amount_assessment(
+            precipitation_sum, precipitation_type
+        )
+        if precipitation_level != "":
+            precipitation_level = f"({precipitation_level})"
+        # ---
+        week: list[BriefDailyForecast] = self.forecaster.data.week
+        follow_cities: list = self.forecaster.data.cities_data
+
+        holiday: str = ""
+        if "holiday" in self.forecaster.data.misc_data["misc"].lower():
+            holiday = f"*** {self.forecaster.data.misc_data['misc'][18:]} ***"
+
+        # Getting the last 10 warnings
+        warnings: list[list[str]] = self.warnings.get_warnings()
+
+        moon_phase: str = self.forecaster.data.misc_data["celestial"]["moon_phase"]
+        days_to_new_moon: int = self.forecaster.data.misc_data["celestial"][
+            "days_to_new_moon"
+        ]
+        days_to_full_moon: int = self.forecaster.data.misc_data["celestial"][
+            "days_to_full_moon"
+        ]
+        days_to_waxing_crescent: int = self.forecaster.data.misc_data["celestial"][
+            "days_to_waxing_crescent"
+        ]
+        lunar_ascii_art: list[str] = self.presconf.get_ascii_moon_phase(
+            self.forecaster.data.misc_data["celestial"]["moon_phase"]
+        )
+
+        phase_message: str = ""
+
+        if moon_phase in lunar_phase_messages:
+            phase_message = lunar_phase_messages[moon_phase]
+
+        if season == "Fall" and moon_phase == "Full Moon":
+            phase_message = (
+                f"{phase_message}Today is a good day for racking/bottling of wine."
+            )
+
+        day: str = "day" if is_day else "night"
+
+        print(f"""
+{dow}, {timenow}{dstmark} {datenow}, {season} at {city}, {province}{country}
+
+       --== CURRENT LUNAR PHASE ==--
+
+   {lunar_ascii_art[0]}
+   {lunar_ascii_art[1]}
+   {lunar_ascii_art[2]} 
+   {lunar_ascii_art[3]}    {moon_phase.upper()}
+   {lunar_ascii_art[4]}
+   {lunar_ascii_art[5]}
+
+There are approximately:
+- {days_to_new_moon} days until the next New Moon.
+- {days_to_waxing_crescent} days until the next Waxing Crescent.
+- {days_to_full_moon} days until the next Full Moon.
+
+Sun will rise at {self.forecaster.data.misc_data['celestial']['sun']['sunrise']} and will set at {self.forecaster.data.misc_data['celestial']['sun']['sunset']}.
+Current Zodiac is {self.forecaster.data.misc_data['celestial']['zodiac']} and the Chinese Zodiac is {self.forecaster.data.misc_data['celestial']['chinese']}.
+
+{phase_message.strip()}
+
+""")
 
 
 class MotivationalView(Views):
@@ -6972,7 +7226,7 @@ class DashboardView(ColorViews):
                         celestial_window.clear()
                         spc: str = " " * 6 + "|" + " " * 6  # Spacer
                         s: str = (
-                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon"])}  {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self._get_zodiac_icon(self.forecaster.data.misc_data["celestial"]["zodiac"])} {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self._get_chinese_icon(self.forecaster.data.misc_data["celestial"]["chinese"])} {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self._get_moon_icon(self.forecaster.data.misc_data["celestial"]["moon_phase"])}  {self.forecaster.data.misc_data["celestial"]["moon_phase"]}'
                         )
                         celestial_window.print(s, align="center", y=0)
 
@@ -7502,7 +7756,7 @@ class TTYDashboardView(ColorViews):
                         celestial_window.clear()
                         spc: str = " " * 2 + "|" + " " * 2  # Spacer
                         s: str = (
-                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon"]}'
+                            f'Sunrise: {self.forecaster.data.misc_data["celestial"]["sun"]["sunrise"]}{spc}Sunset: {self.forecaster.data.misc_data["celestial"]["sun"]["sunset"]}{spc}Zodiac: {self.forecaster.data.misc_data["celestial"]["zodiac"]}{spc}Chinese: {self.forecaster.data.misc_data["celestial"]["chinese"]}{spc}Moon: {self.forecaster.data.misc_data["celestial"]["moon_phase"]}'
                         )
                         celestial_window.print(s, align="center", y=0)
 
@@ -7530,6 +7784,7 @@ class WeatherGirl:
             "motivate": MotivationalView(config, present_config),
             "dashboard": DashboardView(config, present_config),
             "ttydashboard": TTYDashboardView(config, present_config),
+            "moon": MoonView(config, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -7603,6 +7858,7 @@ class CommandlineParser:
                 "dashboard",
                 "ttydashboard",
                 "seasonal",
+                "moon",
             ],
             default="",
             help="Select the view",
