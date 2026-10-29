@@ -145,18 +145,31 @@ COL_CYANBLACK: int = 7
 
 
 class InstanceGuard:
+    # Keeps a reference to the lock socket for the whole life of the process,
+    # so it is never garbage collected (the OS releases the port on exit).
+    _lock_socket: socket.socket | None = None
+
     @staticmethod
     def ensure_single_instance(port: int = 47382) -> None:
-        global LOCKSOCKET
         ip: str = "127.0.0.1"
-        LOCKSOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        LOCKSOCKET.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # NOTE: Do NOT set SO_REUSEADDR here. On Linux it lets a second
+        # process bind the same port, which defeats the whole purpose.
+        # On Windows, SO_EXCLUSIVEADDRUSE is the correct option.
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+
         try:
-            LOCKSOCKET.bind((ip, port))
-        except socket.error:
+            sock.bind((ip, port))
+            sock.listen(1)  # Makes the claim on the port unambiguous
+        except OSError:
+            sock.close()
             raise Exception(
                 f"Error: Application is already running. If you suspect another instance stalled, please check applications listening at {ip}:{port}."
             )
+
+        InstanceGuard._lock_socket = sock
 
 
 class APIIssues:
@@ -8133,7 +8146,6 @@ class LocationManager:
 # ================================================================[ MAIN LOOP ]
 if __name__ == "__main__":
     try:
-        InstanceGuard.ensure_single_instance()
         parser: CommandlineParser = CommandlineParser()
         cli_arguments: dict[str, str | int | bool] = parser.parse()
 
@@ -8163,7 +8175,8 @@ if __name__ == "__main__":
         logger.info(f"TUIWeatherGirl {__version__} 2026 by Evgueni Antonov (StrayF)")
         logger.info(debug_mode_str)
         logger.info("")
-
+        
+        InstanceGuard.ensure_single_instance()
         ExitHandler.set_handler(on_terminal_close)
 
         view_name: str = cli_arguments.get("view")

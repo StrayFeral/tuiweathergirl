@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created a new view 'moon' to display info focused on the Moon.
 - Added display of the actual lunar cycle to the 'moon' view.
 
+### Fixed
+- Fixed a bug which allowed multiple application instances to run.
+
 ## [1.5.13] - 2026-09-25
 
 ### Fixed
