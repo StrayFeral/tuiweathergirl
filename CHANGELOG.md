@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Changed wording in the CHANGELOG.md.
-- Added VCS fields in debian/control.
 - Updated debian/changelog for the VCS fields.
 - Changed word 'Range' with word 'Today' in the 'Currently' window.
 - Changed some error messages.
+
+### Added
+- Added VCS fields in debian/control.
 - Added words 'Eastern', 'Western', 'Southern' and 'Northern' for abbreviation.
 - Created a new view 'moon' to display info focused on the Moon.
+- Added display of the actual lunar cycle to the 'moon' view.
 
 ## [1.5.13] - 2026-09-25
 

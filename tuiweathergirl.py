@@ -6438,6 +6438,27 @@ Barometric Press.  | Now: {baropressure} hPa
 
 class MoonView(Views):
     r"""Just prints"""
+    
+    # Maybe I will change this to an actual ASCII graphic in the future...
+    lunar_cycle: list[str] = [
+        "New Moon       ",
+        "Waxing Crescent",
+        "First Quarter  ",
+        "Waxing Gibbous ",
+        "Full Moon      ",
+        "Waning Gibbous ",
+        "Last Quarter   ",
+        "Waning Crescent"
+    ]
+    
+    def _get_lunar_cycle_display(self, phase_name: str) -> list[str]:
+        result = []
+        for s in self.lunar_cycle:
+            if phase_name in s:
+                result.append(f">>> {s} <<<")
+            else:
+                result.append(f"    {s}")
+        return result
 
     def display(self) -> None:
         self.logger.info("View is running")
@@ -6507,6 +6528,7 @@ class MoonView(Views):
         lunar_ascii_art: list[str] = self.presconf.get_ascii_moon_phase(
             self.forecaster.data.misc_data["celestial"]["moon_phase"]
         )
+        lunar_cycle_display: list[str] = self._get_lunar_cycle_display(moon_phase)
 
         phase_message: str = ""
 
@@ -6525,12 +6547,22 @@ class MoonView(Views):
 
        --== CURRENT LUNAR PHASE ==--
 
-   {lunar_ascii_art[0]}
-   {lunar_ascii_art[1]}
-   {lunar_ascii_art[2]} 
-   {lunar_ascii_art[3]}    {moon_phase.upper()}
-   {lunar_ascii_art[4]}
-   {lunar_ascii_art[5]}
+    {lunar_ascii_art[0]}
+    {lunar_ascii_art[1]}
+    {lunar_ascii_art[2]} 
+    {lunar_ascii_art[3]}    {moon_phase.upper()}
+    {lunar_ascii_art[4]}
+    {lunar_ascii_art[5]}
+
+The actual lunar cycle:
+    {lunar_cycle_display[0]}
+    {lunar_cycle_display[1]}
+    {lunar_cycle_display[2]}
+    {lunar_cycle_display[3]}
+    {lunar_cycle_display[4]}
+    {lunar_cycle_display[5]}
+    {lunar_cycle_display[6]}
+    {lunar_cycle_display[7]}
 
 There are approximately:
 - {days_to_new_moon} days until the next New Moon.
