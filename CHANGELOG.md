@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated debian/changelog for the VCS fields.
 - Changed word 'Range' with word 'Today' in the 'Currently' window.
 - Changed some error messages.
+- Changed some geomagnetic storm messages.
 
 ### Added
 - Added VCS fields in debian/control.

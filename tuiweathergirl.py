@@ -2282,13 +2282,13 @@ class SpaceWeatherAdvisor:
                 0: "G0 No storms",
                 1: "G1 Minor",
                 2: "G2 Moderate",
-                3: "G3 Strong",
-                4: "G4 Severe",
-                5: "G5 Extreme",
+                3: "G3 STRONG",
+                4: "G4 SEVERE",
+                5: "G5 EXTREME",
             }
             storm_label = storm_descriptions.get(observed, f"Storm (G{observed})")
 
-            return f"[Kp {kp_index:.2f}] {storm_label} storm. Risk: Blood pressure, headaches, insomnia, sev.joint pain (Predicted:G{predicted})."
+            return f"[Kp {kp_index:.2f}] {storm_label} storm. Risk: Bld.pressr., headaches, insomnia, sev.joint pain (Predicted:G{predicted})."
 
         return ""
 
