@@ -1924,69 +1924,6 @@ class Astronomer:
 
         return {}
 
-    def get_zodiac_sign(self) -> str:
-        """Returns the current Western astrological sign based on today's date."""
-
-        now: datetime = datetime.now()
-        m, d = now.month, now.day
-
-        if (m == 12 and d >= 22) or (m == 1 and d <= 19):
-            return "Capricorn"
-        if (m == 1 and d >= 20) or (m == 2 and d <= 18):
-            return "Aquarius"
-        if (m == 2 and d >= 19) or (m == 3 and d <= 20):
-            return "Pisces"
-        if (m == 3 and d >= 21) or (m == 4 and d <= 19):
-            return "Aries"
-        if (m == 4 and d >= 20) or (m == 5 and d <= 20):
-            return "Taurus"
-        if (m == 5 and d >= 21) or (m == 6 and d <= 20):
-            return "Gemini"
-        if (m == 6 and d >= 21) or (m == 7 and d <= 22):
-            return "Cancer"
-        if (m == 7 and d >= 23) or (m == 8 and d <= 22):
-            return "Leo"
-        if (m == 8 and d >= 23) or (m == 9 and d <= 22):
-            return "Virgo"
-        if (m == 9 and d >= 23) or (m == 10 and d <= 22):
-            return "Libra"
-        if (m == 10 and d >= 23) or (m == 11 and d <= 21):
-            return "Scorpio"
-        if (m == 11 and d >= 22) or (m == 12 and d <= 21):
-            return "Sagittarius"
-
-        return ""
-
-    def get_chinese_zodiac(self) -> str:
-        """Returns the current Chinese Animal Year."""
-
-        animals = [
-            "Rat",
-            "Ox",
-            "Tiger",
-            "Rabbit",
-            "Dragon",
-            "Snake",
-            "Horse",
-            "Goat",
-            "Monkey",
-            "Rooster",
-            "Dog",
-            "Pig",
-        ]
-        now: datetime = datetime.now()
-        m, d, y = now.month, now.day, now.year
-
-        animal: int = (y - 1900) % 12
-
-        # Previous animal
-        # Of course Chinese New Year fluctuates, but I have no intention to
-        # calculate it properly. Roughly is enough for this app.
-        if m == 1 and d < 20:
-            animal -= 1
-
-        return animals[animal]
-
     def get_moon_phase(self) -> str:
         """Returns a simple string description of the current moon phase."""
 
@@ -2057,6 +1994,315 @@ class Astronomer:
             result = round(delta)
 
         return result
+    
+    def _get_vernal_equinox(self, year: int) -> datetime:
+        """Approximates the Vernal (Spring) Equinox datetime for a given year.
+        Typically occurs around March 20th.
+        """
+        # Fixed approximation for March 20 at roughly 04:00 UTC
+        return datetime(year, 3, 20, 4, 0, tzinfo=timezone.utc)
+    
+    def get_solar_longitude(self, dt: datetime) -> float:
+        """Calculates the approximate apparent ecliptic longitude of the Sun (0° to 360°).
+        0° = Vernal Equinox (~March 20)
+        90° = Summer Solstice (~June 21)
+        180° = Autumnal Equinox (~September 22)
+        270° = Winter Solstice (~December 21)
+        """
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+            
+        year = dt.year
+        vernal_equinox = self._get_vernal_equinox(year)
+        
+        # If the date is before this year's vernal equinox, use the previous year's equinox reference
+        if dt < vernal_equinox:
+            vernal_equinox = self._get_vernal_equinox(year - 1)
+            
+        days_elapsed = (dt - vernal_equinox).total_seconds() / 86400.0
+        
+        # Mean tropical year is ~365.2422 days
+        solar_longitude = (days_elapsed * (360.0 / 365.2422)) % 360.0
+        return round(solar_longitude, 4)
+    
+    def get_solar_term_index(self, dt: datetime) -> int:
+        """Divides the solar year into 24 traditional solar terms (Jieqi) of 15° each.
+        Returns an index from 0 to 23.
+        Useful for checking 'principal terms' in lunisolar leap-month algorithms.
+        """
+        longitude = self.get_solar_longitude(dt)
+        # Each major/minor solar term spans 15 degrees
+        term_index = int(longitude // 15) % 24
+        return term_index
+    
+    def is_winter_solstice_month(self, new_moon_dt: datetime) -> bool:
+        """Approximates whether a given New Moon falls in the month containing 
+        the Winter Solstice (Solar Longitude ~270°), which is the anchor month 
+        traditionally used to number lunisolar calendar years.
+        """
+        longitude = self.get_solar_longitude(new_moon_dt)
+        # Winter solstice occurs around 270° (roughly Dec 21–22)
+        # We check if the solar longitude is between 255° and 285°
+        return 255.0 <= longitude <= 285.0
+
+
+class Astrologer:
+    """Astrology and similar data"""
+    
+    def __init__(self, astronomer: Astronomer):
+        self.astronomer = astronomer
+    
+    def get_zodiac_sign(self) -> str:
+        """Returns the current Western astrological sign based on today's date."""
+
+        now: datetime = datetime.now()
+        m, d = now.month, now.day
+
+        if (m == 12 and d >= 22) or (m == 1 and d <= 19):
+            return "Capricorn"
+        if (m == 1 and d >= 20) or (m == 2 and d <= 18):
+            return "Aquarius"
+        if (m == 2 and d >= 19) or (m == 3 and d <= 20):
+            return "Pisces"
+        if (m == 3 and d >= 21) or (m == 4 and d <= 19):
+            return "Aries"
+        if (m == 4 and d >= 20) or (m == 5 and d <= 20):
+            return "Taurus"
+        if (m == 5 and d >= 21) or (m == 6 and d <= 20):
+            return "Gemini"
+        if (m == 6 and d >= 21) or (m == 7 and d <= 22):
+            return "Cancer"
+        if (m == 7 and d >= 23) or (m == 8 and d <= 22):
+            return "Leo"
+        if (m == 8 and d >= 23) or (m == 9 and d <= 22):
+            return "Virgo"
+        if (m == 9 and d >= 23) or (m == 10 and d <= 22):
+            return "Libra"
+        if (m == 10 and d >= 23) or (m == 11 and d <= 21):
+            return "Scorpio"
+        if (m == 11 and d >= 22) or (m == 12 and d <= 21):
+            return "Sagittarius"
+
+        return ""
+    
+    def get_chinese_zodiac(self) -> str:
+        """Returns the current Chinese Animal Year."""
+
+        animals = [
+            "Rat",
+            "Ox",
+            "Tiger",
+            "Rabbit",
+            "Dragon",
+            "Snake",
+            "Horse",
+            "Goat",
+            "Monkey",
+            "Rooster",
+            "Dog",
+            "Pig",
+        ]
+        now: datetime = datetime.now()
+        m, d, y = now.month, now.day, now.year
+
+        animal: int = (y - 1900) % 12
+
+        # Previous animal
+        # Of course Chinese New Year fluctuates, but I have no intention to
+        # calculate it properly. Roughly is enough for this app.
+        if m == 1 and d < 20:
+            animal -= 1
+
+        return animals[animal]
+    
+    def get_new_years(self) -> list[dict[str, any]]:
+        today_date = datetime.now(timezone.utc).date()
+        current_year = today_date.year
+
+        # Helper to calculate upcoming date for fixed or approximate solar events
+        def get_upcoming_date(month: int, day: int) -> date:
+            d = date(current_year, month, day)
+            if d < today_date:
+                d = date(current_year + 1, month, day)
+            return d
+
+        # Base list of traditional/cultural New Years with their metadata
+        # We use Astronomer methods where lunar/solar calibration is appropriate.
+        raw_events = [
+            {
+                "title": "Christian New Year",
+                "countries": ["Global"],
+                "base_date": (1, 1),
+                "type": "solar"
+            },
+            {
+                "title": "Orthodox Christian New Year",
+                "countries": ["Greece", "Serbia", "Russia", "North Macedonia"],
+                "base_date": (1, 14),
+                "type": "solar"
+            },
+            {
+                "title": "Lunar New Year",
+                "countries": ["China", "Vietnam", "South Korea", "Mongolia", "Singapore", "Malaysia"],
+                # Lunisolar: Can use astronomer to find the first New Moon after the January solar milestone
+                "approx_date": date(current_year, 2, 1), 
+                "type": "lunisolar"
+            },
+            {
+                "title": "Losar",
+                "countries": ["China", "Nepal", "Bhutan", "India"],
+                "approx_date": date(current_year, 2, 25),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Nowruz",
+                "countries": ["Iran", "Tajikistan", "Afghanistan", "Azerbaijan", "Uzbekistan", "Kazakhstan"],
+                # Solar equinox anchor (~March 20-21)
+                "base_date": (3, 20),
+                "type": "solar"
+            },
+            {
+                "title": "Nyepi",
+                "countries": ["Indonesia"],
+                "approx_date": date(current_year, 3, 29),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Ugadi",
+                "countries": ["India"],
+                "approx_date": date(current_year, 3, 30),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Kha b-Nisan",
+                "countries": ["Iraq", "Syria"],
+                "base_date": (4, 1),
+                "type": "solar"
+            },
+            {
+                "title": "Songkran",
+                "countries": ["Thailand"],
+                "base_date": (4, 13),
+                "type": "solar"
+            },
+            {
+                "title": "Thingyan",
+                "countries": ["Myanmar"],
+                "base_date": (4, 13),
+                "type": "solar"
+            },
+            {
+                "title": "Chaul Chnam Thmey",
+                "countries": ["Cambodia"],
+                "base_date": (4, 13),
+                "type": "solar"
+            },
+            {
+                "title": "Aluth Avurudda",
+                "countries": ["Sri Lanka"],
+                "base_date": (4, 14),
+                "type": "solar"
+            },
+            {
+                "title": "Puthandu",
+                "countries": ["India", "Bangladesh"],
+                "base_date": (4, 14),
+                "type": "solar"
+            },
+            {
+                "title": "Matariki",
+                "countries": ["New Zealand"],
+                "base_date": (6, 24),
+                "type": "solar"
+            },
+            {
+                "title": "Willkakuti",
+                "countries": ["Bolivia"],
+                "base_date": (6, 21),
+                "type": "solar"
+            },
+            {
+                "title": "Islamic New Year",
+                "countries": ["Saudi Arabia", "UAE", "Egypt", "Indonesia", "Turkey", "Morocco"],
+                # Lunisolar/Lunar: relies on moon sighting / astronomical calculation via Astronomer
+                "approx_date": date(current_year, 6, 26),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Selemo sa Basotho",
+                "countries": ["Lesotho", "South Africa"],
+                "base_date": (8, 1),
+                "type": "solar"
+            },
+            {
+                "title": "Enkutatash",
+                "countries": ["Ethiopia", "Eritrea"],
+                "base_date": (9, 11),
+                "type": "solar"
+            },
+            {
+                "title": "Rosh Hashanah",
+                "countries": ["Israel"],
+                "approx_date": date(current_year, 9, 23),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Bestu Varas",
+                "countries": ["India"],
+                "approx_date": date(current_year, 10, 21),
+                "type": "lunisolar"
+            },
+            {
+                "title": "Samhain",
+                "countries": ["Ireland", "United Kingdom", "Isle of Man"],
+                "base_date": (10, 31),
+                "type": "solar"
+            }
+        ]
+
+        # Process events, query Astronomer where needed, and format output
+        processed_events = []
+        for event in raw_events:
+            if event["type"] == "solar":
+                m, d = event["base_date"]
+                target_date = get_upcoming_date(m, d)
+            else:
+                # For lunisolar events, we can optionally query the Astronomer instance 
+                # to verify phase alignment (e.g. checking days to new moon)
+                target_date = event["approx_date"]
+                if target_date < today_date:
+                    target_date = date(current_year + 1, target_date.month, target_date.day)
+                
+                # Example integration with Astronomer for verification/adjustment:
+                days_to_new = self.astronomer.days_to_moon_phase("New Moon")
+                # Adjust target date slightly if needed based on astronomer feedback
+                if abs(days_to_new) > 15:
+                    target_date = target_date + timedelta(days=days_to_new % 30)
+
+            remaining_days = (target_date - today_date).days
+            if remaining_days < 0:
+                remaining_days += 365 # handle rollover if approx date was slightly off
+
+            processed_events.append({
+                "date": target_date.strftime("%Y-%m-%d"),
+                "title": event["title"],
+                "countries": event["countries"],
+                "remaining_days": remaining_days,
+                # "today": -1 # Will be evaluated below
+            })
+
+        # Determine the `today` index match
+        # today_index = -1
+        # for idx, event in enumerate(processed_events):
+        #     if event["date"] == today_date.strftime("%Y-%m-%d"):
+        #         today_index = idx
+        #         break
+
+        # Assign the today index to the matching element (or leave -1 across all if none match)
+        # if today_index != -1:
+        #     processed_events[today_index]["today"] = today_index
+
+        return processed_events
 
 
 class Bulgarian:
@@ -5179,6 +5425,7 @@ class WeatherForecaster:
 
         # bulgarian: Bulgarian = Bulgarian()
         astronomer: Astronomer = Astronomer()
+        astrologer: Astrologer = Astrologer(astronomer)
         holidays_manager: HolidaysManager = HolidaysManager()
         spaceweather_advisor: SpaceWeatherAdvisor = SpaceWeatherAdvisor(
             self.config.reqtimeout
@@ -5292,8 +5539,8 @@ class WeatherForecaster:
 
             celestial: dict[str, any] = {
                 "sun": future_sun_times.result(),  # dict[str, str]
-                "zodiac": astronomer.get_zodiac_sign(),  # str
-                "chinese": astronomer.get_chinese_zodiac(),  # str
+                "zodiac": astrologer.get_zodiac_sign(),  # str
+                "chinese": astrologer.get_chinese_zodiac(),  # str
                 "moon_phase": astronomer.get_moon_phase(),  # str
                 "days_to_new_moon": astronomer.days_to_moon_phase("New Moon"),
                 "days_to_full_moon": astronomer.days_to_moon_phase("Full Moon"),
@@ -6485,48 +6732,11 @@ class MoonView(Views):
         dow: str = self.presconf.dow
         season: str = self.presconf.season
         dstmark: str = "*" if self.config.dst else ""
+        is_day: bool = self.forecaster.data.is_day
         # ---
         city: str = self.config.city
         province: str = self.presconf.province
         country: str = self.config.country
-        sky: str = self.forecaster.data.sky
-        temperature: int = self.forecaster.data.temperature
-        tmin: int = self.forecaster.data.min
-        tmax: int = self.forecaster.data.max
-        hmin: int = self.forecaster.data.hmin
-        hmax: int = self.forecaster.data.hmax
-        baropressure: float = self.forecaster.data.baropressure
-        hcur: int = self.forecaster.data.hcur
-        tsuffix: str = self.presconf.tsuffix
-        wunit: str = self.presconf.wunit
-        wind: int = self.forecaster.data.wind
-        winddir: str = self.forecaster.data.wind_direction
-        aqi: int = self.forecaster.data.aqi
-        airquality: str = self.forecaster.data.air_quality
-        precipitation: int = self.forecaster.data.precipitation
-        precipitation_sum: int = self.forecaster.data.precipitation_sum
-        is_day: bool = self.forecaster.data.is_day
-        wind_type: str = self.forecaster.data.wind_type
-        precipitation_type: str = self.forecaster.data.precipitation_type
-        humidity_level_min: str = self.forecaster.data.humidity_level_min
-        humidity_level_max: str = self.forecaster.data.humidity_level_max
-        humidity: str = self.forecaster.data.humidity
-        wind_direction_long: str = self.forecaster.data.wind_direction_long
-        precipitation_level: str = self.forecaster.get_precipitation_amount_assessment(
-            precipitation_sum, precipitation_type
-        )
-        if precipitation_level != "":
-            precipitation_level = f"({precipitation_level})"
-        # ---
-        week: list[BriefDailyForecast] = self.forecaster.data.week
-        follow_cities: list = self.forecaster.data.cities_data
-
-        holiday: str = ""
-        if "holiday" in self.forecaster.data.misc_data["misc"].lower():
-            holiday = f"*** {self.forecaster.data.misc_data['misc'][18:]} ***"
-
-        # Getting the last 10 warnings
-        warnings: list[list[str]] = self.warnings.get_warnings()
 
         moon_phase: str = self.forecaster.data.misc_data["celestial"]["moon_phase"]
         days_to_new_moon: int = self.forecaster.data.misc_data["celestial"][
@@ -6588,6 +6798,79 @@ Current Zodiac is {self.forecaster.data.misc_data['celestial']['zodiac']} and th
 {phase_message.strip()}
 
 """)
+
+
+class NewYearsView(Views):
+    r"""Just prints"""
+    
+    def display(self) -> None:
+        self.logger.info("View is running")
+
+        # Initial data collection
+        self.forecaster.get_data()
+
+        # Data to display
+        timenow: str = self.presconf.update_time()
+        datenow: str = self.presconf.date
+        dow: str = self.presconf.dow
+        season: str = self.presconf.season
+        dstmark: str = "*" if self.config.dst else ""
+        is_day: bool = self.forecaster.data.is_day
+        # ---
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+
+        day: str = "day" if is_day else "night"
+        
+        astronomer: Astronomer = Astronomer()
+        astrologer: Astrologer = Astrologer(astronomer)
+        new_years: list[dict[str, any]] = astrologer.get_new_years()
+        
+        hr: str = "-----------+----------------------+---------+-----------------"
+        emptys: str = "           |                      |         | "
+        today_holiday: dict[str, str] = {}
+
+        print(f"""
+{dow}, {timenow}{dstmark} {datenow}, {season} at {city}, {province}{country}
+
+
+--== NEW YEAR HOLIDAYS AROUND THE EARTH ==-
+
+Date       | Title                | Days To | Countries
+==============================================================""")
+        
+        for ny in new_years:
+            nyday: str = ny["date"]
+            nytitle: str = ny["title"]
+            nycountries: list[str] = ny["countries"]
+            nydays: int = ny["remaining_days"]
+            
+            if nydays == 0:
+                today_holiday = {
+                    "title": nytitle,
+                    "countries": ",".join(nycountries)
+                }
+            
+            print(f"{nyday:.10s} | {nytitle:20.20s} | {nydays:7d} | {nycountries[0]}")
+            i = 1
+            while i < len(nycountries):
+                print(f"{emptys}{nycountries[i]}")
+                i += 1
+            print(hr)
+        
+        if "title" in today_holiday:
+            title: str = today_holiday["title"].upper()
+            countries: str = today_holiday["countries"].upper()
+            print("""
+
+-= HAPPY {title} TO EVERYBODY IN {countries}! =-
+""")
+        
+        print("\n")
+            
+            
+
 
 
 class MotivationalView(Views):
@@ -7830,6 +8113,7 @@ class WeatherGirl:
             "dashboard": DashboardView(config, present_config),
             "ttydashboard": TTYDashboardView(config, present_config),
             "moon": MoonView(config, present_config),
+            "newyears": NewYearsView(config, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -7904,6 +8188,7 @@ class CommandlineParser:
                 "ttydashboard",
                 "seasonal",
                 "moon",
+                "newyears",
             ],
             default="",
             help="Select the view",

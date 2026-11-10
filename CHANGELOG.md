@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-10
+
 ### Changed
 - Changed wording in the CHANGELOG.md.
 - Updated debian/changelog for the VCS fields.
@@ -21,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added display of the actual lunar cycle to the 'moon' view.
 - Added 'uninstall' target in Makefile for local uninstallation.
 - Added 'dh-exec' dependency to debian/control.
+- Added new view 'newyears' to display all possible new years in the world
+  and how much days are there until the holiday.
 
 ### Fixed
 - Fixed a bug which allowed multiple application instances to run.
