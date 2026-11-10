@@ -76,5 +76,5 @@ replace = '{new_version}'
 
 [[tool.bumpversion.files]]
 filename = "man/tuiweathergirl.1"
-search = 'v{current_version}'
-replace = 'v{new_version}'
+search = '{current_version}'
+replace = '{new_version}'
