@@ -1,4 +1,4 @@
-tuiweathergirl (1.5.14-1) unstable; urgency=medium
+tuiweathergirl (2.0.0-1) unstable; urgency=medium
 
   * Fixed issue with requirement for sudo, as reported by Wookie.
   * Added 'dh-exec' dependency to debian/control.

@@ -70,6 +70,16 @@ The application has minimal dependencies and is designed with a strong focus on 
 
 See [CHANGELOG.md](CHANGELOG.md) for a full history of changes and releases.
 
+I am happy to announce that version 2.0.0 brings three new views:
+
+1. 'moon' displays Moon phase information with some details, like days until New Moon, Full Moon and Waxing Crescent
+2. 'newyears' displays all the various New Year holidays around the Earth, which countries they affect and days until the the holiday
+3. 'zodiac' displays the world and the Chinese zodiac signs in sequence with some details to them
+
+These views are intended for temporary use, for which they are displayed as simple prints. As always the main view remains 'dashboard'.
+
+Enjoy!
+
 ## TESTED ON
 
 1. Lubuntu 24.04.4 LTS x86_64 linux, 256 color terminal

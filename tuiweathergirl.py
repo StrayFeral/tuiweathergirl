@@ -6697,7 +6697,7 @@ Barometric Press.  | Now: {baropressure} hPa
 
 
 class MoonView(Views):
-    r"""Just prints"""
+    r"""Display Moon information. Just prints"""
     
     # Maybe I will change this to an actual ASCII graphic in the future...
     lunar_cycle: list[str] = [
@@ -6768,7 +6768,7 @@ class MoonView(Views):
         print(f"""
 {dow}, {timenow}{dstmark} {datenow}, {season} at {city}, {province}{country}
 
-       --== CURRENT LUNAR PHASE ==--
+   --== CURRENT LUNAR PHASE ==--
 
     {lunar_ascii_art[0]}
     {lunar_ascii_art[1]}
@@ -6801,7 +6801,7 @@ Current Zodiac is {self.forecaster.data.misc_data['celestial']['zodiac']} and th
 
 
 class NewYearsView(Views):
-    r"""Just prints"""
+    r"""Display New Year Holiday information. Just prints"""
     
     def display(self) -> None:
         self.logger.info("View is running")
@@ -6870,11 +6870,102 @@ Date       | Title                | Days To | Countries
         print("\n")
             
             
+class ZodiacView(Views):
+    r"""Display Zodiac information. Just prints"""
+    
+    _zodiac_signs: dict[str, str] = [
+        {"sign": "Aries      ", "dates": "    21 March - 19 April    "},
+        {"sign": "Taurus     ", "dates": "    20 April - 20 May      "},
+        {"sign": "Gemini     ", "dates": "      21 May - 20 June     "},
+        {"sign": "Cancer     ", "dates": "     21 June - 22 July     "},
+        {"sign": "Leo        ", "dates": "     23 July - 22 August   "},
+        {"sign": "Virgo      ", "dates": "   23 August - 22 September"},
+        {"sign": "Libra      ", "dates": "23 September - 22 October  "},
+        {"sign": "Scorpio    ", "dates": "  23 October - 21 November "},
+        {"sign": "Sagittarius", "dates": " 22 November - 21 December "},
+        {"sign": "Capricorn  ", "dates": " 22 December - 19 January  "},
+        {"sign": "Aquarius   ", "dates": "  20 January - 18 February "},
+        {"sign": "Pisces     ", "dates": " 19 February - 20 March    "}
+    ]
+    
+    _chinese_zodiac_signs: list[str] = [
+        "Rat        ",
+        "Ox         ",
+        "Tiger      ",
+        "Rabbit     ",
+        "Dragon     ",
+        "Snake      ",
+        "Horse      ",
+        "Goat       ",
+        "Monkey     ",
+        "Rooster    ",
+        "Dog        ",
+        "Pig        "
+    ]
+    
+    def _get_zodiac_year(self, sign_name: str, current_sign: str) -> int:
+        current_year = datetime.now(timezone.utc).year
+        
+        curr_idx = self._chinese_zodiac_signs.index(f"{current_sign:11}")
+        target_idx = self._chinese_zodiac_signs.index(f"{sign_name:11}")
+        
+        # Calculate the shortest year offset (-6 to +5) relative to the current sign/year
+        diff = ((target_idx - curr_idx + 6) % 12) - 6
+        
+        return current_year + diff
+    
+    def display(self) -> None:
+        self.logger.info("View is running")
 
+        # Initial data collection
+        self.forecaster.get_data()
+
+        # Data to display
+        timenow: str = self.presconf.update_time()
+        datenow: str = self.presconf.date
+        dow: str = self.presconf.dow
+        season: str = self.presconf.season
+        dstmark: str = "*" if self.config.dst else ""
+        is_day: bool = self.forecaster.data.is_day
+        # ---
+        city: str = self.config.city
+        province: str = self.presconf.province
+        country: str = self.config.country
+
+        day: str = "day" if is_day else "night"
+        
+        current_zodiac: str = self.forecaster.data.misc_data['celestial']['zodiac']
+        current_chinese: str = self.forecaster.data.misc_data['celestial']['chinese']
+        
+
+        print(f"""
+{dow}, {timenow}{dstmark} {datenow}, {season} at {city}, {province}{country}
+
+
+   --== ZODIAC INFORMATION ==-
+""")
+        for sign in self._zodiac_signs:
+            if sign['sign'].strip() == current_zodiac:
+                print(f"    >>> {sign['sign']} | {sign['dates']} <<<")
+            else:
+                print(f"        {sign['sign']} | {sign['dates']}")
+        
+        print(f"""
+
+   --== CHINESE ZODIAC ==-
+""")
+        for sign in self._chinese_zodiac_signs:
+            year: int = self._get_zodiac_year(sign, current_chinese)
+            if sign.strip() == current_chinese:
+                print(f"    >>> {sign} | {year} <<<")
+            else:
+                print(f"        {sign} | {year}")
+        
+        print("\n")
 
 
 class MotivationalView(Views):
-    r"""Just prints"""
+    r"""Let's try to motivate the users. Just prints"""
 
     def display(self) -> None:
         self.logger.info("View is running")
@@ -8114,6 +8205,7 @@ class WeatherGirl:
             "ttydashboard": TTYDashboardView(config, present_config),
             "moon": MoonView(config, present_config),
             "newyears": NewYearsView(config, present_config),
+            "zodiac": ZodiacView(config, present_config),
         }
 
     def present(self, view: str = "") -> None:
@@ -8189,6 +8281,7 @@ class CommandlineParser:
                 "seasonal",
                 "moon",
                 "newyears",
+                "zodiac",
             ],
             default="",
             help="Select the view",
