@@ -19,9 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added words 'Eastern', 'Western', 'Southern' and 'Northern' for abbreviation.
 - Created a new view 'moon' to display info focused on the Moon.
 - Added display of the actual lunar cycle to the 'moon' view.
+- Added 'uninstall' target in Makefile for local uninstallation.
+- Added 'dh-exec' dependency to debian/control.
 
 ### Fixed
 - Fixed a bug which allowed multiple application instances to run.
+- The metainfo file is now renamed and this is also changed in the copyright.
+- Fixed rules, install and watch files to fix the issue reported by Wookie.
 
 ## [1.5.13] - 2026-09-25
 

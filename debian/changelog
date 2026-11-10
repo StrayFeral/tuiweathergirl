@@ -1,3 +1,12 @@
+tuiweathergirl (1.5.14-1) unstable; urgency=medium
+
+  * Fixed issue with requirement for sudo, as reported by Wookie.
+  * Added 'dh-exec' dependency to debian/control.
+  * The metainfo file is now renamed and this is also changed in the copyright.
+  * Fixed rules, install and watch files to fix the issue reported by Wookie.
+
+ -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Thu, 10 Nov 2026 02:45:30 +0300
+
 tuiweathergirl (1.5.13-11) unstable; urgency=medium
 
   * Added VCS fields to debian/control. 

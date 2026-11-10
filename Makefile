@@ -8,7 +8,7 @@ BIN_DIR = $(HOME)/.local/bin
 SCRIPT_NAME = tuiweathergirl.py
 TARGET_NAME = tuiweathergirl
 
-.PHONY: help install install-deps
+.PHONY: help install install-deps uninstall
 
 MAKEFILEPATH := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
@@ -52,6 +52,14 @@ install-deps:
 		exit 1; \
 	fi
 
+uninstall:
+	@echo "UNINSTALLING TUIWEATHERGIRL"
+	@echo "==========================="
+	rm $(BIN_DIR)/$(TARGET_NAME)
+	@echo ""
+	@echo "Application removed."
+
 help:
 	@echo "TARGETS:"
-	@echo "  make install  - Install application and dependencies"
+	@echo "  make install    - Install application and dependencies (local installation!)"
+	@echo "  make uninstall  - Uninstall application only"
