@@ -71,8 +71,8 @@ replace = 'v{new_version}'
 
 [[tool.bumpversion.files]]
 filename = "debian/io.github.strayferal.tuiweathergirl.metainfo.xml"
-search = 'v{current_version}'
-replace = 'v{new_version}'
+search = '{current_version}'
+replace = '{new_version}'
 
 [[tool.bumpversion.files]]
 filename = "man/tuiweathergirl.1"
