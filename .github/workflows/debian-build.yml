@@ -39,7 +39,7 @@ jobs:
 
       - name: Validate AppStream Metadata
         run: |
-          appstream-util validate debian/org.example.tuiweathergirl.metainfo.xml
+          appstream-util validate debian/io.github.strayferal.tuiweathergirl.metainfo.xml
 
       - name: Build Debian Packages
         run: |
