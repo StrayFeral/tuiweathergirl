@@ -10,7 +10,7 @@ tuiweathergirl (1.5.14-1) unstable; urgency=medium
 
 tuiweathergirl (1.5.13-11) unstable; urgency=medium
 
-  * Added VCS fields to debian/control. 
+  * Added VCS fields to debian/control.
 
  -- Evgueni Antonov <Evgueni.Antonov@gmail.com>  Thu, 15 Oct 2026 23:59:30 +0300
 

@@ -5,6 +5,7 @@ Maintainer: Evgueni Antonov <Evgueni.Antonov@gmail.com>
 Build-Depends: debhelper-compat (= 13), dh-python, python3 (>= 3.9), dh-exec
 X-Python3-Version: >= 3.9
 Standards-Version: 4.7.0
+Rules-Requires-Root: no
 Homepage: https://github.com/StrayFeral/tuiweathergirl
 Vcs-Git: https://github.com/StrayFeral/tuiweathergirl.git
 Vcs-Browser: https://github.com/StrayFeral/tuiweathergirl
